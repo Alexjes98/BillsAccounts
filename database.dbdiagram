@@ -1,0 +1,291 @@
+{
+  "version": "1.0.0",
+  "darkMode": true,
+  "gridEnabling": false,
+  "detailLevel": "All",
+  "tablePositions": [
+    {
+      "name": "users",
+      "schemaName": "public",
+      "x": -601.1175155438148,
+      "y": 12.44814107362724
+    },
+    {
+      "name": "categories",
+      "schemaName": "public",
+      "x": 122.76845254130546,
+      "y": -201.2045767437196
+    },
+    {
+      "name": "savings_goals",
+      "schemaName": "public",
+      "x": -68.90656892266401,
+      "y": 733.4204137145011
+    },
+    {
+      "name": "persons",
+      "schemaName": "public",
+      "x": -569.7518864375754,
+      "y": -207.76882910409506
+    },
+    {
+      "name": "budgets",
+      "schemaName": "public",
+      "x": -589.7900641497295,
+      "y": 620.4819050571268
+    },
+    {
+      "name": "accounts",
+      "schemaName": "public",
+      "x": -584.5933179893165,
+      "y": -512.2878447852477
+    },
+    {
+      "name": "debts",
+      "schemaName": "public",
+      "x": 80.01265416676267,
+      "y": -622.4642137010212
+    },
+    {
+      "name": "transactions",
+      "schemaName": "public",
+      "x": 87.64013422497237,
+      "y": 97.39898199870905
+    },
+    {
+      "name": "monthly_summaries",
+      "schemaName": "public",
+      "x": -615.1221230323528,
+      "y": 282.1860801146912
+    }
+  ],
+  "tableGroupCollapseStates": [],
+  "stickyNoteLayouts": [],
+  "referencePaths": [
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "users",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "user_id"
+      ],
+      "secondTableName": "categories",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "users",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "user_id"
+      ],
+      "secondTableName": "savings_goals",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "users",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "user_id"
+      ],
+      "secondTableName": "persons",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "users",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "user_id"
+      ],
+      "secondTableName": "budgets",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "categories",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "category_id"
+      ],
+      "secondTableName": "budgets",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "users",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "user_id"
+      ],
+      "secondTableName": "accounts",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "users",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "user_id"
+      ],
+      "secondTableName": "debts",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "persons",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "creditor_id"
+      ],
+      "secondTableName": "debts",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "persons",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "debtor_id"
+      ],
+      "secondTableName": "debts",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "users",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "user_id"
+      ],
+      "secondTableName": "transactions",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "accounts",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "account_id"
+      ],
+      "secondTableName": "transactions",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "debts",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "debt_id"
+      ],
+      "secondTableName": "transactions",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "savings_goals",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "savings_goal_id"
+      ],
+      "secondTableName": "transactions",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "categories",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "category_id"
+      ],
+      "secondTableName": "transactions",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "users",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "user_id"
+      ],
+      "secondTableName": "monthly_summaries",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    }
+  ]
+}

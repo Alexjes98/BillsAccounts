@@ -1,0 +1,143 @@
+// Use this code in dbdiagram.io or with the dbdocs CLI
+
+Project AccountantApp {
+  database_type: 'PostgreSQL'
+  Note: 'Final Schema with Multi-currency, Soft Deletes, and Auto-balancing'
+}
+
+Table users {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  email varchar [unique, not null]
+  password_hash varchar [not null]
+  base_currency varchar(3) [default: 'USD', note: 'The currency used for all internal math']
+  created_at timestamptz [default: `now()`]
+  updated_at timestamptz [default: `now()`]
+}
+
+Table categories {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  user_id uuid [ref: > users.id]
+  name varchar [not null]
+  icon varchar [note: 'Icon identifier for frontend']
+  color varchar [note: 'Hex code for charts']
+  type varchar [note: 'INCOME or EXPENSE']
+  created_at timestamptz [default: `now()`]
+ 
+  indexes {
+    (user_id, name, type) [unique]
+  }
+}
+
+Table savings_goals {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  user_id uuid [ref: > users.id]
+  name varchar [not null]
+  target_amount numeric(15,2) [not null]
+  current_amount numeric(15,2) [default: 0, note: 'Updated via Trigger']
+  deadline date
+  status varchar [default: 'ACTIVE']
+  created_at timestamptz [default: `now()`]
+}
+
+Table persons {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  user_id uuid [ref: > users.id]
+  name varchar [not null]
+  contact_info text
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, name) [unique]
+  }
+}
+
+Table budgets {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  user_id uuid [ref: > users.id]
+  category_id uuid [ref: > categories.id]
+  amount_limit numeric(15,2) [not null]
+  period_month int [not null]
+  period_year int [not null]
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, category_id, period_year, period_month) [unique]
+  }
+}
+
+Table accounts {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  user_id uuid [ref: > users.id]
+  name varchar [not null]
+  type varchar [not null]
+  current_balance numeric(15,2) [default: 0, note: 'Updated automatically via Trigger. Denormalized for speed.']
+  currency varchar(3) [default: 'USD']
+  updated_at timestamptz [default: `now()`]
+}
+
+Table debts {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  user_id uuid [ref: > users.id]
+  creditor_id uuid [ref: > persons.id]
+  debtor_id uuid [ref: > persons.id]
+  
+  total_amount numeric(15,2) [not null, note: 'CHECK (amount > 0)']
+  remaining_amount numeric(15,2) [not null]
+  
+  description text
+  due_date date
+  is_settled boolean [default: false]
+  
+  deleted_at timestamptz [note: 'If not null, this debt is soft-deleted']
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, is_settled) [name: 'idx_debts_status']
+  }
+}
+
+Table transactions {
+  id uuid [pk, default: `uuid_generate_v4()`]
+  user_id uuid [ref: > users.id]
+  account_id uuid [ref: > accounts.id, note: 'Nullable for cash/external']
+  debt_id uuid [ref: > debts.id, note: 'Optional link to a debt settlement']
+
+  savings_goal_id uuid [ref: > savings_goals.id, note: 'If present, this transaction contributes to a goal']
+  
+  // MATH COLUMN (Normalized)
+  amount numeric(15,2) [not null, note: 'Converted to base_currency. CHECK (amount <> 0)']
+  
+  // DISPLAY COLUMNS (Original)
+  original_currency varchar(3)
+  original_amount numeric(15,2)
+  exchange_rate_used numeric(10,6)
+  
+  transaction_date timestamptz [default: `now()`]
+  category_id uuid [ref: > categories.id]
+  name text [not null]
+  description text
+  
+  deleted_at timestamptz [note: 'If not null, exclude from calculations']
+  created_at timestamptz [default: `now()`]
+
+  indexes {
+    (user_id, transaction_date) [name: 'idx_transactions_user_date']
+    account_id [name: 'idx_transactions_account']
+    debt_id [name: 'idx_transactions_debt']
+  }
+}
+
+Table monthly_summaries {
+  id uuid [pk]
+  user_id uuid [ref: > users.id]
+  year int
+  month int
+  total_income numeric(15,2)
+  total_expense numeric(15,2)
+  closing_balance numeric(15,2)
+  generated_at timestamptz [default: `now()`]
+  
+  indexes {
+    (user_id, year, month) [unique]
+  }
+}
