@@ -1,29 +1,197 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean
+from sqlalchemy import Column, String, Float, DateTime, ForeignKey, Boolean, Date, Integer, Text, Numeric, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func, text
 from app.core.database import Base
+import uuid
 
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True) # Cognito Sub ID
-    email = Column(String, unique=True, index=True)
-    is_paid = Column(Boolean, default=False)
-    stripe_customer_id = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    email = Column(String, unique=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    base_currency = Column(String(3), default='USD', nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    # Relationships
+    categories = relationship("Category", back_populates="user")
+    savings_goals = relationship("SavingsGoal", back_populates="user")
+    persons = relationship("Person", back_populates="user")
+    budgets = relationship("Budget", back_populates="user")
+    accounts = relationship("Account", back_populates="user")
+    debts = relationship("Debt", back_populates="user")
     transactions = relationship("Transaction", back_populates="user")
+    monthly_summaries = relationship("MonthlySummary", back_populates="user")
+
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    name = Column(String, nullable=False)
+    icon = Column(String)
+    color = Column(String)
+    type = Column(String) # INCOME or EXPENSE
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="categories")
+    budgets = relationship("Budget", back_populates="category")
+    transactions = relationship("Transaction", back_populates="category")
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'name', 'type', name='uq_categories_user_name_type'),
+    )
+
+
+class SavingsGoal(Base):
+    __tablename__ = "savings_goals"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    name = Column(String, nullable=False)
+    target_amount = Column(Numeric(15, 2), nullable=False)
+    current_amount = Column(Numeric(15, 2), default=0)
+    deadline = Column(Date)
+    status = Column(String, default='ACTIVE')
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="savings_goals")
+    transactions = relationship("Transaction", back_populates="savings_goal")
+
+
+class Person(Base):
+    __tablename__ = "persons"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    name = Column(String, nullable=False)
+    contact_info = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="persons")
+    debts_as_creditor = relationship("Debt", foreign_keys="[Debt.creditor_id]", back_populates="creditor")
+    debts_as_debtor = relationship("Debt", foreign_keys="[Debt.debtor_id]", back_populates="debtor")
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'name', name='uq_persons_user_name'),
+    )
+
+
+class Budget(Base):
+    __tablename__ = "budgets"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"))
+    amount_limit = Column(Numeric(15, 2), nullable=False)
+    period_month = Column(Integer, nullable=False)
+    period_year = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="budgets")
+    category = relationship("Category", back_populates="budgets")
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'category_id', 'period_year', 'period_month', name='uq_budgets_user_cat_period'),
+    )
+
+
+class Account(Base):
+    __tablename__ = "accounts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    name = Column(String, nullable=False)
+    type = Column(String, nullable=False)
+    current_balance = Column(Numeric(15, 2), default=0)
+    currency = Column(String(3), default='USD')
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User", back_populates="accounts")
+    transactions = relationship("Transaction", back_populates="account")
+
+
+class Debt(Base):
+    __tablename__ = "debts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    creditor_id = Column(UUID(as_uuid=True), ForeignKey("persons.id"))
+    debtor_id = Column(UUID(as_uuid=True), ForeignKey("persons.id"))
+    
+    total_amount = Column(Numeric(15, 2), nullable=False)
+    remaining_amount = Column(Numeric(15, 2), nullable=False)
+    
+    description = Column(Text)
+    due_date = Column(Date)
+    is_settled = Column(Boolean, default=False)
+    
+    deleted_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="debts")
+    creditor = relationship("Person", foreign_keys=[creditor_id], back_populates="debts_as_creditor")
+    debtor = relationship("Person", foreign_keys=[debtor_id], back_populates="debts_as_debtor")
+    transactions = relationship("Transaction", back_populates="debt")
+
+    __table_args__ = (
+        Index('idx_debts_status', 'user_id', 'is_settled'),
+    )
+
 
 class Transaction(Base):
     __tablename__ = "transactions"
 
-    id = Column(Integer, primary_key=True, index=True)
-    amount = Column(Float, nullable=False)
-    currency = Column(String, default="USD")
-    category = Column(String, nullable=False, index=True)
-    description = Column(String, nullable=True)
-    date = Column(DateTime, default=datetime.utcnow)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
+    debt_id = Column(UUID(as_uuid=True), ForeignKey("debts.id"), nullable=True)
+    savings_goal_id = Column(UUID(as_uuid=True), ForeignKey("savings_goals.id"), nullable=True)
     
-    user_id = Column(String, ForeignKey("users.id"))
+    amount = Column(Numeric(15, 2), nullable=False)
+    
+    original_currency = Column(String(3))
+    original_amount = Column(Numeric(15, 2))
+    exchange_rate_used = Column(Numeric(10, 6))
+    
+    transaction_date = Column(DateTime(timezone=True), server_default=func.now())
+    category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"))
+    name = Column(Text, nullable=False)
+    description = Column(Text)
+    
+    deleted_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
     user = relationship("User", back_populates="transactions")
+    account = relationship("Account", back_populates="transactions")
+    debt = relationship("Debt", back_populates="transactions")
+    savings_goal = relationship("SavingsGoal", back_populates="transactions")
+    category = relationship("Category", back_populates="transactions")
+
+    __table_args__ = (
+        Index('idx_transactions_user_date', 'user_id', 'transaction_date'),
+        Index('idx_transactions_account', 'account_id'),
+        Index('idx_transactions_debt', 'debt_id'),
+    )
+
+
+class MonthlySummary(Base):
+    __tablename__ = "monthly_summaries"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    year = Column(Integer)
+    month = Column(Integer)
+    total_income = Column(Numeric(15, 2))
+    total_expense = Column(Numeric(15, 2))
+    closing_balance = Column(Numeric(15, 2))
+    generated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="monthly_summaries")
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'year', 'month', name='uq_monthly_summaries_user_year_month'),
+    )

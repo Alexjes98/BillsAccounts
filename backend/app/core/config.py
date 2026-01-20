@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["http://localhost:5173"] # Default Vite port
 
     # Database
-    DATABASE_URL: str = "postgresql://user:password@localhost/dbname" # Default/Placeholder
+    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5433/accountantapp"
 
     # Auth (Cognito)
     COGNITO_USER_POOL_ID: str = ""
