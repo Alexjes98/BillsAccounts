@@ -1,28 +1,9 @@
 describe("Transactions Page", () => {
-  const transactionsMock = [
-    {
-      id: "1",
-      transaction_date: "2023-10-27T10:00:00",
-      name: "Grocery Store",
-      amount: -50.25,
-      category: { name: "Food", icon: "🍎" },
-      account: { name: "Checking" },
-    },
-    {
-      id: "2",
-      transaction_date: "2023-10-28T14:00:00",
-      name: "Salary",
-      amount: 2500.0,
-      category: { name: "Income", icon: "💰" },
-      account: { name: "Savings" },
-    },
-  ];
-
   beforeEach(() => {
     // Intercept the API call and return mock data
     cy.intercept("GET", "**/transactions", {
       statusCode: 200,
-      body: transactionsMock,
+      fixture: "transactions.json",
     }).as("getTransactions");
 
     // Visit the transactions page
@@ -93,5 +74,69 @@ describe("Transactions Page", () => {
     cy.contains("a", "Transactions").click();
     cy.url().should("include", "/transactions");
     cy.contains("h1", "Transactions").should("be.visible");
+  });
+});
+
+describe("Transactions Flow", () => {
+  beforeEach(() => {
+    // Mock API responses here
+    cy.intercept("GET", "/api/transactions", {
+      fixture: "transactions.json",
+    }).as("getTransactions");
+    cy.intercept("GET", "/api/transactions/categories", {
+      fixture: "categories.json",
+    }).as("getCategories");
+    cy.intercept("GET", "/api/transactions/accounts", {
+      fixture: "accounts.json",
+    }).as("getAccounts");
+    cy.intercept("GET", "/api/transactions/debts", {
+      fixture: "debts.json",
+    }).as("getDebts");
+    cy.intercept("GET", "/api/transactions/savings-goals", {
+      fixture: "saving_goals.json",
+    }).as("getSavingsGoals");
+    cy.visit("/");
+    cy.contains("Transactions").click();
+  });
+
+  it("should open the create transaction modal", () => {
+    // Navigate to transactions page if needed, or if it is the home page
+
+    cy.contains("Add Transaction").should("be.visible").click();
+    cy.contains("Create Transaction").should("be.visible");
+
+    // Verify form elements exist
+    cy.get("input#name").should("exist");
+    cy.get("input#amount").should("exist");
+    cy.get("select#category").should("exist");
+  });
+
+  it("should create a new transaction", () => {
+    // Mock POST response
+    cy.intercept("POST", "/api/transactions", {
+      statusCode: 201,
+      body: {
+        id: "new-id",
+        name: "New Transaction",
+        amount: 100.0,
+        transaction_date: new Date().toISOString(),
+        category: { name: "Test Category" },
+        account: { name: "Test Account" },
+      },
+    }).as("createTransaction");
+
+    cy.contains("Add Transaction").click();
+
+    // Fill form
+    cy.get("input#name").type("New Transaction");
+    cy.get("input#amount").type("100");
+    // Select category (assuming mock data populated it)
+    // cy.get('select#category').select('Test Category');
+
+    cy.contains("button", "Create Transaction").click();
+
+    // callback
+    cy.wait("@createTransaction");
+    cy.contains("Create Transaction").should("not.exist"); // Modal closed
   });
 });

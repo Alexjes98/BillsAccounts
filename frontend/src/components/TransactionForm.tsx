@@ -1,0 +1,318 @@
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  createTransaction,
+  getCategories,
+  Category,
+  CreateTransactionPayload,
+  Account,
+  getAccounts,
+  Debt,
+  getDebts,
+  SavingsGoal,
+  getSavingsGoals,
+} from "@/api/transactions";
+
+interface TransactionFormProps {
+  onSuccess: () => void;
+  onCancel: () => void;
+}
+
+export function TransactionForm({ onSuccess, onCancel }: TransactionFormProps) {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
+  const [debts, setDebts] = useState<Debt[]>([]);
+  const [isLoadingDebts, setIsLoadingDebts] = useState(false);
+  const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
+  const [isLoadingSavingsGoals, setIsLoadingSavingsGoals] = useState(false);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form State
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [amount, setAmount] = useState(""); // keeping as string for input
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [categoryId, setCategoryId] = useState("");
+  const [accountId, setAccountId] = useState("default-account-id"); // Placeholder
+  const [debtId, setDebtId] = useState("");
+  const [savingsGoalId, setSavingsGoalId] = useState("");
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      setIsLoadingCategories(true);
+      try {
+        const data = await getCategories();
+        setCategories(data);
+        if (data.length > 0) {
+          setCategoryId(data[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to load categories", err);
+        setError("Failed to load categories. Please try again.");
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+    const fetchAccounts = async () => {
+      setIsLoadingAccounts(true);
+      try {
+        const data = await getAccounts();
+        setAccounts(data);
+        if (data.length > 0) {
+          setAccountId(data[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to load accounts", err);
+        setError("Failed to load accounts. Please try again.");
+      } finally {
+        setIsLoadingAccounts(false);
+      }
+    };
+    const fetchDebts = async () => {
+      setIsLoadingDebts(true);
+      try {
+        const data = await getDebts();
+        setDebts(data);
+        if (data.length > 0) {
+          setDebtId(data[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to load debts", err);
+        setError("Failed to load debts. Please try again.");
+      } finally {
+        setIsLoadingDebts(false);
+      }
+    };
+    const fetchSavingsGoals = async () => {
+      setIsLoadingSavingsGoals(true);
+      try {
+        const data = await getSavingsGoals();
+        setSavingsGoals(data);
+        if (data.length > 0) {
+          setSavingsGoalId(data[0].id);
+        }
+      } catch (err) {
+        console.error("Failed to load savings goals", err);
+        setError("Failed to load savings goals. Please try again.");
+      } finally {
+        setIsLoadingSavingsGoals(false);
+      }
+    };
+    fetchCategories();
+    fetchAccounts();
+    fetchDebts();
+    fetchSavingsGoals();
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    if (!name || !amount || !categoryId || !date) {
+      setError("Please fill in all required fields.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const payload: CreateTransactionPayload = {
+        name,
+        description: description || undefined,
+        amount: parseFloat(amount),
+        transaction_date: new Date(date).toISOString(),
+        category_id: categoryId,
+        account_id: accountId === "default-account-id" ? null : accountId, // Handle placeholder logic
+        debt_id: debtId || null,
+        savings_goal_id: savingsGoalId || null,
+      };
+
+      await createTransaction(payload);
+      onSuccess();
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.error || "Failed to create transaction.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="p-3 text-sm text-red-500 bg-red-100 rounded-md">
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <label htmlFor="name" className="text-sm font-medium">
+          Name *
+        </label>
+        <Input
+          id="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Grocery Shopping"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="amount" className="text-sm font-medium">
+          Amount *
+        </label>
+        <Input
+          id="amount"
+          type="number"
+          step="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="0.00"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="date" className="text-sm font-medium">
+          Date *
+        </label>
+        <Input
+          id="date"
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="category" className="text-sm font-medium">
+          Category *
+        </label>
+        <select
+          id="category"
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isLoadingCategories}
+          required
+        >
+          {isLoadingCategories ? (
+            <option>Loading categories...</option>
+          ) : (
+            categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.icon} {cat.name}
+              </option>
+            ))
+          )}
+        </select>
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="description" className="text-sm font-medium">
+          Description
+        </label>
+        <Input
+          id="description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Optional notes"
+        />
+      </div>
+
+      {/* Placeholders for other relationships */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label
+            htmlFor="account"
+            className="text-sm font-medium text-muted-foreground"
+          >
+            Account
+          </label>
+          <select
+            id="account"
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
+          >
+            {isLoadingAccounts ? (
+              <option>Loading accounts...</option>
+            ) : (
+              accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label
+            htmlFor="debt"
+            className="text-sm font-medium text-muted-foreground"
+          >
+            Link to Debt (Optional)
+          </label>
+          <select
+            id="debt"
+            value={debtId}
+            onChange={(e) => setDebtId(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
+          >
+            <option value="">None</option>
+            {isLoadingDebts ? (
+              <option>Loading debts...</option>
+            ) : (
+              debts.map((deb) => (
+                <option key={deb.id} value={deb.id}>
+                  {deb.description}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label
+            htmlFor="savings"
+            className="text-sm font-medium text-muted-foreground"
+          >
+            Savings Goal (Optional)
+          </label>
+          <select
+            id="savings"
+            value={savingsGoalId}
+            onChange={(e) => setSavingsGoalId(e.target.value)}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
+          >
+            <option value="">None</option>
+            {isLoadingSavingsGoals ? (
+              <option>Loading savings goals...</option>
+            ) : (
+              savingsGoals.map((goal) => (
+                <option key={goal.id} value={goal.id}>
+                  {goal.name}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isSubmitting || isLoadingCategories}>
+          {isSubmitting ? "Creating..." : "Create Transaction"}
+        </Button>
+      </div>
+    </form>
+  );
+}

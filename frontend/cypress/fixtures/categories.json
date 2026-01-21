@@ -1,0 +1,20 @@
+[
+  {
+    "id": "default-category-id-1",
+    "type": "EXPENSE",
+    "name": "Food",
+    "icon": "🍎"
+  },
+  {
+    "id": "default-category-id-2",
+    "type": "INCOME",
+    "name": "Income",
+    "icon": "💰"
+  },
+  {
+    "id": "default-category-id-3",
+    "type": "EXPENSE",
+    "name": "Rent",
+    "icon": "🏠"
+  }
+]

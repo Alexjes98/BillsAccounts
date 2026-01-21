@@ -1,0 +1,18 @@
+[
+  {
+    "id": "1",
+    "transaction_date": "2023-10-27T10:00:00",
+    "name": "Grocery Store",
+    "amount": -50.25,
+    "category": { "name": "Food", "icon": "🍎" },
+    "account": { "name": "Checking" }
+  },
+  {
+    "id": "2",
+    "transaction_date": "2023-10-28T14:00:00",
+    "name": "Salary",
+    "amount": 2500.0,
+    "category": { "name": "Income", "icon": "💰" },
+    "account": { "name": "Savings" }
+  }
+]

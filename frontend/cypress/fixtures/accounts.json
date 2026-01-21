@@ -1,0 +1,9 @@
+[
+  {
+    "id": "default-account-id",
+    "name": "Checking",
+    "type": "CHECKING",
+    "current_balance": 5000,
+    "currency": "USD"
+  }
+]

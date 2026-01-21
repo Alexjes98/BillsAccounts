@@ -15,6 +15,8 @@ def init_db():
     # Create all tables
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully.")
+    
+    #TODO: Create indexes for performance in queries
 
     # Seed data
     from sqlalchemy.orm import sessionmaker
