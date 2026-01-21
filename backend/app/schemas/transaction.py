@@ -1,36 +1,28 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
-class TransactionBase(BaseModel):
-    amount: float = Field(..., description="Transaction amount")
-    currency: str = Field(default="USD", max_length=3)
-    category: str = Field(..., description="Transaction category (e.g., Food, Rent)")
-    description: Optional[str] = None
-    date: datetime = Field(default_factory=datetime.now)
+class CategoryOut(BaseModel):
+    name: str = Field(..., description="Category name")
+    icon: Optional[str] = None
     
-    @field_validator('date', mode='before')
-    def parse_date(cls, v):
-        if isinstance(v, str):
-            try:
-                return datetime.fromisoformat(v)
-            except ValueError:
-                # Fallback for common formats if needed
-                pass
-        return v
+    model_config = ConfigDict(from_attributes=True)
 
-class TransactionCreate(TransactionBase):
-    pass
+class AccountOut(BaseModel):
+    name: str = Field(..., description="Account name")
 
-class TransactionResponse(TransactionBase):
-    id: int
-    user_id: str
-    created_at: datetime
-    
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
-# Schema for the Free Mode JSON File
+class TransactionOut(BaseModel):
+    id: UUID
+    transaction_date: datetime
+    name: str
+    amount: float
+    category: Optional[CategoryOut] = None
+    account: Optional[AccountOut] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class FreeModeData(BaseModel):
-    transactions: list[TransactionBase]
-    metadata: Optional[dict] = {}
+    transactions: list[TransactionOut]
