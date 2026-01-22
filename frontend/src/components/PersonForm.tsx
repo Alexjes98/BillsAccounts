@@ -1,0 +1,86 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { createPerson, CreatePersonPayload } from "@/api/persons";
+
+interface PersonFormProps {
+  onSuccess: () => void;
+  onCancel: () => void;
+}
+
+export function PersonForm({ onSuccess, onCancel }: PersonFormProps) {
+  const [name, setName] = useState("");
+  const [contactInfo, setContactInfo] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsSubmitting(true);
+
+    if (!name) {
+      setError("Name is required.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      const payload: CreatePersonPayload = {
+        name,
+        contact_info: contactInfo || undefined,
+      };
+      await createPerson(payload);
+      onSuccess();
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.error || "Failed to create person.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error && (
+        <div className="p-3 text-sm text-red-500 bg-red-100 rounded-md">
+          {error}
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <label htmlFor="name" className="text-sm font-medium">
+          Name *
+        </label>
+        <Input
+          id="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. John Doe"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="contactInfo" className="text-sm font-medium">
+          Contact Info
+        </label>
+        <Input
+          id="contactInfo"
+          value={contactInfo}
+          onChange={(e) => setContactInfo(e.target.value)}
+          placeholder="e.g. email@example.com or +123456789"
+        />
+      </div>
+
+      <div className="flex justify-end gap-3 pt-4">
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "Creating..." : "Add"}
+        </Button>
+      </div>
+    </form>
+  );
+}

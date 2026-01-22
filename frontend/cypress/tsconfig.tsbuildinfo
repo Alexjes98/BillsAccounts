@@ -1,1 +1,1 @@
-{"root":["./e2e/transactions.cy.ts"],"version":"5.9.3"}
+{"root":["./e2e/transactions.cy.ts","./support/commands.ts","./support/e2e.ts"],"version":"5.9.3"}

@@ -1,5 +1,6 @@
 import { Dashboard } from "@/components/Dashboard";
 import { TransactionsPage } from "@/pages/TransactionsPage";
+import { PersonsPage } from "@/pages/PersonsPage";
 import { useAppStore } from "@/store/useAppStore";
 import {
   BrowserRouter as Router,
@@ -33,6 +34,7 @@ function Layout() {
           <nav className="flex items-center gap-6">
             <NavLink to="/">Dashboard</NavLink>
             <NavLink to="/transactions">Transactions</NavLink>
+            <NavLink to="/persons">Persons</NavLink>
           </nav>
 
           <div className="ml-auto text-sm text-muted-foreground">
@@ -50,6 +52,7 @@ function Layout() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/transactions" element={<TransactionsPage />} />
+          <Route path="/persons" element={<PersonsPage />} />
         </Routes>
       </main>
     </div>
