@@ -62,4 +62,30 @@ describe("Debts", () => {
     cy.contains("No active debts.").should("be.visible");
     cy.contains("No settled debts.").should("be.visible");
   });
+
+  it("should create a new debt", () => {
+    cy.intercept("POST", "**/debts", {
+      statusCode: 200,
+      body: {
+        id: "2",
+        description: "New debt",
+        amount: 200,
+        creditor_id: "Test1",
+        debtor_id: "Test2",
+        is_settled: false,
+        created_at: new Date().toISOString(),
+      },
+    }).as("createDebt");
+
+    cy.contains("Add Debt").click();
+    cy.get("input#description").type("New debt");
+    cy.get("input#amount").type("200");
+    cy.get("select#debtor").select("Test1");
+    cy.get("select#creditor").select("Test2");
+    cy.get("button[type='submit']").click();
+
+    cy.wait("@createDebt");
+
+    cy.contains("Create Debt").should("not.exist");
+  });
 });

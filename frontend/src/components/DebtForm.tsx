@@ -14,7 +14,9 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
 
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [dueDate, setDueDate] = useState(
+    new Date().toISOString().split("T")[0],
+  );
   const [creditorId, setCreditorId] = useState("");
   const [debtorId, setDebtorId] = useState("");
 
