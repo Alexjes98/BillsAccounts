@@ -83,7 +83,7 @@ describe("Transactions Flow", () => {
     cy.intercept("GET", "/api/transactions", {
       fixture: "transactions.json",
     }).as("getTransactions");
-    cy.intercept("GET", "/api/transactions/categories", {
+    cy.intercept("GET", "/api/categories", {
       fixture: "categories.json",
     }).as("getCategories");
     cy.intercept("GET", "/api/transactions/accounts", {

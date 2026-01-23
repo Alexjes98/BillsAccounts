@@ -84,7 +84,21 @@ export const getSavingsGoals = async (): Promise<SavingsGoal[]> => {
 };
 
 export const getCategories = async (): Promise<Category[]> => {
-  const response = await api.get("/api/transactions/categories");
+  const response = await api.get("/api/categories");
+  return response.data;
+};
+
+export interface CategoryCreate {
+  name: string;
+  type: string;
+  icon?: string;
+  color?: string;
+}
+
+export const createCategory = async (
+  data: CategoryCreate,
+): Promise<Category> => {
+  const response = await api.post("/api/categories", data);
   return response.data;
 };
 

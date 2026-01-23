@@ -6,6 +6,7 @@ from app.api.routes import main_bp
 from app.api.transactions import transactions_bp
 from app.api.persons import persons_bp
 from app.api.debts import debts_bp
+from app.api.categories import categories_bp
 
 def create_app() -> Flask:
     app = Flask(__name__)
@@ -21,6 +22,7 @@ def create_app() -> Flask:
     app.register_blueprint(transactions_bp, url_prefix="/api/transactions")
     app.register_blueprint(persons_bp, url_prefix="/api/persons")
     app.register_blueprint(debts_bp, url_prefix="/api/debts")
+    app.register_blueprint(categories_bp, url_prefix="/api/categories")
     
     @app.route("/api/health")
     def health_check():

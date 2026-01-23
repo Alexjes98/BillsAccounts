@@ -2,6 +2,7 @@ import { Dashboard } from "@/components/Dashboard";
 import { TransactionsPage } from "@/pages/TransactionsPage";
 import { PersonsPage } from "@/pages/PersonsPage";
 import { DebtsPage } from "@/pages/DebtsPage";
+import { CategoriesPage } from "@/pages/CategoriesPage";
 import { useAppStore } from "@/store/useAppStore";
 import {
   BrowserRouter as Router,
@@ -37,6 +38,7 @@ function Layout() {
             <NavLink to="/transactions">Transactions</NavLink>
             <NavLink to="/debts">Debts</NavLink>
             <NavLink to="/persons">Persons</NavLink>
+            <NavLink to="/categories">Categories</NavLink>
           </nav>
 
           <div className="ml-auto text-sm text-muted-foreground">
@@ -56,6 +58,7 @@ function Layout() {
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/persons" element={<PersonsPage />} />
           <Route path="/debts" element={<DebtsPage />} />
+          <Route path="/categories" element={<CategoriesPage />} />
         </Routes>
       </main>
     </div>
