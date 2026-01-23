@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from decimal import Decimal
 from app.core.database import SessionLocal
 from app.models.models import Transaction, Category, User, Account, Debt, SavingsGoal
 from app.schemas.transaction import TransactionOut, TransactionCreate, CategoryOut, AccountOut, DebtOut, SavingsGoalOut
@@ -69,8 +70,31 @@ def transactions():
             if not category:
                 return jsonify({"error": "Invalid category type."}), 400
             
+            #TODO: MODIFY THIS TO SUPPORT ALL POSIBLE COMBINATIONS
+            
             if category.type == "EXPENSE":
-                txn_data.amount = -txn_data.amount
+                is_expense = True
+                txn_data.amount = -abs(txn_data.amount)
+            else:
+                is_expense = False
+
+            # Handle Debt Update
+            if txn_data.debt_id:
+                debt = session.query(Debt).filter_by(id=txn_data.debt_id).first()
+                if not debt:
+                    return jsonify({"error": "Invalid debt ID."}), 400
+                
+                # If it's an expense, we are paying off the debt
+                if is_expense:
+                    # Amount is negative for expense, so we add it to reduce the remaining amount
+                    debt.remaining_amount += Decimal(str(txn_data.amount))
+                    
+                    if debt.remaining_amount <= 0:
+                        debt.remaining_amount = 0
+                        debt.is_settled = True
+                    else:
+                        # Ensure it's not marked settled if we reopened it (unlikely here but good practice)
+                        debt.is_settled = False
             
             # Create transaction
             new_txn = Transaction(
