@@ -1,4 +1,4 @@
-import { Transaction } from "@/api/transactions";
+import { Transaction } from "@/api/api";
 
 interface TransactionsListProps {
   transactions: Transaction[];

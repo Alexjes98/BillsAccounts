@@ -78,11 +78,6 @@ export const getTransactions = async (): Promise<Transaction[]> => {
   return response.data;
 };
 
-export const getDebts = async (): Promise<Debt[]> => {
-  const response = await api.get("/api/transactions/debts");
-  return response.data;
-};
-
 export const getSavingsGoals = async (): Promise<SavingsGoal[]> => {
   const response = await api.get("/api/transactions/savings-goals");
   return response.data;
@@ -98,9 +93,63 @@ export const getAccounts = async (): Promise<Account[]> => {
   return response.data;
 };
 
+export interface CreateDebtPayload {
+  creditor_id: string;
+  debtor_id: string;
+  total_amount: number;
+  description?: string;
+  due_date?: string;
+}
+
+export const createDebt = async (data: CreateDebtPayload): Promise<Debt> => {
+  const response = await api.post("/api/debts", data);
+  return response.data;
+};
+
 export const createTransaction = async (
   data: CreateTransactionPayload,
 ): Promise<Transaction> => {
   const response = await api.post("/api/transactions", data);
+  return response.data;
+};
+
+export interface DebtSummary {
+  creditor_name: string;
+  debtor_name: string;
+  count: number;
+  total_amount: number;
+}
+
+export const getDebts = async (): Promise<Debt[]> => {
+  const response = await api.get("/api/debts");
+  return response.data;
+};
+
+export const getDebtsSummary = async (): Promise<DebtSummary[]> => {
+  const response = await api.get("/api/debts/summary");
+  return response.data;
+};
+
+export interface Person {
+  id: string;
+  name: string;
+  contact_info: string;
+  created_at: string;
+}
+
+export const getPersons = async (): Promise<Person[]> => {
+  const response = await api.get("/api/persons");
+  return response.data;
+};
+
+export interface CreatePersonPayload {
+  name: string;
+  contact_info?: string;
+}
+
+export const createPerson = async (
+  data: CreatePersonPayload,
+): Promise<Person> => {
+  const response = await api.post("/api/persons", data);
   return response.data;
 };

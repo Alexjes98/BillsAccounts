@@ -22,11 +22,25 @@ class AccountOut(BaseModel):
 
 class DebtOut(BaseModel):
     id: UUID
-    name: str = Field(..., description="Debt name")
-    amount: float = Field(..., description="Debt amount")
-    updated_at: datetime = Field(..., description="Debt updated at")
-
+    user_id: UUID
+    creditor_id: UUID
+    debtor_id: UUID
+    total_amount: float
+    remaining_amount: float
+    description: Optional[str] = None
+    due_date: Optional[datetime] = None
+    is_settled: bool
+    deleted_at: Optional[datetime] = None
+    created_at: datetime
+    
     model_config = ConfigDict(from_attributes=True)
+
+class DebtCreate(BaseModel):
+    creditor_id: UUID
+    debtor_id: UUID
+    total_amount: float = Field(..., gt=0)
+    description: Optional[str] = None
+    due_date: Optional[datetime] = None
 
 class SavingsGoalOut(BaseModel):
     id: UUID

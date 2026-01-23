@@ -28,16 +28,7 @@ def get_accounts():
         session.close()
         
 
-@transactions_bp.route('/debts', methods=['GET'])
-def get_debts():
-    session = SessionLocal()
-    try:
-        debts = session.query(Debt).all()
-        return jsonify([DebtOut.model_validate(d).model_dump(mode='json') for d in debts])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+
 
 @transactions_bp.route('/savings-goals', methods=['GET'])
 def get_savings_goals():

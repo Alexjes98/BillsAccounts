@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { getTransactions, Transaction } from "@/api/transactions";
-import { TransactionsList } from "@/components/TransactionsList";
+import { Plus } from "lucide-react";
+import { Transaction, getTransactions } from "@/api/api";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
+import { TransactionsList } from "@/components/TransactionsList";
 import { TransactionForm } from "@/components/TransactionForm";
-import { Plus } from "lucide-react";
 
 export function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);

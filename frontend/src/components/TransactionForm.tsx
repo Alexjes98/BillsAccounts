@@ -9,10 +9,10 @@ import {
   Account,
   getAccounts,
   Debt,
-  getDebts,
   SavingsGoal,
   getSavingsGoals,
-} from "@/api/transactions";
+  getDebts,
+} from "@/api/api";
 
 interface TransactionFormProps {
   onSuccess: () => void;

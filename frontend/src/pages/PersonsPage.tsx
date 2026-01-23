@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { getPersons, Person } from "@/api/persons";
 import { PersonCard } from "@/components/PersonCard";
 import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { PersonForm } from "@/components/PersonForm";
+import { Person, getPersons } from "@/api/api";
 
 export function PersonsPage() {
   const [persons, setPersons] = useState<Person[]>([]);

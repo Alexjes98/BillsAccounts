@@ -1,6 +1,7 @@
 import { Dashboard } from "@/components/Dashboard";
 import { TransactionsPage } from "@/pages/TransactionsPage";
 import { PersonsPage } from "@/pages/PersonsPage";
+import { DebtsPage } from "@/pages/DebtsPage";
 import { useAppStore } from "@/store/useAppStore";
 import {
   BrowserRouter as Router,
@@ -34,6 +35,7 @@ function Layout() {
           <nav className="flex items-center gap-6">
             <NavLink to="/">Dashboard</NavLink>
             <NavLink to="/transactions">Transactions</NavLink>
+            <NavLink to="/debts">Debts</NavLink>
             <NavLink to="/persons">Persons</NavLink>
           </nav>
 
@@ -53,6 +55,7 @@ function Layout() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/persons" element={<PersonsPage />} />
+          <Route path="/debts" element={<DebtsPage />} />
         </Routes>
       </main>
     </div>
