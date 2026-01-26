@@ -80,8 +80,8 @@ describe("Debts", () => {
     cy.contains("Add Debt").click();
     cy.get("input#description").type("New debt");
     cy.get("input#amount").type("200");
-    cy.get("select#debtor").select("Test1");
-    cy.get("select#creditor").select("Test2");
+    cy.get("select#direction").select("payable");
+    cy.get("select#counterparty").select("Test1");
     cy.get("button[type='submit']").click();
 
     cy.wait("@createDebt");

@@ -9,6 +9,7 @@ interface DebtFormProps {
 }
 
 export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
+  const user = { person_id: "5048520a-da77-4a94-b5e8-0376829ae095" };
   const [persons, setPersons] = useState<Person[]>([]);
   const [isLoadingPersons, setIsLoadingPersons] = useState(false);
 
@@ -17,8 +18,10 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
   const [dueDate, setDueDate] = useState(
     new Date().toISOString().split("T")[0],
   );
-  const [creditorId, setCreditorId] = useState("");
-  const [debtorId, setDebtorId] = useState("");
+  const [counterpartyId, setCounterpartyId] = useState("");
+  const [direction, setDirection] = useState<"payable" | "receivable">(
+    "payable",
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,13 +50,26 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
     setError(null);
     setIsSubmitting(true);
 
-    if (!amount || !creditorId || !debtorId) {
+    if (!amount || !counterpartyId) {
       setError("Please fill in required fields.");
       setIsSubmitting(false);
       return;
     }
 
-    if (creditorId === debtorId) {
+    let finalCreditorId = "";
+    let finalDebtorId = "";
+
+    if (direction === "payable") {
+      // I owe them -> I am the debtor
+      finalCreditorId = counterpartyId;
+      finalDebtorId = user.person_id;
+    } else {
+      // They owe me -> I am the creditor
+      finalCreditorId = user.person_id;
+      finalDebtorId = counterpartyId;
+    }
+
+    if (finalCreditorId === finalDebtorId) {
       setError("Creditor and Debtor cannot be the same person.");
       setIsSubmitting(false);
       return;
@@ -61,8 +77,8 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
 
     try {
       const payload: CreateDebtPayload = {
-        creditor_id: creditorId,
-        debtor_id: debtorId,
+        creditor_id: finalCreditorId,
+        debtor_id: finalDebtorId,
         total_amount: parseFloat(amount),
         description: description || undefined,
         due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
@@ -127,45 +143,44 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label htmlFor="creditor" className="text-sm font-medium">
-            Creditor (Lender) *
+          <label htmlFor="direction" className="text-sm font-medium">
+            Type *
           </label>
           <select
-            id="creditor"
-            value={creditorId}
-            onChange={(e) => setCreditorId(e.target.value)}
+            id="direction"
+            value={direction}
+            onChange={(e) =>
+              setDirection(e.target.value as "payable" | "receivable")
+            }
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isLoadingPersons}
             required
           >
-            <option value="">Select Person</option>
-            {/* TODO: THIS SHOWS THE PERSON ID, I WANT IT TO SHOW THE PERSON NAME*/}
-            {persons.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+            <option value="payable">I owe them</option>
+            <option value="receivable">They owe me</option>
           </select>
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="debtor" className="text-sm font-medium">
-            Debtor (Borrower) *
+          <label htmlFor="counterparty" className="text-sm font-medium">
+            Person *
           </label>
           <select
-            id="debtor"
-            value={debtorId}
-            onChange={(e) => setDebtorId(e.target.value)}
+            id="counterparty"
+            value={counterpartyId}
+            onChange={(e) => setCounterpartyId(e.target.value)}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             disabled={isLoadingPersons}
             required
           >
             <option value="">Select Person</option>
-            {persons.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
+            {persons
+              .filter((p) => p.id !== user.person_id)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
           </select>
         </div>
       </div>

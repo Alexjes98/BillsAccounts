@@ -12,13 +12,14 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     base_currency = Column(String(3), default='USD', nullable=False)
+    person_id = Column(UUID(as_uuid=True), ForeignKey("persons.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
     categories = relationship("Category", back_populates="user")
     savings_goals = relationship("SavingsGoal", back_populates="user")
-    persons = relationship("Person", back_populates="user")
+    persons = relationship("Person", foreign_keys="[Person.user_id]", back_populates="user")
     budgets = relationship("Budget", back_populates="user")
     accounts = relationship("Account", back_populates="user")
     debts = relationship("Debt", back_populates="user")
@@ -71,7 +72,7 @@ class Person(Base):
     contact_info = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    user = relationship("User", back_populates="persons")
+    user = relationship("User", foreign_keys="[Person.user_id]", back_populates="persons")
     debts_as_creditor = relationship("Debt", foreign_keys="[Debt.creditor_id]", back_populates="creditor")
     debts_as_debtor = relationship("Debt", foreign_keys="[Debt.debtor_id]", back_populates="debtor")
 
