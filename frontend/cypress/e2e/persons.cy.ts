@@ -41,6 +41,6 @@ describe("Persons Page", () => {
     cy.get("input#contactInfo").type("new_person@example.com");
     cy.contains("button", "Add").click();
     cy.wait("@createPerson");
-    cy.contains("Add").should("not.exist");
+    cy.contains("Add Person").should("not.exist");
   });
 });

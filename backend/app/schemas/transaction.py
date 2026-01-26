@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
+from app.schemas.person import PersonOut
+
 class CategoryOut(BaseModel):
     id: UUID
     name: str = Field(..., description="Category name")
@@ -59,6 +61,7 @@ class TransactionOut(BaseModel):
     account: Optional[AccountOut] = None
     debt: Optional[DebtOut] = None
     savings_goal: Optional[SavingsGoalOut] = None
+    person: Optional[PersonOut] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -71,6 +74,7 @@ class TransactionCreate(BaseModel):
     account_id: Optional[UUID] = None
     debt_id: Optional[UUID] = None
     savings_goal_id: Optional[UUID] = None
+    person_id: Optional[UUID] = None
 
 class FreeModeData(BaseModel):
     transactions: list[TransactionOut]

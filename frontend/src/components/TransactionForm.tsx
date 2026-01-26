@@ -20,6 +20,7 @@ interface TransactionFormProps {
 }
 
 export function TransactionForm({ onSuccess, onCancel }: TransactionFormProps) {
+  const user = { person_id: "3007bde0-4d03-4846-8cf4-f07677606fd8" };
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -130,6 +131,7 @@ export function TransactionForm({ onSuccess, onCancel }: TransactionFormProps) {
         account_id: accountId === "default-account-id" ? null : accountId, // Handle placeholder logic
         debt_id: debtId || null,
         savings_goal_id: savingsGoalId || null,
+        person_id: user.person_id,
       };
 
       await createTransaction(payload);

@@ -7,14 +7,14 @@ This application is a personal finance application that allows users to track th
 The user will pass for a onboarding flow where it will be asked to create at least one person and one category for income and expense. After that, the user will be able to create transactions, savings goals, and debts.
 
 When a transaction with a debt is created, the debt will be updated with the transaction amount.
-If the debitor is the user:
+If the DEBITOR is the user:
 If the transaction is an EXPENSE:
 The debt remaining_amount will be decreased by the transaction amount.
 If the transaction is an INCOME:
-The debt total_amount will be increased by the transaction amount.
-If the creditor is the user:
+ASK the user to create a new debt with the transaction amount.
+If the CREDITOR is the user:
 If the transaction is an EXPENSE:
-The debt total_amount will be increased by the transaction amount.
+ASK the user to create a new debt with the transaction amount.
 If the transaction is an INCOME:
 The debt remaining_amount will be decreased by the transaction amount.
 

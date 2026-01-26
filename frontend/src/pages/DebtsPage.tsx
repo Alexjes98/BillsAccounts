@@ -19,8 +19,6 @@ export function DebtsPage() {
     try {
       const debtsRes = await getDebts();
       const summaryRes = await getDebtsSummary();
-      console.log("Debts", debtsRes);
-      console.log("Summary", summaryRes);
 
       setDebts(debtsRes);
       setSummary(summaryRes);

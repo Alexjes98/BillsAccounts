@@ -71,6 +71,7 @@ export interface CreateTransactionPayload {
   account_id?: string | null;
   debt_id?: string | null;
   savings_goal_id?: string | null;
+  person_id: string;
 }
 
 export const getTransactions = async (): Promise<Transaction[]> => {

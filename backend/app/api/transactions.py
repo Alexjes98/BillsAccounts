@@ -80,20 +80,43 @@ def transactions():
 
             # Handle Debt Update
             if txn_data.debt_id:
+                if not txn_data.person_id:
+                     return jsonify({"error": "Person ID is required when linking a debt."}), 400
+
                 debt = session.query(Debt).filter_by(id=txn_data.debt_id).first()
                 if not debt:
                     return jsonify({"error": "Invalid debt ID."}), 400
                 
-                # If it's an expense, we are paying off the debt
+                # Check if person is part of the debt
+                if txn_data.person_id != debt.creditor_id and txn_data.person_id != debt.debtor_id:
+                     return jsonify({"error": "The person provided is not part of this debt."}), 400
+
+                # Logic to reduce debt
+                should_permit_reduction = False
+                
+                # Case 1: Expense (User paying)
                 if is_expense:
-                    # Amount is negative for expense, so we add it to reduce the remaining amount
-                    debt.remaining_amount += Decimal(str(txn_data.amount))
+                    # If we are the creditor or debtor making an expense for this debt, we assume it's a payment TOWARDS the debt.
+                    # Original logic from prompt: "If the transactions is an expense and the user is the creditor the user is paying the debt"
+                    should_permit_reduction = True
+                
+                # Case 2: Income (User receiving)
+                else:
+                    # "if the user is the creditor and the transaction is an income it means someone is paying the debt to the user"
+                    if txn_data.person_id == debt.creditor_id:
+                        should_permit_reduction = True
+                    # If debtor receives income, it doesn't necessarily mean the debt is being paid off (could be a loan received), 
+                    # so we do nothing unless specified otherwise.
+                
+                if should_permit_reduction:
+                    # Amount is just the magnitude here
+                    payment_amount = abs(txn_data.amount)
+                    debt.remaining_amount -= Decimal(str(payment_amount))
                     
                     if debt.remaining_amount <= 0:
                         debt.remaining_amount = 0
                         debt.is_settled = True
                     else:
-                        # Ensure it's not marked settled if we reopened it (unlikely here but good practice)
                         debt.is_settled = False
             
             # Create transaction
