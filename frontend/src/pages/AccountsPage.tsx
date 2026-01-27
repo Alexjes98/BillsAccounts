@@ -238,7 +238,9 @@ export function AccountsPage() {
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreate}>Create</Button>
+            <Button id="create-account-button" onClick={handleCreate}>
+              Create
+            </Button>
           </div>
         </div>
       </Modal>

@@ -57,6 +57,7 @@ class TransactionOut(BaseModel):
     id: UUID
     transaction_date: datetime
     name: str
+    description: Optional[str] = None
     amount: float
     category: Optional[CategoryOut] = None
     account: Optional[AccountOut] = None

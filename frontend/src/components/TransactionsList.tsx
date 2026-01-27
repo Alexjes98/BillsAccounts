@@ -121,6 +121,7 @@ export function TransactionsList({
           <tr>
             <th className="p-3 font-medium first:rounded-tl-md">Date</th>
             <th className="p-3 font-medium">Name</th>
+            <th className="p-3 font-medium">Description</th>
             <th className="p-3 font-medium">Category</th>
             <th className="p-3 font-medium">Account</th>
             <th className="p-3 font-medium text-right">Amount</th>
@@ -139,6 +140,7 @@ export function TransactionsList({
                 {new Date(t.transaction_date).toLocaleDateString()}
               </td>
               <td className="p-3">{t.name}</td>
+              <td className="p-3">{t.description}</td>
               <td className="p-3 flex items-center gap-2">
                 <span>{t.category?.icon || "📁"}</span>
                 <span>{t.category?.name}</span>

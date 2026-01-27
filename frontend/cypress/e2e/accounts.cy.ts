@@ -69,7 +69,7 @@ describe("Accounts Page", () => {
     cy.get("input[type='number']").type("100");
 
     // Using contains for the Create button inside the modal
-    cy.get("button").contains("Create").click();
+    cy.get("#create-account-button").click();
 
     cy.wait("@createAccount");
     cy.wait("@getAccountsRefresh");

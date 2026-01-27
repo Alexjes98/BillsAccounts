@@ -47,11 +47,56 @@ def transactions():
     session = SessionLocal()
     try:
         if request.method == 'GET':
-            # Query transactions with relationships
-            transactions_db = session.query(Transaction).order_by(Transaction.transaction_date.desc()).all()
+            # Parameters
+            page = request.args.get('page', 1, type=int)
+            per_page = request.args.get('per_page', 12, type=int)
+            search = request.args.get('search', '', type=str)
+            category_id = request.args.get('category_id', type=str)
+            account_id = request.args.get('account_id', type=str)
+            date_filter = request.args.get('date', type=str)
+            txn_type = request.args.get('type', type=str) # EXPENSE / INCOME
+
+            # Base Query
+            query = session.query(Transaction)
+
+            # Join for Category Type filtering if needed
+            if txn_type:
+                 query = query.join(Category).filter(Category.type == txn_type)
+
+            # Apply Filters
+            if search:
+                search_term = f"%{search}%"
+                query = query.filter((Transaction.name.ilike(search_term)) | (Transaction.description.ilike(search_term)))
+            
+            if category_id:
+                query = query.filter(Transaction.category_id == category_id)
+            
+            if account_id:
+                query = query.filter(Transaction.account_id == account_id)
+                
+            if date_filter:
+                # Assuming date format YYYY-MM-DD
+                from sqlalchemy import cast, Date
+                query = query.filter(cast(Transaction.transaction_date, Date) == date_filter)
+
+            # Sorting
+            query = query.order_by(Transaction.transaction_date.desc())
+
+            # Pagination
+            total_items = query.count()
+            total_pages = (total_items + per_page - 1) // per_page
+            
+            transactions_db = query.offset((page - 1) * per_page).limit(per_page).all()
             
             results = [TransactionOut.model_validate(t).model_dump(mode='json') for t in transactions_db]
-            return jsonify(results)
+            
+            return jsonify({
+                "items": results,
+                "total": total_items,
+                "page": page,
+                "per_page": per_page,
+                "pages": total_pages
+            })
         
         elif request.method == 'POST':
             data = request.json

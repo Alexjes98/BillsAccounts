@@ -1,0 +1,17 @@
+{
+  "current_date": {
+    "year": 2024,
+    "month": "January",
+    "month_int": 1
+  },
+  "cards": {
+    "balance": 5000,
+    "income": 3000,
+    "expenses": 1200
+  },
+  "month_comparison": {
+    "current": { "income": 3000, "expenses": 1200 },
+    "last": { "income": 2800, "expenses": 1100 }
+  },
+  "chart_data": []
+}

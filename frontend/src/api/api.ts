@@ -7,6 +7,7 @@ export interface Transaction {
   id: string;
   transaction_date: string;
   name: string;
+  description?: string;
   amount: number;
   category_id: string;
   account_id?: string | null;
@@ -81,8 +82,28 @@ export interface CreateTransactionPayload {
   person_id: string;
 }
 
-export const getTransactions = async (): Promise<Transaction[]> => {
-  const response = await api.get("/api/transactions");
+export interface TransactionQueryParams {
+  page?: number;
+  per_page?: number;
+  search?: string;
+  category_id?: string;
+  account_id?: string;
+  date?: string;
+  type?: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  per_page: number;
+  pages: number;
+}
+
+export const getTransactions = async (
+  params?: TransactionQueryParams,
+): Promise<PaginatedResponse<Transaction>> => {
+  const response = await api.get("/api/transactions", { params });
   return response.data;
 };
 
