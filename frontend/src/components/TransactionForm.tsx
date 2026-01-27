@@ -193,6 +193,14 @@ export function TransactionForm({
     }
   };
 
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const categoryColorClass =
+    selectedCategory?.type === "INCOME"
+      ? "text-green-600"
+      : selectedCategory?.type === "EXPENSE"
+        ? "text-red-600"
+        : "";
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
@@ -250,7 +258,7 @@ export function TransactionForm({
           id="category"
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${categoryColorClass}`}
           disabled={isLoadingCategories}
           required
         >
@@ -258,7 +266,11 @@ export function TransactionForm({
             <option>Loading categories...</option>
           ) : (
             categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>
+              <option
+                key={cat.id}
+                style={{ color: cat.type === "INCOME" ? "green" : "red" }}
+                value={cat.id}
+              >
                 {cat.icon} {cat.name}
               </option>
             ))
