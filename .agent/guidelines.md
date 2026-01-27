@@ -16,6 +16,12 @@
 
 ## Backend Development (Python)
 
+## Testing (Pytest)
+
+- **Coverage**: Every endpoint in the application must have a corresponding Pytest test file in `backend/tests/`.
+- **Fixtures**: Tests must use fixtures for API responses to ensure completely isolated and reliable test runs. Do not rely on the live backend for Pytest tests.
+- **Mocking**: Use `pytest-mock` to mock API routes and return the fixture data.
+
 ### Models
 
 - **Consistency**: Python models (Pydantic or ORM) must always be kept up-to-date with the database schema.

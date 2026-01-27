@@ -132,9 +132,14 @@ def transactions():
                 savings_goal_id=txn_data.savings_goal_id
             )
             session.add(new_txn)
+            
+            if new_txn.account_id:
+                account = session.query(Account).filter_by(id=new_txn.account_id).first()
+                if account:
+                    account.current_balance += Decimal(str(new_txn.amount))
+            
             session.commit()
             session.refresh(new_txn)
-            
             
             return jsonify(TransactionOut.model_validate(new_txn).model_dump(mode='json')), 201
 
@@ -175,26 +180,62 @@ def update_transaction(transaction_id):
         # Using a partial approach is safer for now if we don't want to re-run complex debt logic
         # strictly unless we are sure. But for "Edit", usually we want to update what's sent.
         
+        # --- UPDATE ACCOUNT BALANCE (PART 1: Revert old) ---
+        old_account_id = transaction.account_id
+        old_amount = transaction.amount
+        
+        if old_account_id:
+             old_account = session.query(Account).filter_by(id=old_account_id).first()
+             if old_account:
+                 # Subtract the old amount to revert its effect
+                 old_account.current_balance -= old_amount
+
+        # --- APPLY UPDATES ---
         if 'name' in data:
             transaction.name = data['name']
         if 'description' in data:
             transaction.description = data['description']
-        if 'amount' in data:
-            # Note: Updating amount might need to trigger debt updates if we wanted to be fully consistent,
-            # but the user specifically asked for "Delete should NOT affect debt".
-            # It implies we should be careful about side effects.
-            # For this task, I will update the transaction record itself.
-            transaction.amount = data['amount']
         if 'transaction_date' in data:
             transaction.transaction_date = data['transaction_date']
+        
+        # Determine Category to check type
         if 'category_id' in data:
             transaction.category_id = data['category_id']
+            # Fetch new category to check type
+            category = session.query(Category).filter_by(id=transaction.category_id).first()
+        else:
+            # Use existing category
+            category = transaction.category
+            
+        if not category:
+             return jsonify({"error": "Invalid category associated with transaction."}), 400
+
+        # Update Amount with correct sign based on Category Type
+        if 'amount' in data:
+            raw_amount = Decimal(str(data['amount']))
+            if category.type == "EXPENSE":
+                transaction.amount = -abs(raw_amount)
+            else:
+                transaction.amount = abs(raw_amount)
+        elif 'category_id' in data:
+            # If only category changed, we must re-evaluate sign of existing amount
+             if category.type == "EXPENSE":
+                transaction.amount = -abs(transaction.amount)
+             else:
+                transaction.amount = abs(transaction.amount)
+
         if 'account_id' in data:
             transaction.account_id = data['account_id']
         if 'debt_id' in data:
             transaction.debt_id = data['debt_id']
         if 'savings_goal_id' in data:
             transaction.savings_goal_id = data['savings_goal_id']
+
+        # --- UPDATE ACCOUNT BALANCE (PART 2: Apply new) ---
+        if transaction.account_id:
+             new_account = session.query(Account).filter_by(id=transaction.account_id).first()
+             if new_account:
+                 new_account.current_balance += transaction.amount
             
         session.commit()
         session.refresh(transaction)
@@ -230,6 +271,16 @@ def delete_transaction(transaction_id):
         # session.delete(transaction)
         
         # I will stick to soft delete since the column exists.
+        
+        # --- UPDATE ACCOUNT BALANCE (Revert effect) ---
+        # If it wasn't already deleted, revert the balance change
+        if not transaction.deleted_at: 
+             if transaction.account_id:
+                 account = session.query(Account).filter_by(id=transaction.account_id).first()
+                 if account:
+                     # Subtract the amount to reverse the transaction effect
+                     account.current_balance -= Decimal(str(transaction.amount))
+
         session.commit()
         
         return jsonify({"message": "Transaction deleted successfully"}), 200

@@ -8,6 +8,7 @@ from app.schemas.person import PersonOut
 class CategoryOut(BaseModel):
     id: UUID
     name: str = Field(..., description="Category name")
+    type: str = Field(..., description="Category type")
     icon: Optional[str] = None
     
     model_config = ConfigDict(from_attributes=True)
