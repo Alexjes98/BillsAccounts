@@ -1,19 +1,35 @@
 describe("Transactions Page", () => {
   beforeEach(() => {
     // Intercept the API call and return mock data
-    cy.intercept("GET", "**/transactions", {
+    cy.intercept("GET", "**/api/transactions?page=1&per_page=12&search=", {
       statusCode: 200,
       fixture: "transactions.json",
     }).as("getTransactions");
 
+    cy.intercept("GET", "**/api/dashboard/summary", {
+      statusCode: 200,
+      fixture: "summary.json",
+    }).as("getDashboardSummary");
+
+    cy.intercept("GET", "**/api/categories", {
+      statusCode: 200,
+      fixture: "categories.json",
+    }).as("getCategories");
+
+    cy.intercept("GET", "**/api/accounts", {
+      statusCode: 200,
+      fixture: "accounts.json",
+    }).as("getAccounts");
+
     // Visit the transactions page
-    cy.visit("/");
-    cy.contains("Transactions").click();
+    cy.visit("/transactions");
   });
 
   it("should display the transaction list properly", () => {
     // Wait for the API call
     cy.wait("@getTransactions");
+    cy.wait("@getCategories");
+    cy.wait("@getAccounts");
 
     // Verify the page title
     cy.contains("h1", "Transactions").should("be.visible");
@@ -39,7 +55,7 @@ describe("Transactions Page", () => {
 
   it("should handle API errors gracefully", () => {
     // Mock an error response
-    cy.intercept("GET", "**/transactions", {
+    cy.intercept("GET", "**/api/transactions?page=1&per_page=12&search=**", {
       statusCode: 500,
       body: { error: "Internal Server Error" },
     }).as("getTransactionsError");
@@ -55,9 +71,9 @@ describe("Transactions Page", () => {
 
   it("should handle empty response gracefully", () => {
     // Mock an empty response
-    cy.intercept("GET", "**/transactions", {
+    cy.intercept("GET", "**/api/transactions?page=1&per_page=12&search=**", {
       statusCode: 200,
-      body: [],
+      body: { items: [], total: 0, page: 1, per_page: 12, pages: 1 },
     }).as("getTransactionsEmpty");
 
     // Reload to trigger the empty response
@@ -80,31 +96,31 @@ describe("Transactions Page", () => {
 describe("Transactions Flow", () => {
   beforeEach(() => {
     // Mock API responses here
-    cy.intercept("GET", "/api/transactions", {
+    cy.intercept("GET", "**/api/transactions?page=1&per_page=12&search=**", {
       fixture: "transactions.json",
     }).as("getTransactions");
-    cy.intercept("GET", "/api/categories", {
+    cy.intercept("GET", "**/api/categories", {
       fixture: "categories.json",
     }).as("getCategories");
-    cy.intercept("GET", "/api/transactions/accounts", {
+    cy.intercept("GET", "**/api/accounts", {
       fixture: "accounts.json",
     }).as("getAccounts");
-    cy.intercept("GET", "/api/debts", {
+    cy.intercept("GET", "**/api/debts", {
       fixture: "debts.json",
     }).as("getDebts");
-    cy.intercept("GET", "/api/transactions/savings-goals", {
+    cy.intercept("GET", "**/api/transactions/savings-goals", {
       fixture: "saving_goals.json",
     }).as("getSavingsGoals");
 
-    cy.intercept("GET", "/api/transactions/1", {
+    cy.intercept("GET", "**/api/transactions/1", {
       body: {},
     }).as("getTransaction");
 
-    cy.intercept("DELETE", "/api/transactions/1", {
+    cy.intercept("DELETE", "**/api/transactions/1", {
       body: {},
     }).as("deleteTransaction");
 
-    cy.intercept("PUT", "/api/transactions/1", {
+    cy.intercept("PUT", "**/api/transactions/1", {
       body: {},
     }).as("updateTransaction");
     cy.visit("/");
@@ -125,7 +141,7 @@ describe("Transactions Flow", () => {
 
   it("should create a new transaction", () => {
     // Mock POST response
-    cy.intercept("POST", "/api/transactions", {
+    cy.intercept("POST", "**/api/transactions", {
       statusCode: 201,
       body: {
         id: "new-id",

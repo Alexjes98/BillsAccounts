@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from decimal import Decimal
 from app.core.database import SessionLocal
 from app.models.models import Transaction, Category, User, Account, Debt, SavingsGoal
-from app.schemas.transaction import TransactionOut, TransactionCreate, CategoryOut, AccountOut, DebtOut, SavingsGoalOut
+from app.schemas.transaction import TransactionOut, PaginationOut, TransactionCreate, CategoryOut, AccountOut, DebtOut, SavingsGoalOut
 
 transactions_bp = Blueprint('transactions', __name__)
 
@@ -90,13 +90,13 @@ def transactions():
             
             results = [TransactionOut.model_validate(t).model_dump(mode='json') for t in transactions_db]
             
-            return jsonify({
-                "items": results,
-                "total": total_items,
-                "page": page,
-                "per_page": per_page,
-                "pages": total_pages
-            })
+            return PaginationOut(
+                items=results,
+                total=total_items,
+                page=page,
+                per_page=per_page,
+                pages=total_pages
+            ).model_dump(mode='json')
         
         elif request.method == 'POST':
             data = request.json

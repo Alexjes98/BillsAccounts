@@ -66,6 +66,13 @@ class TransactionOut(BaseModel):
     person: Optional[PersonOut] = None
 
     model_config = ConfigDict(from_attributes=True)
+    
+class PaginationOut(BaseModel):
+    items: list[TransactionOut]
+    total: int
+    page: int
+    per_page: int
+    pages: int
 
 class TransactionCreate(BaseModel):
     name: str = Field(..., min_length=1)
