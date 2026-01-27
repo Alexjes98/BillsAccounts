@@ -187,3 +187,26 @@ export const createPerson = async (
   const response = await api.post("/api/persons", data);
   return response.data;
 };
+
+export interface DashboardData {
+  current_date: {
+    year: number;
+    month: string;
+    month_int: number;
+  };
+  cards: {
+    balance: number;
+    income: number;
+    expenses: number;
+  };
+  month_comparison: {
+    current: { income: number; expenses: number };
+    last: { income: number; expenses: number };
+  };
+  chart_data: { day: number; income: number; expenses: number }[];
+}
+
+export const getDashboardSummary = async (): Promise<DashboardData> => {
+  const response = await api.get("/api/dashboard/summary");
+  return response.data;
+};
