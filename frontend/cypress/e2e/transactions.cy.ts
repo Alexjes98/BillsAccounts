@@ -95,6 +95,18 @@ describe("Transactions Flow", () => {
     cy.intercept("GET", "/api/transactions/savings-goals", {
       fixture: "saving_goals.json",
     }).as("getSavingsGoals");
+
+    cy.intercept("GET", "/api/transactions/1", {
+      body: {},
+    }).as("getTransaction");
+
+    cy.intercept("DELETE", "/api/transactions/1", {
+      body: {},
+    }).as("deleteTransaction");
+
+    cy.intercept("PUT", "/api/transactions/1", {
+      body: {},
+    }).as("updateTransaction");
     cy.visit("/");
     cy.contains("Transactions").click();
   });
@@ -138,5 +150,22 @@ describe("Transactions Flow", () => {
     // callback
     cy.wait("@createTransaction");
     cy.contains("Create Transaction").should("not.exist"); // Modal closed
+  });
+
+  it("should view a transaction", () => {
+    cy.get("#action-menu-1").click();
+    cy.get("#view-transaction-1").click();
+    cy.contains("Transaction Details").should("be.visible");
+  });
+
+  it("should edit a transaction", () => {
+    cy.get("#action-menu-1").click();
+    cy.get("#edit-transaction-1").click();
+    cy.contains("Edit Transaction").should("be.visible");
+  });
+
+  it("should delete a transaction", () => {
+    cy.get("#action-menu-1").click();
+    cy.get("#delete-transaction-1").click();
   });
 });

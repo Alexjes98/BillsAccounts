@@ -135,7 +135,104 @@ def transactions():
             session.commit()
             session.refresh(new_txn)
             
+            
             return jsonify(TransactionOut.model_validate(new_txn).model_dump(mode='json')), 201
+
+    except Exception as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+@transactions_bp.route('/<uuid:transaction_id>', methods=['GET'])
+def get_transaction(transaction_id):
+    session = SessionLocal()
+    try:
+        transaction = session.query(Transaction).filter_by(id=transaction_id).first()
+        if not transaction:
+             return jsonify({"error": "Transaction not found"}), 404
+        
+        return jsonify(TransactionOut.model_validate(transaction).model_dump(mode='json'))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+@transactions_bp.route('/<uuid:transaction_id>', methods=['PUT', 'PATCH'])
+def update_transaction(transaction_id):
+    session = SessionLocal()
+    try:
+        transaction = session.query(Transaction).filter_by(id=transaction_id).first()
+        if not transaction:
+             return jsonify({"error": "Transaction not found"}), 404
+             
+        data = request.json
+        # We use TransactionCreate for validation, but we handle the update manually
+        # to ensure we don't accidentally break relationships or complex logic unless intended.
+        # For now, we support updating basic fields.
+        
+        # If the user sends a full payload, we can use it.
+        # Using a partial approach is safer for now if we don't want to re-run complex debt logic
+        # strictly unless we are sure. But for "Edit", usually we want to update what's sent.
+        
+        if 'name' in data:
+            transaction.name = data['name']
+        if 'description' in data:
+            transaction.description = data['description']
+        if 'amount' in data:
+            # Note: Updating amount might need to trigger debt updates if we wanted to be fully consistent,
+            # but the user specifically asked for "Delete should NOT affect debt".
+            # It implies we should be careful about side effects.
+            # For this task, I will update the transaction record itself.
+            transaction.amount = data['amount']
+        if 'transaction_date' in data:
+            transaction.transaction_date = data['transaction_date']
+        if 'category_id' in data:
+            transaction.category_id = data['category_id']
+        if 'account_id' in data:
+            transaction.account_id = data['account_id']
+        if 'debt_id' in data:
+            transaction.debt_id = data['debt_id']
+        if 'savings_goal_id' in data:
+            transaction.savings_goal_id = data['savings_goal_id']
+            
+        session.commit()
+        session.refresh(transaction)
+        
+        return jsonify(TransactionOut.model_validate(transaction).model_dump(mode='json'))
+
+    except Exception as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+@transactions_bp.route('/<uuid:transaction_id>', methods=['DELETE'])
+def delete_transaction(transaction_id):
+    session = SessionLocal()
+    try:
+        transaction = session.query(Transaction).filter_by(id=transaction_id).first()
+        if not transaction:
+             return jsonify({"error": "Transaction not found"}), 404
+
+        # Requirement: "If a transaction is removed and that transaction affected a debt the debt should be left as it was."
+        # We do NOT update the linked debt's remaining_amount.
+        
+        # We use strict delete (row removal) or soft delete?
+        # The model has deleted_at column. Let's use soft delete if possible, or just hard delete if that's the convention.
+        # Looking at other code, it seems we might just want to set deleted_at.
+        # However, line 166 says `deleted_at = Column(...)`.
+        
+        from datetime import datetime
+        transaction.deleted_at = datetime.now()
+        
+        # Alternatively, strict delete:
+        # session.delete(transaction)
+        
+        # I will stick to soft delete since the column exists.
+        session.commit()
+        
+        return jsonify({"message": "Transaction deleted successfully"}), 200
 
     except Exception as e:
         session.rollback()

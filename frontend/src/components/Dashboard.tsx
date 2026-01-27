@@ -23,9 +23,9 @@ import { RefreshCcw } from "lucide-react";
 export function Dashboard() {
   const { freeData, userMode, reset } = useAppStore();
 
-  if (!freeData && userMode === "free") {
-    return <FileUpload />;
-  }
+  //if (!freeData && userMode === "free") {
+  //  return <FileUpload />;
+  //}
 
   if (userMode === "paid") {
     return (

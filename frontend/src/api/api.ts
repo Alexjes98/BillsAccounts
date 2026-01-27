@@ -16,7 +16,14 @@ export interface Transaction {
     name: string;
     icon?: string;
   };
-  account: {
+  account?: {
+    name: string;
+  };
+  debt?: {
+    description: string;
+    remaining_amount: number;
+  };
+  savings_goal?: {
     name: string;
   };
 }
@@ -126,6 +133,18 @@ export const createTransaction = async (
 ): Promise<Transaction> => {
   const response = await api.post("/api/transactions", data);
   return response.data;
+};
+
+export const updateTransaction = async (
+  id: string,
+  data: Partial<CreateTransactionPayload>,
+): Promise<Transaction> => {
+  const response = await api.put(`/api/transactions/${id}`, data);
+  return response.data;
+};
+
+export const deleteTransaction = async (id: string): Promise<void> => {
+  await api.delete(`/api/transactions/${id}`);
 };
 
 export interface DebtSummary {
