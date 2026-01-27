@@ -111,8 +111,34 @@ export const createCategory = async (
 };
 
 export const getAccounts = async (): Promise<Account[]> => {
-  const response = await api.get("/api/transactions/accounts");
+  const response = await api.get("/api/accounts");
   return response.data;
+};
+
+export interface CreateAccountPayload {
+  name: string;
+  type: string;
+  current_balance?: number;
+  currency?: string;
+}
+
+export const createAccount = async (
+  data: CreateAccountPayload,
+): Promise<Account> => {
+  const response = await api.post("/api/accounts", data);
+  return response.data;
+};
+
+export const updateAccount = async (
+  id: string,
+  data: Partial<CreateAccountPayload>,
+): Promise<Account> => {
+  const response = await api.put(`/api/accounts/${id}`, data);
+  return response.data;
+};
+
+export const deleteAccount = async (id: string): Promise<void> => {
+  await api.delete(`/api/accounts/${id}`);
 };
 
 export interface CreateDebtPayload {

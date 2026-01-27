@@ -1,9 +1,16 @@
 [
   {
-    "id": "default-account-id",
-    "name": "Checking",
-    "type": "CHECKING",
-    "current_balance": 5000,
+    "id": "1",
+    "name": "Bank of America",
+    "type": "Checking",
+    "current_balance": 1500.0,
+    "currency": "USD"
+  },
+  {
+    "id": "2",
+    "name": "Chase",
+    "type": "Savings",
+    "current_balance": 5000.5,
     "currency": "USD"
   }
 ]

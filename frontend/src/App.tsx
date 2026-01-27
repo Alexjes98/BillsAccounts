@@ -3,6 +3,7 @@ import { TransactionsPage } from "@/pages/TransactionsPage";
 import { PersonsPage } from "@/pages/PersonsPage";
 import { DebtsPage } from "@/pages/DebtsPage";
 import { CategoriesPage } from "@/pages/CategoriesPage";
+import { AccountsPage } from "@/pages/AccountsPage";
 import { useAppStore } from "@/store/useAppStore";
 import {
   BrowserRouter as Router,
@@ -39,6 +40,7 @@ function Layout() {
             <NavLink to="/debts">Debts</NavLink>
             <NavLink to="/persons">Persons</NavLink>
             <NavLink to="/categories">Categories</NavLink>
+            <NavLink to="/accounts">Accounts</NavLink>
           </nav>
 
           <div className="ml-auto text-sm text-muted-foreground">
@@ -59,6 +61,7 @@ function Layout() {
           <Route path="/persons" element={<PersonsPage />} />
           <Route path="/debts" element={<DebtsPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/accounts" element={<AccountsPage />} />
         </Routes>
       </main>
     </div>
