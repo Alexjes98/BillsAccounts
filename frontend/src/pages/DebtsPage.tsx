@@ -5,11 +5,19 @@ import { Plus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { DebtForm } from "@/components/DebtForm";
 import { format } from "date-fns";
-import { getDebts, getDebtsSummary, DebtSummary, Debt } from "@/api/api";
+import {
+  getDebts,
+  getDebtsSummary,
+  getPersons,
+  DebtSummary,
+  Debt,
+  Person,
+} from "@/api/api";
 
 export function DebtsPage() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [summary, setSummary] = useState<DebtSummary[]>([]);
+  const [persons, setPersons] = useState<Person[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -17,11 +25,15 @@ export function DebtsPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const debtsRes = await getDebts();
-      const summaryRes = await getDebtsSummary();
+      const [debtsRes, summaryRes, personsRes] = await Promise.all([
+        getDebts(),
+        getDebtsSummary(),
+        getPersons(),
+      ]);
 
       setDebts(debtsRes);
       setSummary(summaryRes);
+      setPersons(personsRes);
     } catch (err) {
       console.error("Failed to fetch debts data", err);
       setError("Failed to load debts data.");
@@ -37,6 +49,11 @@ export function DebtsPage() {
   const handleDebtCreated = () => {
     setIsModalOpen(false);
     fetchData();
+  };
+
+  const getPersonName = (id: string) => {
+    const person = persons.find((p) => p.id === id);
+    return person ? person.name : id.substring(0, 8) + "...";
   };
 
   if (isLoading) {
@@ -130,27 +147,12 @@ export function DebtsPage() {
                       {debt.description || "No description"}
                     </td>
                     <td className="p-4">
-                      {/* We might strictly need person names here, but the Debt object only has IDs currently in the interface. 
-                            If we want names, we have to fetch persons or rely on backend to populate. 
-                            For now, I will assume we might need to fetch persons map or just show IDs if names aren't available 
-                            Wait, the Debt model in backend 'get_debts' returns DebtOut which might not include nested names unless specified.
-                            Let's check DebtOut schema if possible, or just default to showing something simple.
-                            Actually, for now I'll skip showing names in the list to avoid N+1 difficulty on frontend without store.
-                            Or I can trust the user knows who is who if I just show description.
-                            Let's try to be safe.
-                         */}
-                      <span
-                        className="text-xs font-mono"
-                        title={debt.creditor_id}
-                      >
-                        {debt.creditor_id.substring(0, 8)}...
-                      </span>{" "}
-                      →{" "}
-                      <span
-                        className="text-xs font-mono"
-                        title={debt.debtor_id}
-                      >
-                        {debt.debtor_id.substring(0, 8)}...
+                      <span className="font-medium">
+                        {getPersonName(debt.creditor_id)}
+                      </span>
+                      <span className="mx-2 text-muted-foreground">→</span>
+                      <span className="font-medium">
+                        {getPersonName(debt.debtor_id)}
                       </span>
                     </td>
                     <td className="p-4 text-right font-medium text-red-600">

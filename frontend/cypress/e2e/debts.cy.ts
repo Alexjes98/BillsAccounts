@@ -34,7 +34,7 @@ describe("Debts", () => {
 
     cy.contains("December 31st, 2021").should("be.visible");
     cy.contains("Debt description").should("be.visible");
-    cy.contains("1... → 2...").should("be.visible");
+    cy.contains("Test1 → Test2").should("be.visible");
     cy.contains("$100.00").should("be.visible");
     cy.contains("$100.00").should("be.visible");
   });

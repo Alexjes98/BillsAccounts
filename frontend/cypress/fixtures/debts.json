@@ -1,8 +1,8 @@
 [
   {
     "user_id": "1",
-    "creditor_id": "1",
-    "debtor_id": "2",
+    "creditor_id": "Test1",
+    "debtor_id": "Test2",
     "total_amount": 100,
     "remaining_amount": 100,
     "description": "Debt description",
