@@ -257,3 +257,28 @@ export const getDashboardSummary = async (): Promise<DashboardData> => {
   const response = await api.get("/api/dashboard/summary");
   return response.data;
 };
+
+export interface MonthlySummary {
+  id: string;
+  year: number;
+  month: number;
+  month_name: string;
+  total_income: number;
+  total_expense: number;
+  closing_balance: number;
+}
+
+export const getMonthlySummaries = async (
+  year: number,
+): Promise<MonthlySummary[]> => {
+  const response = await api.get(`/api/monthly-summaries?year=${year}`);
+  return response.data;
+};
+
+export const recalculateMonthlySummaries = async (): Promise<{
+  message: string;
+  count: number;
+}> => {
+  const response = await api.post("/api/monthly-summaries/recalculate");
+  return response.data;
+};

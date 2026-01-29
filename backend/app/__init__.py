@@ -1,7 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
 from app.core.config import settings
-
 from app.api.routes import main_bp
 from app.api.transactions import transactions_bp
 from app.api.persons import persons_bp
@@ -9,7 +8,7 @@ from app.api.debts import debts_bp
 from app.api.categories import categories_bp
 from app.api.dashboard import dashboard_bp
 from app.api.accounts import accounts_bp
-
+from app.api.monthly_summaries import monthly_summaries_bp
 def create_app() -> Flask:
     app = Flask(__name__)
     
@@ -27,9 +26,9 @@ def create_app() -> Flask:
     app.register_blueprint(categories_bp, url_prefix="/api/categories")
     app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
     app.register_blueprint(accounts_bp, url_prefix="/api/accounts")
+    app.register_blueprint(monthly_summaries_bp, url_prefix="/api/monthly-summaries")
     
     @app.route("/api/health")
     def health_check():
         return {"status": "ok", "env": settings.ENV}
-
     return app
