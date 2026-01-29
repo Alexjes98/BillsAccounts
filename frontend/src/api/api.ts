@@ -282,3 +282,13 @@ export const recalculateMonthlySummaries = async (): Promise<{
   const response = await api.post("/api/monthly-summaries/recalculate");
   return response.data;
 };
+
+export const recalculateSingleMonthSummary = async (
+  year: number,
+  month: number,
+): Promise<{ message: string; data: MonthlySummary }> => {
+  const response = await api.post(
+    `/api/monthly-summaries/recalculate/${year}/${month}`,
+  );
+  return response.data;
+};

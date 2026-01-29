@@ -3,6 +3,7 @@ import {
   getMonthlySummaries,
   MonthlySummary,
   recalculateMonthlySummaries,
+  recalculateSingleMonthSummary,
 } from "@/api/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,14 +20,20 @@ import {
   Line,
 } from "recharts";
 import { Loader2, RefreshCw } from "lucide-react";
+
 export function YearResume() {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [summaries, setSummaries] = useState<MonthlySummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const [recalculatingMonth, setRecalculatingMonth] = useState<number | null>(
+    null,
+  );
+
   // Generate last 5 years for selection
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
   const fetchSummaries = async (selectedYear: number) => {
     setLoading(true);
     try {
@@ -38,6 +45,7 @@ export function YearResume() {
       setLoading(false);
     }
   };
+
   const handleRecalculate = async () => {
     setRecalculating(true);
     try {
@@ -49,9 +57,23 @@ export function YearResume() {
       setRecalculating(false);
     }
   };
+
+  const handleRecalculateMonth = async (month: number) => {
+    setRecalculatingMonth(month);
+    try {
+      await recalculateSingleMonthSummary(year, month);
+      await fetchSummaries(year);
+    } catch (error) {
+      console.error(`Failed to recalculate month ${month}`, error);
+    } finally {
+      setRecalculatingMonth(null);
+    }
+  };
+
   useEffect(() => {
     fetchSummaries(year);
   }, [year]);
+
   // Aggregate Yearly Totals
   const yearlyIncome = summaries.reduce(
     (acc, curr) => acc + curr.total_income,
@@ -62,6 +84,7 @@ export function YearResume() {
     0,
   );
   const yearlyBalance = yearlyIncome - yearlyExpense;
+
   // Enhance data for charts
   const chartData = summaries.map((s) => ({
     name: s.month_name,
@@ -100,6 +123,7 @@ export function YearResume() {
           </Button>
         </div>
       </div>
+
       {/* Yearly Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -148,6 +172,7 @@ export function YearResume() {
           </CardContent>
         </Card>
       </div>
+
       {/* Charts */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="col-span-1">
@@ -201,10 +226,25 @@ export function YearResume() {
             const avgDaily = summary.total_expense / daysInMonth;
             return (
               <Card key={`${summary.year}-${summary.month}`}>
-                <CardHeader>
-                  <CardTitle>{summary.month_name}</CardTitle>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-base font-semibold">
+                    {summary.month_name}
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleRecalculateMonth(summary.month)}
+                    disabled={recalculatingMonth === summary.month}
+                  >
+                    {recalculatingMonth === summary.month ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                  </Button>
                 </CardHeader>
-                <CardContent className="space-y-2 text-sm">
+                <CardContent className="space-y-2 text-sm pt-4">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Income:</span>
                     <span className="font-medium text-green-600">

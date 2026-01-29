@@ -170,3 +170,86 @@ def recalculate_summaries():
     except Exception as e:
         db.rollback()
         return jsonify({"error": str(e)}), 500
+
+@monthly_summaries_bp.route("/recalculate/<int:year>/<int:month>", methods=["POST"])
+def recalculate_single_month(year, month):
+    db: Session = next(get_db())
+    user_id = "5048520a-da77-4a94-b5e8-0376829ae095"
+
+    try:
+        # 1. Aggregate transactions for this specific month
+        aggregated = db.query(
+            Category.type,
+            func.sum(Transaction.amount)
+        ).join(Category, Transaction.category_id == Category.id)\
+         .filter(
+             Transaction.user_id == user_id,
+             Transaction.deleted_at.is_(None),
+             extract('year', Transaction.transaction_date) == year,
+             extract('month', Transaction.transaction_date) == month
+         ).group_by(Category.type).all()
+         
+        print("aggregated", aggregated)
+
+        income = 0.0
+        expense = 0.0
+        for cat_type, total in aggregated:
+            if cat_type == 'INCOME':
+                income = float(total)
+            elif cat_type == 'EXPENSE':
+                expense = float(total)
+
+        # 2. Get Previous Month's Closing Balance
+        prev_year = year
+        prev_month = month - 1
+        if prev_month == 0:
+            prev_month = 12
+            prev_year = year - 1
+            
+        prev_summary = db.query(MonthlySummary).filter(
+            MonthlySummary.user_id == user_id,
+            MonthlySummary.year == prev_year,
+            MonthlySummary.month == prev_month
+        ).first()
+        
+        prev_balance = prev_summary.closing_balance if prev_summary else 0.0
+        
+        current_balance = prev_balance + income - expense
+
+        # 3. Update or Create Summary
+        summary = db.query(MonthlySummary).filter(
+            MonthlySummary.user_id == user_id,
+            MonthlySummary.year == year,
+            MonthlySummary.month == month
+        ).first()
+
+        if summary:
+            summary.total_income = abs(income)
+            summary.total_expense = abs(expense)
+            summary.closing_balance = current_balance
+        else:
+            summary = MonthlySummary(
+                user_id=user_id,
+                year=year,
+                month=month,
+                total_income=abs(income),
+                total_expense=abs(expense),
+                closing_balance=current_balance
+            )
+            db.add(summary)
+            
+        db.commit()
+        return jsonify({
+            "message": f"Summary for {year}-{month} updated",
+            "data": {
+                "year": year,
+                "month": month,
+                "income": income,
+                "expense": expense,
+                "closing_balance": current_balance
+            }
+        })
+
+    except Exception as e:
+        db.rollback()
+        return jsonify({"error": str(e)}), 500
