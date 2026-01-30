@@ -6,6 +6,7 @@ import { CategoriesPage } from "@/pages/CategoriesPage";
 import { AccountsPage } from "@/pages/AccountsPage";
 import { YearResume } from "@/pages/YearResume";
 import { useAppStore } from "@/store/useAppStore";
+import { UserProvider, useUser } from "@/context/UserContext";
 import {
   BrowserRouter as Router,
   Routes,
@@ -41,8 +42,9 @@ function Layout() {
             <NavLink to="/accounts">Accounts</NavLink>
             <NavLink to="/year-resume">Year Resume</NavLink>
           </nav>
-          <div className="ml-auto text-sm text-muted-foreground">
-            Beta (Free Mode)
+          <div className="ml-auto text-sm text-muted-foreground flex items-center gap-2">
+            <UserDisplay />
+            <span>Beta (Free Mode)</span>
           </div>
         </div>
       </header>
@@ -65,10 +67,21 @@ function Layout() {
     </div>
   );
 }
+function UserDisplay() {
+  const { user, loading } = useUser();
+
+  if (loading) return <span>Loading...</span>;
+  if (!user) return null;
+
+  return <span className="font-medium text-foreground">{user.email}</span>;
+}
+
 function App() {
   return (
     <Router>
-      <Layout />
+      <UserProvider>
+        <Layout />
+      </UserProvider>
     </Router>
   );
 }

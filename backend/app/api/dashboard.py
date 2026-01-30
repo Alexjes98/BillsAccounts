@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, g
 from sqlalchemy import func, extract, and_
 from datetime import datetime, date, timedelta
 from app.core.database import SessionLocal
@@ -11,9 +11,10 @@ def get_dashboard_summary():
     session = SessionLocal()
     try:
         # Get current user (hardcoded for now as per other endpoints)
-        user = session.query(User).first()
+        # Get current user from AppContext
+        user = g.user
         if not user:
-            return jsonify({"error": "No user found"}), 404
+            return jsonify({"error": "No user found in context"}), 404
 
         today = date.today()
         current_year = today.year

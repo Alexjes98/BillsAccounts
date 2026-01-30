@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from app.core.database import SessionLocal
 from app.models.models import Debt
 from app.schemas.transaction import DebtOut
@@ -23,10 +23,11 @@ def handle_debts():
                 return jsonify({"error": f"Validation error: {e}"}), 400
 
             # Find default user
+            # Get user from AppContext
             from app.models.models import User
-            user = session.query(User).first()
+            user = g.user
             if not user:
-                 return jsonify({"error": "No user found in database."}), 500
+                 return jsonify({"error": "No user found in context."}), 500
 
             new_debt = Debt(
                 user_id=user.id,

@@ -292,3 +292,15 @@ export const recalculateSingleMonthSummary = async (
   );
   return response.data;
 };
+
+export interface User {
+  id: string;
+  email: string;
+  base_currency: string;
+  created_at: string;
+}
+
+export const getUser = async (): Promise<User> => {
+  const response = await api.get("/api/user");
+  return response.data;
+};

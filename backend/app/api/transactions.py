@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from decimal import Decimal
 from app.core.database import SessionLocal
 from app.models.models import Transaction, Category, User, Account, Debt, SavingsGoal
@@ -106,10 +106,10 @@ def transactions():
             except Exception as e:
                 return jsonify({"error": f"Validation error: {e}"}), 400
 
-            # Find default user (Hardcoded context)
-            user = session.query(User).first()
-            if not user:
-                 return jsonify({"error": "No user found in database to attach transaction to."}), 500
+            # Get user from AppContext
+            if not g.user:
+                 return jsonify({"error": "No user found in context."}), 500
+            user = g.user
              
             category = session.query(Category).filter_by(id=txn_data.category_id).first()
             if not category:

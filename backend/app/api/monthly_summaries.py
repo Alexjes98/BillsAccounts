@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from app.core.database import get_db
 from app.models.models import MonthlySummary, Transaction, Category
 from sqlalchemy import func, extract, and_
@@ -15,7 +15,12 @@ def get_monthly_summaries():
         year = datetime.now().year
     db: Session = next(get_db())
     
+    user_id = g.user.id if g.user else None
+    if not user_id:
+        return jsonify({"error": "No user in context"}), 500
+
     summaries = db.query(MonthlySummary).filter(
+        MonthlySummary.user_id == user_id,
         MonthlySummary.year == year
     ).order_by(MonthlySummary.month).all()
     result = []
@@ -34,25 +39,11 @@ def get_monthly_summaries():
 @monthly_summaries_bp.route("/recalculate", methods=["POST"])
 def recalculate_summaries():
     db: Session = next(get_db())
-    user_id = "00000000-0000-0000-0000-000000000000" # Hardcoded for now as per other parts, or we should get from auth if available.
-    # Actually, the user rules say "user_id should be hardcoded" in previous context, checking existing code...
-    # Checking Transaction creation context in conversation history: "user_id should be hardcoded".
-    # I will assume the same here. BUT I need to be careful about which user ID.
-    # Let's peek at one existing endpoint to see how they handle user_id.
-    # Logic:
-    # 1. Clear existing summaries? Or upsert? Upsert is better to keep IDs if possible, but deleting and re-creating is easier for full recalc.
-    # Let's try to do it effectively.
+    user_id = g.user.id if g.user else None
+    if not user_id:
+        return jsonify({"error": "No user in context"}), 500
     
-    # 0. Get the default user for now.
-    # In `models.py` User is needed. I'll check `app/api/transactions.py` briefly before committing this file if unsure.
-    # But for now I'll assume we need to process for ALL users or a specific one.
-    # Since auth isn't fully detailed in the prompt, and previous prompts mentions hardcoded user, I'll assume single user mode or getting the first user.
-    
-    # Let's try to be generic and support "current" user if passed, or just re-calc for all transactions if no user filter logic is standard.
-    # Given the previous context, I'll stick to a fixed user_id or fetch it.
-    
-    # Let's fetch the first user to be safe if we need a specific one, or just hardcode the one likely used in seeds.
-    # However, to be robust, I will query transactions per user.
+    # Group transactions by user, year, month - Restricted to Current User
     
     # Group transactions by user, year, month
     
@@ -112,7 +103,7 @@ def recalculate_summaries():
         Category.type,
         func.sum(Transaction.amount).label('total')
     ).join(Category, Transaction.category_id == Category.id)\
-     .filter(Transaction.deleted_at.is_(None))\
+     .filter(Transaction.deleted_at.is_(None), Transaction.user_id == user_id)\
      .group_by(
          Transaction.user_id,
          extract('year', Transaction.transaction_date),
@@ -122,22 +113,23 @@ def recalculate_summaries():
      
     user_summary_map = {}
     # { user_id: { (year, month): {'income': ..., 'expense': ... } } }
-    for user_id, year, month, cat_type, total in aggregated_data_users:
-        if user_id not in user_summary_map:
-            user_summary_map[user_id] = {}
+    for uid, year, month, cat_type, total in aggregated_data_users:
+        # uid should match user_id
+        if uid not in user_summary_map:
+            user_summary_map[uid] = {}
         
         key = (int(year), int(month))
-        if key not in user_summary_map[user_id]:
-            user_summary_map[user_id][key] = {'income': 0, 'expense': 0}
+        if key not in user_summary_map[uid]:
+            user_summary_map[uid][key] = {'income': 0, 'expense': 0}
             
         if cat_type == 'INCOME':
-            user_summary_map[user_id][key]['income'] += float(total)
+            user_summary_map[uid][key]['income'] += float(total)
         elif cat_type == 'EXPENSE':
-            user_summary_map[user_id][key]['expense'] += float(total)
+            user_summary_map[uid][key]['expense'] += float(total)
     # Now update database
     try:
-        # Clear all summaries - brute force approach for "Recalculate"
-        db.query(MonthlySummary).delete()
+        # Clear summaries for this user
+        db.query(MonthlySummary).filter(MonthlySummary.user_id == user_id).delete()
         
         new_records = []
         
@@ -174,7 +166,9 @@ def recalculate_summaries():
 @monthly_summaries_bp.route("/recalculate/<int:year>/<int:month>", methods=["POST"])
 def recalculate_single_month(year, month):
     db: Session = next(get_db())
-    user_id = "5048520a-da77-4a94-b5e8-0376829ae095"
+    user_id = g.user.id if g.user else None
+    if not user_id:
+        return jsonify({"error": "No user in context"}), 500
 
     try:
         # 1. Aggregate transactions for this specific month

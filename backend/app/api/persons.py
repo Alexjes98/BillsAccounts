@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from app.core.database import SessionLocal
 from app.models.models import Person, User
 from app.schemas.person import PersonOut, PersonCreate
@@ -21,9 +21,10 @@ def handle_persons():
                 return jsonify({"error": f"Validation error: {e}"}), 400
             
             # Find default user (Hardcoded context)
-            user = session.query(User).first()
-            if not user:
-                 return jsonify({"error": "No user found in database to attach person to."}), 500
+            # Get user from AppContext
+            if not g.user:
+                 return jsonify({"error": "No user found in context."}), 500
+            user = g.user
             
             # Check for duplicates if needed (UniqueConstraint('user_id', 'name'))
             existing = session.query(Person).filter_by(user_id=user.id, name=person_data.name).first()

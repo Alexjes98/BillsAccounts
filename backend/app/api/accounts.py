@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from app.core.database import SessionLocal
 from app.models.models import Account, Transaction, User
 from app.schemas.account import AccountOut
@@ -9,7 +9,10 @@ accounts_bp = Blueprint('accounts', __name__)
 def get_accounts():
     session = SessionLocal()
     try:
-        accounts = session.query(Account).all()
+        user = g.user
+        if not user:
+            return jsonify({"error": "No user found in context."}), 500
+        accounts = session.query(Account).filter_by(user_id=user.id).all()
         return jsonify([AccountOut.model_validate(a).model_dump(mode='json') for a in accounts])
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -24,9 +27,9 @@ def create_account():
         if not data.get('name') or not data.get('type'):
             return jsonify({"error": "Name and type are required"}), 400
             
-        user = session.query(User).first()
+        user = g.user
         if not user:
-             return jsonify({"error": "No user found"}), 500
+             return jsonify({"error": "No user found in context"}), 500
 
         new_account = Account(
             user_id=user.id,

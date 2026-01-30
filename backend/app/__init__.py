@@ -12,6 +12,10 @@ from app.api.monthly_summaries import monthly_summaries_bp
 def create_app() -> Flask:
     app = Flask(__name__)
     
+    # Initialize App Context (User retrieval)
+    from app.core.context import setup_app_context
+    setup_app_context(app)
+    
     # Configuration
     app.config["SECRET_KEY"] = "dev-secret-key" # Should be in settings for prod
     
@@ -27,6 +31,9 @@ def create_app() -> Flask:
     app.register_blueprint(dashboard_bp, url_prefix="/api/dashboard")
     app.register_blueprint(accounts_bp, url_prefix="/api/accounts")
     app.register_blueprint(monthly_summaries_bp, url_prefix="/api/monthly-summaries")
+    
+    from app.api.users import users_bp
+    app.register_blueprint(users_bp, url_prefix="/api/users")
     
     @app.route("/api/health")
     def health_check():
