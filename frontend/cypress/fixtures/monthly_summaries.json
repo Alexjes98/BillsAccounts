@@ -1,0 +1,18 @@
+[
+  {
+    "year": 2024,
+    "month": 1,
+    "month_name": "January",
+    "total_income": 5000,
+    "total_expense": 2000,
+    "closing_balance": 3000
+  },
+  {
+    "year": 2024,
+    "month": 2,
+    "month_name": "February",
+    "total_income": 5000,
+    "total_expense": 2500,
+    "closing_balance": 5500
+  }
+]

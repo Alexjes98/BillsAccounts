@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
-import {
-  getMonthlySummaries,
-  MonthlySummary,
-  recalculateMonthlySummaries,
-  recalculateSingleMonthSummary,
-} from "@/api/api";
+import { MonthlySummary } from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +20,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 export function YearResume() {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [summaries, setSummaries] = useState<MonthlySummary[]>([]);
+  const api = useApi();
   const [loading, setLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [recalculatingMonth, setRecalculatingMonth] = useState<number | null>(
@@ -37,7 +34,7 @@ export function YearResume() {
   const fetchSummaries = async (selectedYear: number) => {
     setLoading(true);
     try {
-      const data = await getMonthlySummaries(selectedYear);
+      const data = await api.getMonthlySummaries(selectedYear);
       setSummaries(data);
     } catch (error) {
       console.error("Failed to fetch summaries", error);
@@ -49,7 +46,7 @@ export function YearResume() {
   const handleRecalculate = async () => {
     setRecalculating(true);
     try {
-      await recalculateMonthlySummaries();
+      await api.recalculateMonthlySummaries();
       await fetchSummaries(year);
     } catch (error) {
       console.error("Failed to recalculate", error);
@@ -61,7 +58,7 @@ export function YearResume() {
   const handleRecalculateMonth = async (month: number) => {
     setRecalculatingMonth(month);
     try {
-      await recalculateSingleMonthSummary(year, month);
+      await api.recalculateSingleMonthSummary(year, month);
       await fetchSummaries(year);
     } catch (error) {
       console.error(`Failed to recalculate month ${month}`, error);

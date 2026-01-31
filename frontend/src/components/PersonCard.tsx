@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Person } from "@/api/api";
+import { Person } from "@/api/repository";
 import { User } from "lucide-react";
 
 interface PersonCardProps {

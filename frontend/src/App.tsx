@@ -14,6 +14,8 @@ import {
   Link,
   useLocation,
 } from "react-router-dom";
+import { ApiProvider } from "@/contexts/ApiContext";
+
 function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
   const location = useLocation();
   const isActive = location.pathname === to;
@@ -28,23 +30,34 @@ function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
 }
 function Layout() {
   const { error } = useAppStore();
+  const location = useLocation();
+  const isFreeMode = location.pathname.includes("/free");
+
+  const getPath = (path: string) => {
+    if (isFreeMode) {
+      if (path === "/") return "/free/dashboard";
+      return `/free${path}`;
+    }
+    return path;
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans antialiased">
       <header className="border-b sticky top-0 bg-background z-10">
         <div className="flex h-16 items-center px-4 max-w-7xl mx-auto gap-6">
           <div className="font-bold text-xl mr-4">MyFinance App</div>
           <nav className="flex items-center gap-6">
-            <NavLink to="/">Dashboard</NavLink>
-            <NavLink to="/transactions">Transactions</NavLink>
-            <NavLink to="/debts">Debts</NavLink>
-            <NavLink to="/persons">Persons</NavLink>
-            <NavLink to="/categories">Categories</NavLink>
-            <NavLink to="/accounts">Accounts</NavLink>
-            <NavLink to="/year-resume">Year Resume</NavLink>
+            <NavLink to={getPath("/")}>Dashboard</NavLink>
+            <NavLink to={getPath("/transactions")}>Transactions</NavLink>
+            <NavLink to={getPath("/debts")}>Debts</NavLink>
+            <NavLink to={getPath("/persons")}>Persons</NavLink>
+            <NavLink to={getPath("/categories")}>Categories</NavLink>
+            <NavLink to={getPath("/accounts")}>Accounts</NavLink>
+            <NavLink to={getPath("/year-resume")}>Year Resume</NavLink>
           </nav>
           <div className="ml-auto text-sm text-muted-foreground flex items-center gap-2">
             <UserDisplay />
-            <span>Beta (Free Mode)</span>
+            {isFreeMode && <span>Beta (Free Mode)</span>}
           </div>
         </div>
       </header>
@@ -55,6 +68,15 @@ function Layout() {
           </div>
         )}
         <Routes>
+          {/* Free routes */}
+          <Route path="/free/dashboard" element={<Dashboard />} />
+          <Route path="/free/transactions" element={<TransactionsPage />} />
+          <Route path="/free/persons" element={<PersonsPage />} />
+          <Route path="/free/debts" element={<DebtsPage />} />
+          <Route path="/free/categories" element={<CategoriesPage />} />
+          <Route path="/free/accounts" element={<AccountsPage />} />
+          <Route path="/free/year-resume" element={<YearResume />} />
+          {/* Free routes */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/persons" element={<PersonsPage />} />
@@ -79,10 +101,23 @@ function UserDisplay() {
 function App() {
   return (
     <Router>
-      <UserProvider>
-        <Layout />
-      </UserProvider>
+      <ApiWrapper>
+        <UserProvider>
+          <Layout />
+        </UserProvider>
+      </ApiWrapper>
     </Router>
   );
 }
+
+function ApiWrapper({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  // Heuristic: If path contains "free" or we are explicitly in offline mode, usage IndexedDB.
+  // In a real app, this would check the Authentication Context.
+  // For now, we assume authenticated unless we are on a "free" route.
+  const isFreeMode = location.pathname.includes("free");
+
+  return <ApiProvider isAuthenticated={!isFreeMode}>{children}</ApiProvider>;
+}
+
 export default App;

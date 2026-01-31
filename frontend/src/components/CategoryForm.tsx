@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createCategory, CategoryCreate } from "@/api/api";
+import { CategoryCreate } from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 
 interface CategoryFormProps {
   onSuccess: () => void;
@@ -15,6 +16,7 @@ export function CategoryForm({ onSuccess, onCancel }: CategoryFormProps) {
   const [color, setColor] = useState("#e5e7eb");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const api = useApi();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +36,7 @@ export function CategoryForm({ onSuccess, onCancel }: CategoryFormProps) {
         icon: icon || undefined,
         color: color || undefined,
       };
-      await createCategory(payload);
+      await api.createCategory(payload);
       onSuccess();
     } catch (err: any) {
       console.error(err);

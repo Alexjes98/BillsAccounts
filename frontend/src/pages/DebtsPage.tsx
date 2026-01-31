@@ -5,19 +5,14 @@ import { Plus } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { DebtForm } from "@/components/DebtForm";
 import { format } from "date-fns";
-import {
-  getDebts,
-  getDebtsSummary,
-  getPersons,
-  DebtSummary,
-  Debt,
-  Person,
-} from "@/api/api";
+import { DebtSummary, Debt, Person } from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 
 export function DebtsPage() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [summary, setSummary] = useState<DebtSummary[]>([]);
   const [persons, setPersons] = useState<Person[]>([]);
+  const api = useApi();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,9 +21,9 @@ export function DebtsPage() {
     setIsLoading(true);
     try {
       const [debtsRes, summaryRes, personsRes] = await Promise.all([
-        getDebts(),
-        getDebtsSummary(),
-        getPersons(),
+        api.getDebts(),
+        api.getDebtsSummary(),
+        api.getPersons(),
       ]);
 
       setDebts(debtsRes);

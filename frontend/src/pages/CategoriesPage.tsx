@@ -3,11 +3,13 @@ import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { CategoryForm } from "@/components/CategoryForm";
-import { Category, getCategories } from "@/api/api";
+import { Category } from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
+  const api = useApi();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -15,7 +17,7 @@ export function CategoriesPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const data = await getCategories();
+      const data = await api.getCategories();
       setCategories(data);
       setError(null);
     } catch (err) {

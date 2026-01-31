@@ -2,19 +2,14 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  createTransaction,
-  updateTransaction,
-  getCategories,
   Category,
   CreateTransactionPayload,
   Account,
-  getAccounts,
   Debt,
   SavingsGoal,
-  getSavingsGoals,
-  getDebts,
   Transaction,
-} from "@/api/api";
+} from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 
 interface TransactionFormProps {
   initialData?: Transaction;
@@ -28,6 +23,7 @@ export function TransactionForm({
   onCancel,
 }: TransactionFormProps) {
   const user = { person_id: "3007bde0-4d03-4846-8cf4-f07677606fd8" };
+  const api = useApi();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -54,7 +50,7 @@ export function TransactionForm({
     const fetchCategories = async () => {
       setIsLoadingCategories(true);
       try {
-        const data = await getCategories();
+        const data = await api.getCategories();
         setCategories(data);
         if (data.length > 0) {
           setCategoryId(data[0].id);
@@ -69,7 +65,7 @@ export function TransactionForm({
     const fetchAccounts = async () => {
       setIsLoadingAccounts(true);
       try {
-        const data = await getAccounts();
+        const data = await api.getAccounts();
         setAccounts(data);
         if (data.length > 0) {
           setAccountId(data[0].id);
@@ -84,7 +80,7 @@ export function TransactionForm({
     const fetchDebts = async () => {
       setIsLoadingDebts(true);
       try {
-        const data = await getDebts();
+        const data = await api.getDebts();
         setDebts(data);
         if (data.length > 0) {
           setDebtId(data[0].id);
@@ -99,7 +95,7 @@ export function TransactionForm({
     const fetchSavingsGoals = async () => {
       setIsLoadingSavingsGoals(true);
       try {
-        const data = await getSavingsGoals();
+        const data = await api.getSavingsGoals();
         setSavingsGoals(data);
         if (data.length > 0) {
           setSavingsGoalId(data[0].id);
@@ -180,9 +176,9 @@ export function TransactionForm({
       };
 
       if (initialData) {
-        await updateTransaction(initialData.id, payload);
+        await api.updateTransaction(initialData.id, payload);
       } else {
-        await createTransaction(payload);
+        await api.createTransaction(payload);
       }
       onSuccess();
     } catch (err: any) {

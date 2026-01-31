@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Transaction } from "@/api/api";
+import { Transaction } from "@/api/repository";
 import { Edit, Trash2, Eye, MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -113,6 +113,8 @@ export function TransactionsList({
       </div>
     );
   }
+
+  console.log(transactions);
 
   return (
     <div className="border rounded-md">

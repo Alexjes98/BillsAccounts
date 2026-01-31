@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { createPerson, CreatePersonPayload } from "@/api/api";
+import { CreatePersonPayload } from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 
 interface PersonFormProps {
   onSuccess: () => void;
@@ -13,6 +14,7 @@ export function PersonForm({ onSuccess, onCancel }: PersonFormProps) {
   const [contactInfo, setContactInfo] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const api = useApi();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +32,7 @@ export function PersonForm({ onSuccess, onCancel }: PersonFormProps) {
         name,
         contact_info: contactInfo || undefined,
       };
-      await createPerson(payload);
+      await api.createPerson(payload);
       onSuccess();
     } catch (err: any) {
       console.error(err);

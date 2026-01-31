@@ -4,10 +4,12 @@ import { Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { PersonForm } from "@/components/PersonForm";
-import { Person, getPersons } from "@/api/api";
+import { Person } from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 
 export function PersonsPage() {
   const [persons, setPersons] = useState<Person[]>([]);
+  const api = useApi();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -15,7 +17,7 @@ export function PersonsPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const data = await getPersons();
+      const data = await api.getPersons();
       setPersons(data);
       setError(null);
     } catch (err) {

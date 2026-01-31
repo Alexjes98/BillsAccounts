@@ -11,9 +11,7 @@ describe("Year Resume Page", () => {
     cy.contains("Total Income").should("be.visible");
     cy.contains("Total Expenses").should("be.visible");
     cy.contains("Yearly Net Balance").should("be.visible");
-    cy.get("button")
-      .contains(/Select Year|20[0-9]{2}/)
-      .should("exist"); // Select trigger
+    cy.get("select").should("exist"); // Select trigger
   });
   it("should allow recalculating balance", () => {
     cy.intercept("POST", "/api/monthly-summaries/recalculate", {

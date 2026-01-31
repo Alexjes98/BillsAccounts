@@ -23,18 +23,20 @@ import {
 } from "recharts";
 // import { RefreshCcw } from "lucide-react";
 import { ArrowUpIcon, ArrowDownIcon, Wallet } from "lucide-react";
-import { DashboardData, getDashboardSummary } from "@/api/api";
+import { DashboardData } from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 
 export function Dashboard() {
   // const { freeData, userMode, reset } = useAppStore();
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const api = useApi();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const data = await getDashboardSummary();
+        const data = await api.getDashboardSummary();
         setData(data);
       } catch (err) {
         console.error("Error fetching dashboard data:", err);

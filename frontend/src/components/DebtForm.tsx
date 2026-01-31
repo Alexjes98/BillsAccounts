@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getPersons, Person, createDebt, CreateDebtPayload } from "@/api/api";
+import { Person, CreateDebtPayload } from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 
 interface DebtFormProps {
   onSuccess: () => void;
@@ -12,6 +13,7 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
   const user = { person_id: "5048520a-da77-4a94-b5e8-0376829ae095" };
   const [persons, setPersons] = useState<Person[]>([]);
   const [isLoadingPersons, setIsLoadingPersons] = useState(false);
+  const api = useApi();
 
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
@@ -30,7 +32,7 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
     const fetchPersons = async () => {
       setIsLoadingPersons(true);
       try {
-        const data = await getPersons();
+        const data = await api.getPersons();
         setPersons(data);
         if (data.length >= 2) {
           // Optional: Pre-select if we want
@@ -84,7 +86,7 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
         due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
       };
 
-      await createDebt(payload);
+      await api.createDebt(payload);
       onSuccess();
     } catch (err: any) {
       console.error(err);

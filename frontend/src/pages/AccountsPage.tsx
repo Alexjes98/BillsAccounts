@@ -10,19 +10,14 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { useAppStore } from "@/store/useAppStore";
-import {
-  getAccounts,
-  createAccount,
-  updateAccount,
-  deleteAccount,
-  Account,
-  CreateAccountPayload,
-} from "@/api/api";
+import { Account, CreateAccountPayload } from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 import { Plus, Pencil, Trash2, AlertTriangle } from "lucide-react";
 
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const { setError } = useAppStore();
+  const api = useApi();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -38,7 +33,7 @@ export function AccountsPage() {
 
   const fetchData = async () => {
     try {
-      const data = await getAccounts();
+      const data = await api.getAccounts();
       setAccounts(data);
     } catch (err) {
       console.log(err);
@@ -62,7 +57,7 @@ export function AccountsPage() {
 
   const handleCreate = async () => {
     try {
-      await createAccount(formData);
+      await api.createAccount(formData);
       setIsCreateOpen(false);
       resetForm();
       fetchData();
@@ -75,7 +70,7 @@ export function AccountsPage() {
   const handleEdit = async () => {
     if (!selectedAccount) return;
     try {
-      await updateAccount(selectedAccount.id, {
+      await api.updateAccount(selectedAccount.id, {
         name: formData.name,
         type: formData.type,
       });
@@ -91,7 +86,7 @@ export function AccountsPage() {
   const handleDelete = async () => {
     if (!selectedAccount) return;
     try {
-      await deleteAccount(selectedAccount.id);
+      await api.deleteAccount(selectedAccount.id);
       setIsDeleteOpen(false);
       resetForm();
       fetchData();

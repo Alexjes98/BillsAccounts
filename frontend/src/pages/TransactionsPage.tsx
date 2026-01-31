@@ -1,14 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
-import {
-  Transaction,
-  getTransactions,
-  deleteTransaction,
-  getCategories,
-  getAccounts,
-  Category,
-  Account,
-} from "@/api/api";
+import { Transaction, Category, Account } from "@/api/repository";
+import { useApi } from "@/contexts/ApiContext";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
@@ -20,6 +13,7 @@ export function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const api = useApi();
 
   // UI State
   const [isLoading, setIsLoading] = useState(true);
@@ -43,7 +37,7 @@ export function TransactionsPage() {
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await getTransactions({
+      const response = await api.getTransactions({
         page: currentPage,
         per_page: 12,
         search,
@@ -73,7 +67,10 @@ export function TransactionsPage() {
 
   const loadMetadata = async () => {
     try {
-      const [cats, accs] = await Promise.all([getCategories(), getAccounts()]);
+      const [cats, accs] = await Promise.all([
+        api.getCategories(),
+        api.getAccounts(),
+      ]);
       setCategories(cats);
       setAccounts(accs);
     } catch (err) {
@@ -131,7 +128,7 @@ export function TransactionsPage() {
       )
     ) {
       try {
-        await deleteTransaction(t.id);
+        await api.deleteTransaction(t.id);
         fetchData();
       } catch (err) {
         console.error(err);
