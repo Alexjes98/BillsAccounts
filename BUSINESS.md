@@ -2,6 +2,27 @@
 
 This application is a personal finance application that allows users to track their income and expenses, manage their savings goals, and track their debts. It is intended to be used by individuals to manage their personal finances.
 
+The app has two modes Free and Online.
+
+## Free:
+
+is managed locally with indexedDB.
+
+- It can create, read, update and delete persons, categories, debts, transactions and savings goals.
+- The data never leaves the device and is stored locally.
+- It can sync with the backend server later on.
+- It allows the user to download the data stored locally to external files.
+- Can be slow because of user device capabilities.
+
+## Online:
+
+is managed with a backend server.
+
+- It can create, read, update and delete persons, categories, debts, transactions and savings goals.
+- The data is stored in the backend server.
+
+Inside Online mode there is a subscription model where the user can subscribe to a plan to get access to additional features.
+
 ## Usage Flow
 
 The user will pass for a onboarding flow where it will be asked to create at least one person and one category for income and expense. After that, the user will be able to create transactions, savings goals, and debts.
