@@ -3,6 +3,7 @@ from decimal import Decimal
 from app.core.database import SessionLocal
 from app.models.models import Transaction, Category, User, Account, Debt, SavingsGoal
 from app.schemas.transaction import TransactionOut, PaginationOut, TransactionCreate, CategoryOut, AccountOut, DebtOut, SavingsGoalOut
+from app.schemas.transfer import TransferCreate
 
 transactions_bp = Blueprint('transactions', __name__)
 
@@ -38,6 +39,81 @@ def get_savings_goals():
         savings_goals = session.query(SavingsGoal).all()
         return jsonify([SavingsGoalOut.model_validate(g).model_dump(mode='json') for g in savings_goals])
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+@transactions_bp.route('/transfer', methods=['POST'])
+def transfer():
+    session = SessionLocal()
+    try:
+        data = request.json
+        try:
+             transfer_data = TransferCreate(**data)
+        except Exception as e:
+             return jsonify({"error": f"Validation error: {e}"}), 400
+
+        user = g.user
+        if not user:
+             return jsonify({"error": "No user found."}), 500
+
+        # Validate accounts belong to user
+        from_account = session.query(Account).filter_by(id=transfer_data.from_account_id, user_id=user.id).first()
+        to_account = session.query(Account).filter_by(id=transfer_data.to_account_id, user_id=user.id).first()
+
+        if not from_account or not to_account:
+            return jsonify({"error": "One or both accounts not found."}), 404
+        
+        if from_account.id == to_account.id:
+            return jsonify({"error": "Cannot transfer to the same account."}), 400
+
+        if from_account.current_balance < Decimal(str(transfer_data.amount)):
+             return jsonify({"error": "Insufficient funds in source account."}), 400
+
+        # Validate Category
+        category = session.query(Category).filter_by(id=transfer_data.category_id).first()
+        if not category:
+             return jsonify({"error": "Category not found."}), 400
+        
+        if category.type != "TRANSFER":
+             return jsonify({"error": "Category must be of type TRANSFER."}), 400
+
+        # Create Transactions
+        # 1. Outgoing from Source
+        tx_out = Transaction(
+            user_id=user.id,
+            name=f"Transfer to {to_account.name}",
+            description=transfer_data.description,
+            amount=-abs(Decimal(str(transfer_data.amount))),
+            transaction_date=transfer_data.transaction_date,
+            category_id=category.id,
+            account_id=from_account.id
+        )
+        
+        # 2. Incoming to Destination
+        tx_in = Transaction(
+            user_id=user.id,
+            name=f"Transfer from {from_account.name}",
+            description=transfer_data.description,
+            amount=abs(Decimal(str(transfer_data.amount))),
+            transaction_date=transfer_data.transaction_date,
+            category_id=category.id,
+            account_id=to_account.id
+        )
+
+        session.add(tx_out)
+        session.add(tx_in)
+        
+        # Update Balances
+        from_account.current_balance += tx_out.amount
+        to_account.current_balance += tx_in.amount
+
+        session.commit()
+        
+        return jsonify({"message": "Transfer successful"}), 201
+
+    except Exception as e:
+        session.rollback()
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()

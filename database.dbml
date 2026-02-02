@@ -21,7 +21,7 @@ Table categories {
   name varchar [not null]
   icon varchar [note: 'Icon identifier for frontend']
   color varchar [note: 'Hex code for charts']
-  type varchar [note: 'INCOME or EXPENSE']
+  type varchar [note: 'INCOME or EXPENSE or TRANSFER']
   created_at timestamptz [default: `now()`]
  
   indexes {

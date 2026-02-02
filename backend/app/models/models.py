@@ -35,7 +35,7 @@ class Category(Base):
     name = Column(String, nullable=False)
     icon = Column(String)
     color = Column(String)
-    type = Column(String) # INCOME or EXPENSE
+    type = Column(String) # INCOME, EXPENSE, or TRANSFER
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="categories")

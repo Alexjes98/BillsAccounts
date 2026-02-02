@@ -17,6 +17,7 @@ import {
   SavingsGoal,
   Transaction,
   TransactionQueryParams,
+  TransferPayload,
   User,
 } from "./repository";
 
@@ -382,6 +383,58 @@ export class IndexedDbRepository implements ApiRepository {
 
     // 2. Delete Transaction
     await db.delete("transactions", id);
+  }
+
+  async transfer(data: TransferPayload): Promise<void> {
+    const db = await this.dbPromise;
+    const fromAccount = await db.get("accounts", data.from_account_id);
+    const toAccount = await db.get("accounts", data.to_account_id);
+    const category = await db.get("categories", data.category_id);
+
+    if (!fromAccount || !toAccount) throw new Error("Account not found");
+    if (!category) throw new Error("Category not found");
+    if (category.type !== "TRANSFER")
+      throw new Error("Category must be of type TRANSFER");
+
+    if (fromAccount.current_balance < data.amount) {
+      throw new Error("Insufficient funds in source account");
+    }
+
+    // Create Outgoing Transaction
+    const txOut: Transaction = {
+      id: crypto.randomUUID(),
+      name: `Transfer to ${toAccount.name}`,
+      description: data.description,
+      amount: -Math.abs(data.amount),
+      transaction_date: data.transaction_date,
+      category_id: category.id,
+      account_id: fromAccount.id,
+      category: { name: category.name, icon: category.icon },
+      account: { name: fromAccount.name },
+    };
+
+    // Create Incoming Transaction
+    const txIn: Transaction = {
+      id: crypto.randomUUID(),
+      name: `Transfer from ${fromAccount.name}`,
+      description: data.description,
+      amount: Math.abs(data.amount),
+      transaction_date: data.transaction_date,
+      category_id: category.id,
+      account_id: toAccount.id,
+      category: { name: category.name, icon: category.icon },
+      account: { name: toAccount.name },
+    };
+
+    await db.put("transactions", txOut);
+    await db.put("transactions", txIn);
+
+    // Update balances
+    fromAccount.current_balance -= data.amount;
+    toAccount.current_balance += data.amount;
+
+    await db.put("accounts", fromAccount);
+    await db.put("accounts", toAccount);
   }
 
   async getSavingsGoals(): Promise<SavingsGoal[]> {

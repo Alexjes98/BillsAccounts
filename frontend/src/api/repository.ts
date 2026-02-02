@@ -78,6 +78,15 @@ export interface CreateTransactionPayload {
   person_id: string;
 }
 
+export interface TransferPayload {
+  from_account_id: string;
+  to_account_id: string;
+  amount: number;
+  category_id: string;
+  transaction_date: string;
+  description?: string;
+}
+
 export interface TransactionQueryParams {
   page?: number;
   per_page?: number;
@@ -182,6 +191,7 @@ export interface ApiRepository {
     data: Partial<CreateTransactionPayload>,
   ): Promise<Transaction>;
   deleteTransaction(id: string): Promise<void>;
+  transfer(data: TransferPayload): Promise<void>;
 
   getSavingsGoals(): Promise<SavingsGoal[]>;
 

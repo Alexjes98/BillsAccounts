@@ -17,6 +17,7 @@ import {
   SavingsGoal,
   Transaction,
   TransactionQueryParams,
+  TransferPayload,
   User,
 } from "./repository";
 
@@ -99,6 +100,10 @@ export class RestApiRepository implements ApiRepository {
 
   async deleteTransaction(id: string): Promise<void> {
     await api.delete(`/api/transactions/${id}`);
+  }
+
+  async transfer(data: TransferPayload): Promise<void> {
+    await api.post("/api/transactions/transfer", data);
   }
 
   async getDebts(): Promise<Debt[]> {
