@@ -55,3 +55,61 @@ def create_category():
         return jsonify({"error": str(e)}), 500
     finally:
         session.close()
+
+@categories_bp.route('/<uuid:category_id>', methods=['PUT'], strict_slashes=False)
+def update_category(category_id):
+    session = SessionLocal()
+    try:
+        user = g.user
+        if not user:
+            return jsonify({"error": "No user found in context."}), 500
+            
+        category = session.query(Category).filter_by(id=category_id, user_id=user.id).first()
+        if not category:
+            return jsonify({"error": "Category not found."}), 404
+
+        data = request.json
+        if 'name' in data:
+            category.name = data['name']
+        if 'icon' in data:
+            category.icon = data['icon']
+        if 'color' in data:
+            category.color = data['color']
+            
+        session.commit()
+        session.refresh(category)
+        return jsonify(CategoryOut.model_validate(category).model_dump(mode='json'))
+
+    except Exception as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+@categories_bp.route('/<uuid:category_id>', methods=['DELETE'], strict_slashes=False)
+def delete_category(category_id):
+    session = SessionLocal()
+    try:
+        user = g.user
+        if not user:
+            return jsonify({"error": "No user found in context."}), 500
+
+        category = session.query(Category).filter_by(id=category_id, user_id=user.id).first()
+        if not category:
+            return jsonify({"error": "Category not found."}), 404
+
+        from app.models.models import Transaction
+        tx_count = session.query(Transaction).filter_by(category_id=category_id).count()
+        
+        if tx_count > 0:
+            return jsonify({"error": "Cannot delete category because it is used in transactions."}), 409
+
+        session.delete(category)
+        session.commit()
+        return jsonify({"message": "Category deleted successfully."})
+
+    except Exception as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()

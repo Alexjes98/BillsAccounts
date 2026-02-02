@@ -1,15 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CategoryCreate } from "@/api/repository";
+import { Category, CategoryCreate } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
 
 interface CategoryFormProps {
   onSuccess: () => void;
   onCancel: () => void;
+  category?: Category;
 }
 
-export function CategoryForm({ onSuccess, onCancel }: CategoryFormProps) {
+export function CategoryForm({
+  onSuccess,
+  onCancel,
+  category,
+}: CategoryFormProps) {
   const [name, setName] = useState("");
   const [type, setType] = useState("EXPENSE");
   const [icon, setIcon] = useState("");
@@ -17,6 +22,15 @@ export function CategoryForm({ onSuccess, onCancel }: CategoryFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const api = useApi();
+
+  useEffect(() => {
+    if (category) {
+      setName(category.name);
+      setType(category.type);
+      setIcon(category.icon || "");
+      setColor(category.color || "#e5e7eb");
+    }
+  }, [category]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,11 +50,19 @@ export function CategoryForm({ onSuccess, onCancel }: CategoryFormProps) {
         icon: icon || undefined,
         color: color || undefined,
       };
-      await api.createCategory(payload);
+
+      if (category) {
+        await api.updateCategory(category.id, payload);
+      } else {
+        await api.createCategory(payload);
+      }
       onSuccess();
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.error || "Failed to create category.");
+      setError(
+        err.response?.data?.error ||
+          `Failed to ${category ? "update" : "create"} category.`,
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -75,7 +97,8 @@ export function CategoryForm({ onSuccess, onCancel }: CategoryFormProps) {
           id="type"
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          disabled={!!category} // specific requirement: maybe allow changing type? The prompt says "change the name, icon or color". It doesn't explicitly forbid type, but changing type might be risky if it affects transaction processing logic (sign). I'll disable it for safety or just keep it enabled? The prompt says: "allow the user to change the name, icon or color". It implies type should NOT be changed.
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
         >
           <option value="EXPENSE">Expense</option>
           <option value="INCOME">Income</option>
@@ -122,7 +145,13 @@ export function CategoryForm({ onSuccess, onCancel }: CategoryFormProps) {
           Cancel
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Creating..." : "Add"}
+          {isSubmitting
+            ? category
+              ? "Updating..."
+              : "Creating..."
+            : category
+              ? "Save Changes"
+              : "Add"}
         </Button>
       </div>
     </form>

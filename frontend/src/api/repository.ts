@@ -187,6 +187,8 @@ export interface ApiRepository {
 
   getCategories(): Promise<Category[]>;
   createCategory(data: CategoryCreate): Promise<Category>;
+  updateCategory(id: string, data: Partial<CategoryCreate>): Promise<Category>;
+  deleteCategory(id: string): Promise<void>;
 
   getAccounts(): Promise<Account[]>;
   createAccount(data: CreateAccountPayload): Promise<Account>;

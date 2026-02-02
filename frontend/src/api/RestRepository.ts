@@ -43,6 +43,18 @@ export class RestApiRepository implements ApiRepository {
     return response.data;
   }
 
+  async updateCategory(
+    id: string,
+    data: Partial<CategoryCreate>,
+  ): Promise<Category> {
+    const response = await api.put(`/api/categories/${id}`, data);
+    return response.data;
+  }
+
+  async deleteCategory(id: string): Promise<void> {
+    await api.delete(`/api/categories/${id}`);
+  }
+
   async getAccounts(): Promise<Account[]> {
     const response = await api.get("/api/accounts");
     return response.data;
