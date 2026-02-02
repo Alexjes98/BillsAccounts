@@ -1,17 +1,22 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreatePersonPayload } from "@/api/repository";
+import { CreatePersonPayload, Person } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
 
-interface PersonFormProps {
+export function PersonForm({
+  onSuccess,
+  onCancel,
+  initialData,
+}: {
   onSuccess: () => void;
   onCancel: () => void;
-}
-
-export function PersonForm({ onSuccess, onCancel }: PersonFormProps) {
-  const [name, setName] = useState("");
-  const [contactInfo, setContactInfo] = useState("");
+  initialData?: Person;
+}) {
+  const [name, setName] = useState(initialData?.name || "");
+  const [contactInfo, setContactInfo] = useState(
+    initialData?.contact_info || "",
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const api = useApi();
@@ -32,11 +37,16 @@ export function PersonForm({ onSuccess, onCancel }: PersonFormProps) {
         name,
         contact_info: contactInfo || undefined,
       };
-      await api.createPerson(payload);
+
+      if (initialData) {
+        await api.updatePerson(initialData.id, payload);
+      } else {
+        await api.createPerson(payload);
+      }
       onSuccess();
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.error || "Failed to create person.");
+      setError(err.response?.data?.error || "Failed to save person.");
     } finally {
       setIsSubmitting(false);
     }
@@ -80,7 +90,7 @@ export function PersonForm({ onSuccess, onCancel }: PersonFormProps) {
           Cancel
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Creating..." : "Add"}
+          {isSubmitting ? "Saving..." : initialData ? "Update" : "Add"}
         </Button>
       </div>
     </form>

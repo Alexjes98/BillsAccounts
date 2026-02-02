@@ -202,6 +202,8 @@ export interface ApiRepository {
 
   getPersons(): Promise<Person[]>;
   createPerson(data: CreatePersonPayload): Promise<Person>;
+  updatePerson(id: string, data: CreatePersonPayload): Promise<Person>;
+  deletePerson(id: string): Promise<void>;
 
   getDashboardSummary(): Promise<DashboardData>;
   getMonthlySummaries(year: number): Promise<MonthlySummary[]>;

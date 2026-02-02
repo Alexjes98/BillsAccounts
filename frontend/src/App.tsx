@@ -5,6 +5,14 @@ import { DebtsPage } from "@/pages/DebtsPage";
 import { CategoriesPage } from "@/pages/CategoriesPage";
 import { AccountsPage } from "@/pages/AccountsPage";
 import { YearResume } from "@/pages/YearResume";
+/*
+ * Free Mode Pages
+ */
+import { FreeDashboard } from "@/pages/free/FreeDashboard";
+import { FreeTransactionsPage } from "@/pages/free/FreeTransactionsPage";
+import { FreeDebtsPage } from "@/pages/free/FreeDebtsPage";
+import { FreeYearResume } from "@/pages/free/FreeYearResume";
+
 import { useAppStore } from "@/store/useAppStore";
 import { UserProvider, useUser } from "@/context/UserContext";
 import {
@@ -69,13 +77,13 @@ function Layout() {
         )}
         <Routes>
           {/* Free routes */}
-          <Route path="/free/dashboard" element={<Dashboard />} />
-          <Route path="/free/transactions" element={<TransactionsPage />} />
+          <Route path="/free/dashboard" element={<FreeDashboard />} />
+          <Route path="/free/transactions" element={<FreeTransactionsPage />} />
           <Route path="/free/persons" element={<PersonsPage />} />
-          <Route path="/free/debts" element={<DebtsPage />} />
+          <Route path="/free/debts" element={<FreeDebtsPage />} />
           <Route path="/free/categories" element={<CategoriesPage />} />
           <Route path="/free/accounts" element={<AccountsPage />} />
-          <Route path="/free/year-resume" element={<YearResume />} />
+          <Route path="/free/year-resume" element={<FreeYearResume />} />
           {/* Free routes */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/transactions" element={<TransactionsPage />} />

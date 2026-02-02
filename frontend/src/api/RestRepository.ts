@@ -109,6 +109,15 @@ export class RestApiRepository implements ApiRepository {
     return response.data;
   }
 
+  async updatePerson(id: string, data: CreatePersonPayload): Promise<Person> {
+    const response = await api.put(`/api/persons/${id}`, data);
+    return response.data;
+  }
+
+  async deletePerson(id: string): Promise<void> {
+    await api.delete(`/api/persons/${id}`);
+  }
+
   async getDashboardSummary(): Promise<DashboardData> {
     const response = await api.get("/api/dashboard/summary");
     return response.data;
