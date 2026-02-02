@@ -1,1 +1,1 @@
-{"root":["./e2e/accounts.cy.ts","./e2e/dashboard.cy.ts","./e2e/debts.cy.ts","./e2e/persons.cy.ts","./e2e/transactions.cy.ts","./e2e/year_resume.cy.ts","./support/commands.ts","./support/e2e.ts"],"version":"5.9.3"}
+{"root":["./e2e/accounts.cy.ts","./e2e/dashboard.cy.ts","./e2e/debts.cy.ts","./e2e/navigation_mode.cy.ts","./e2e/persons.cy.ts","./e2e/transactions.cy.ts","./e2e/year_resume.cy.ts","./support/commands.ts","./support/e2e.ts"],"version":"5.9.3"}

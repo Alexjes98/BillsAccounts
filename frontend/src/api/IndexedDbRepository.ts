@@ -190,6 +190,8 @@ export class IndexedDbRepository implements ApiRepository {
 
     // Fetch related objects to hydrate the response
     const category = await db.get("categories", data.category_id);
+    if (!category) throw new Error("Category not found"); // Basic validation matching backend
+
     const account = data.account_id
       ? await db.get("accounts", data.account_id)
       : undefined;
@@ -198,21 +200,60 @@ export class IndexedDbRepository implements ApiRepository {
       ? await db.get("savings_goals", data.savings_goal_id)
       : undefined;
 
-    if (category?.type === "INCOME") {
+    // 1. Determine Amount Sign
+    if (category.type === "INCOME") {
       data.amount = Math.abs(data.amount);
     } else {
       data.amount = -Math.abs(data.amount);
     }
 
+    // 2. Handle Debt Update (Only on Create)
+    if (data.debt_id && debt) {
+      if (!data.person_id) {
+        throw new Error("Person ID is required when linking a debt");
+      }
+      if (
+        data.person_id !== debt.creditor_id &&
+        data.person_id !== debt.debtor_id
+      ) {
+        throw new Error("The person provided is not part of this debt");
+      }
+
+      let shouldPermitReduction = false;
+      const isExpense = category.type === "EXPENSE";
+
+      if (isExpense) {
+        // User paying
+        shouldPermitReduction = true;
+      } else {
+        // Income: only if user is creditor (someone paying user)
+        if (data.person_id === debt.creditor_id) {
+          shouldPermitReduction = true;
+        }
+      }
+
+      if (shouldPermitReduction) {
+        const paymentAmount = Math.abs(data.amount);
+        debt.remaining_amount -= paymentAmount;
+        if (debt.remaining_amount <= 0) {
+          debt.remaining_amount = 0;
+          debt.is_settled = true;
+        } else {
+          debt.is_settled = false;
+        }
+        await db.put("debts", debt);
+      }
+    }
+
     const newTx: Transaction = {
       id,
       ...data,
-      account_id: data.account_id ?? undefined, // Ensure undefined if null
+      account_id: data.account_id ?? undefined,
       debt_id: data.debt_id ?? undefined,
       savings_goal_id: data.savings_goal_id ?? undefined,
       category: {
-        name: category?.name || "Unknown",
-        icon: category?.icon,
+        name: category.name || "Unknown",
+        icon: category.icon,
       },
       account: account ? { name: account.name } : undefined,
       debt: debt
@@ -226,15 +267,12 @@ export class IndexedDbRepository implements ApiRepository {
 
     await db.put("transactions", newTx);
 
-    // Update account balance
-    if (data.account_id && account && category) {
-      let newBalance = account.current_balance;
-      if (category.type === "INCOME") {
-        newBalance += data.amount;
-      } else {
-        newBalance -= data.amount;
-      }
-      await db.put("accounts", { ...account, current_balance: newBalance });
+    // 3. Update Account Balance
+    if (data.account_id && account) {
+      // Backend logic: account.current_balance += amount
+      // (amount is already signed correctly above)
+      account.current_balance += data.amount;
+      await db.put("accounts", account);
     }
 
     return newTx;
@@ -248,18 +286,84 @@ export class IndexedDbRepository implements ApiRepository {
     const tx = await db.get("transactions", id);
     if (!tx) throw new Error("Transaction not found");
 
-    // Revert old balance effect if account or amount/type changed (logic can be complex here)
-    // For MVP of offline mode, let's just update the object.
-    // Ideally we should handle balance updates too.
-    // TODO: Handle balance updates properly on edit.
+    // 1. Revert Old Balance Effect
+    const oldAccountId = tx.account_id;
+    const oldAmount = tx.amount;
 
-    const updatedTx = { ...tx, ...data };
+    if (oldAccountId) {
+      const oldAccount = await db.get("accounts", oldAccountId);
+      if (oldAccount) {
+        oldAccount.current_balance -= oldAmount;
+        await db.put("accounts", oldAccount);
+      }
+    }
 
-    // Hydrate relationships again if changed...
-    // For simplicity in this step, we just save.
+    // 2. Prepare Updates
+    // We need to check if category changed to recalculate amount sign
+    let category = await db.get("categories", tx.category_id); // Default to existing
+    if (data.category_id && data.category_id !== tx.category_id) {
+      const newCat = await db.get("categories", data.category_id);
+      if (newCat) category = newCat;
+    }
 
-    await db.put("transactions", updatedTx as Transaction);
-    return updatedTx as Transaction;
+    if (!category) throw new Error("Category not found");
+
+    // Calculate new amount with sign
+    let finalAmount = tx.amount; // Default start with existing (signed)
+    if (data.amount !== undefined) {
+      // New amount provided, apply sign
+      finalAmount =
+        category.type === "EXPENSE"
+          ? -Math.abs(data.amount)
+          : Math.abs(data.amount);
+    } else if (data.category_id) {
+      // Only category changed, re-evaluate sign of existing amount
+      // We need absolute value of current amount to re-sign
+      const absAmount = Math.abs(tx.amount);
+      finalAmount = category.type === "EXPENSE" ? -absAmount : absAmount;
+    }
+
+    // Merge updates
+    const updatedTx: Transaction = {
+      ...tx,
+      ...data,
+      amount: finalAmount,
+      // Update hydration if needed (simplified)
+      category: {
+        name: category.name,
+        icon: category.icon,
+      },
+    };
+
+    // 3. Apply New Balance Effect
+    if (updatedTx.account_id) {
+      const newAccount = await db.get("accounts", updatedTx.account_id);
+      if (newAccount) {
+        newAccount.current_balance += updatedTx.amount;
+        await db.put("accounts", newAccount);
+        // Update hydrated name
+        updatedTx.account = { name: newAccount.name };
+      }
+    } else {
+      updatedTx.account = undefined;
+    }
+
+    // Update other hydrated fields if IDs changed
+    if (data.debt_id) {
+      const debt = await db.get("debts", data.debt_id);
+      if (debt)
+        updatedTx.debt = {
+          description: debt.description,
+          remaining_amount: debt.remaining_amount,
+        };
+    }
+    if (data.savings_goal_id) {
+      const sg = await db.get("savings_goals", data.savings_goal_id);
+      if (sg) updatedTx.savings_goal = { name: sg.name };
+    }
+
+    await db.put("transactions", updatedTx);
+    return updatedTx;
   }
 
   async deleteTransaction(id: string): Promise<void> {
@@ -267,7 +371,16 @@ export class IndexedDbRepository implements ApiRepository {
     const tx = await db.get("transactions", id);
     if (!tx) return;
 
-    // TODO: Revert account balance
+    // 1. Revert Account Balance
+    if (tx.account_id) {
+      const account = await db.get("accounts", tx.account_id);
+      if (account) {
+        account.current_balance -= tx.amount;
+        await db.put("accounts", account);
+      }
+    }
+
+    // 2. Delete Transaction
     await db.delete("transactions", id);
   }
 
@@ -325,6 +438,17 @@ export class IndexedDbRepository implements ApiRepository {
 
   async deleteAccount(id: string): Promise<void> {
     const db = await this.dbPromise;
+
+    // Cascade delete transactions
+    const transactions = await db.getAllFromIndex(
+      "transactions",
+      "by-account",
+      id,
+    );
+    for (const tx of transactions) {
+      await db.delete("transactions", tx.id);
+    }
+
     await db.delete("accounts", id);
   }
 
