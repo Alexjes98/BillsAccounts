@@ -145,6 +145,9 @@ export class IndexedDbRepository implements ApiRepository {
           (t) => t.account_id === params.account_id,
         );
       }
+      if (params.debt_id) {
+        transactions = transactions.filter((t) => t.debt_id === params.debt_id);
+      }
       if (params.date) {
         // Simple date matching if needed, or by month
       }
@@ -186,6 +189,7 @@ export class IndexedDbRepository implements ApiRepository {
   async createTransaction(
     data: CreateTransactionPayload,
   ): Promise<Transaction> {
+    //TODO: FIX ADD TRANSACTION FROM DEBT ERROR DE PERSONA NO PERTENECE A LA DEUDA PARA OFFLINE
     const db = await this.dbPromise;
     const id = crypto.randomUUID();
 

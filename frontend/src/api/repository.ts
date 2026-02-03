@@ -93,6 +93,7 @@ export interface TransactionQueryParams {
   search?: string;
   category_id?: string;
   account_id?: string;
+  debt_id?: string;
   date?: string;
   type?: string;
 }

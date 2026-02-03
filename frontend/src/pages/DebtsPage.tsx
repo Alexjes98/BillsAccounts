@@ -1,12 +1,130 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { DebtForm } from "@/components/DebtForm";
 import { format } from "date-fns";
-import { DebtSummary, Debt, Person } from "@/api/repository";
+import {
+  DebtSummary,
+  Debt,
+  Person,
+  Transaction,
+  ApiRepository,
+} from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
+
+// Component for expandable debt row
+function DebtRow({
+  debt,
+  getPersonName,
+  api,
+}: {
+  debt: Debt;
+  getPersonName: (id: string) => string;
+  api: ApiRepository;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoadingTx, setIsLoadingTx] = useState(false);
+
+  const toggleExpand = async () => {
+    if (!isExpanded && transactions.length === 0) {
+      setIsLoadingTx(true);
+      try {
+        const res = await api.getTransactions({
+          debt_id: debt.id,
+          per_page: 100, // Fetch enough to show
+        });
+        setTransactions(res.items);
+      } catch (err) {
+        console.error("Failed to fetch debt transactions", err);
+      } finally {
+        setIsLoadingTx(false);
+      }
+    }
+    setIsExpanded(!isExpanded);
+  };
+
+  return (
+    <>
+      <tr className="border-t hover:bg-muted/50 transition-colors">
+        <td className="p-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={toggleExpand}
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </Button>
+        </td>
+        <td className="p-4">
+          {debt.created_at ? format(new Date(debt.created_at), "PPP") : "-"}
+        </td>
+        <td className="p-4">{debt.description || "No description"}</td>
+        <td className="p-4">
+          <span className="font-medium">{getPersonName(debt.creditor_id)}</span>
+          <span className="mx-2 text-muted-foreground">→</span>
+          <span className="font-medium">{getPersonName(debt.debtor_id)}</span>
+        </td>
+        <td className="p-4 text-right font-medium text-red-600">
+          ${debt.total_amount.toLocaleString()}
+        </td>
+        <td className="p-4 text-right">
+          ${debt.remaining_amount.toLocaleString()}
+        </td>
+      </tr>
+      {isExpanded && (
+        <tr className="bg-muted/30">
+          <td colSpan={6} className="p-4 pl-12">
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm text-muted-foreground">
+                Related Transactions
+              </h4>
+              {isLoadingTx ? (
+                <div className="text-sm">Loading transactions...</div>
+              ) : transactions.length > 0 ? (
+                <div className="border rounded-md bg-background">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="p-2 text-left font-medium">Date</th>
+                        <th className="p-2 text-left font-medium">Name</th>
+                        <th className="p-2 text-right font-medium">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transactions.map((tx) => (
+                        <tr key={tx.id} className="border-b last:border-0">
+                          <td className="p-2">
+                            {format(new Date(tx.transaction_date), "PP")}
+                          </td>
+                          <td className="p-2">{tx.name}</td>
+                          <td className="p-2 text-right">
+                            ${Math.abs(tx.amount).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground italic">
+                  No related transactions found.
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
 
 export function DebtsPage() {
   const [debts, setDebts] = useState<Debt[]>([]);
@@ -123,6 +241,7 @@ export function DebtsPage() {
             <table className="w-full text-sm text-left">
               <thead className="bg-muted/50 text-muted-foreground">
                 <tr>
+                  <th className="p-4 font-medium w-8"></th>
                   <th className="p-4 font-medium">Date</th>
                   <th className="p-4 font-medium">Description</th>
                   <th className="p-4 font-medium">Creditor/Debtor</th>
@@ -132,31 +251,12 @@ export function DebtsPage() {
               </thead>
               <tbody>
                 {activeDebts.map((debt) => (
-                  <tr key={debt.id} className="border-t">
-                    <td className="p-4">
-                      {debt.created_at
-                        ? format(new Date(debt.created_at), "PPP")
-                        : "-"}
-                    </td>
-                    <td className="p-4">
-                      {debt.description || "No description"}
-                    </td>
-                    <td className="p-4">
-                      <span className="font-medium">
-                        {getPersonName(debt.creditor_id)}
-                      </span>
-                      <span className="mx-2 text-muted-foreground">→</span>
-                      <span className="font-medium">
-                        {getPersonName(debt.debtor_id)}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right font-medium text-red-600">
-                      ${debt.total_amount.toLocaleString()}
-                    </td>
-                    <td className="p-4 text-right">
-                      ${debt.remaining_amount.toLocaleString()}
-                    </td>
-                  </tr>
+                  <DebtRow
+                    key={debt.id}
+                    debt={debt}
+                    getPersonName={getPersonName}
+                    api={api}
+                  />
                 ))}
               </tbody>
             </table>

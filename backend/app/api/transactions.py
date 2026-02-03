@@ -149,6 +149,10 @@ def transactions():
             
             if account_id:
                 query = query.filter(Transaction.account_id == account_id)
+
+            if request.args.get('debt_id'):
+                query = query.filter(Transaction.debt_id == request.args.get('debt_id'))
+
                 
             if date_filter:
                 # Assuming date format YYYY-MM-DD
