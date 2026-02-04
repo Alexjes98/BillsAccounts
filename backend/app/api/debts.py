@@ -115,6 +115,8 @@ def get_debts_summary():
             Debt.debtor_id
         ).join(Creditor, Debt.creditor_id == Creditor.id)\
          .join(Debtor, Debt.debtor_id == Debtor.id)\
+         .filter(Debt.deleted_at.is_(None))\
+         .filter(Debt.is_settled == False)\
          .group_by(Debt.creditor_id, Debt.debtor_id, Creditor.name, Debtor.name).all()
 
         summary_data = []

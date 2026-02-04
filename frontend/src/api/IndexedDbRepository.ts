@@ -587,8 +587,38 @@ export class IndexedDbRepository implements ApiRepository {
   }
 
   async getDebtsSummary(): Promise<DebtSummary[]> {
-    // Simple mock or calculation
-    return [];
+    const db = await this.dbPromise;
+    const debts = await db.getAll("debts");
+    const persons = await db.getAll("persons");
+
+    // Filter active debts
+    const activeDebts = debts.filter((d) => !d.is_settled && !d.deleted_at);
+
+    const summaryMap = new Map<string, DebtSummary>();
+
+    activeDebts.forEach((debt) => {
+      const key = `${debt.creditor_id}-${debt.debtor_id}`;
+      if (!summaryMap.has(key)) {
+        const creditor = persons.find((p) => p.id === debt.creditor_id);
+        const debtor = persons.find((p) => p.id === debt.debtor_id);
+        summaryMap.set(key, {
+          creditor_name: creditor
+            ? creditor.name
+            : debt.creditor_id.substring(0, 8) + "...",
+          debtor_name: debtor
+            ? debtor.name
+            : debt.debtor_id.substring(0, 8) + "...",
+          count: 0,
+          total_amount: 0,
+        });
+      }
+
+      const item = summaryMap.get(key)!;
+      item.count += 1;
+      item.total_amount += debt.total_amount;
+    });
+
+    return Array.from(summaryMap.values());
   }
 
   async getPersons(): Promise<Person[]> {
