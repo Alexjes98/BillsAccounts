@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Check, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { DebtForm } from "@/components/DebtForm";
 import { format } from "date-fns";
@@ -19,14 +19,20 @@ function DebtRow({
   debt,
   getPersonName,
   api,
+  onRefresh,
 }: {
   debt: Debt;
   getPersonName: (id: string) => string;
   api: ApiRepository;
+  onRefresh: () => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingTx, setIsLoadingTx] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<
+    "delete" | "settle" | null
+  >(null);
 
   const toggleExpand = async () => {
     if (!isExpanded && transactions.length === 0) {
@@ -44,6 +50,52 @@ function DebtRow({
       }
     }
     setIsExpanded(!isExpanded);
+  };
+
+  const handleSettleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmAction("settle");
+    setShowConfirm(true);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmAction("delete");
+    setShowConfirm(true);
+  };
+
+  const handleConfirm = async () => {
+    try {
+      if (confirmAction === "settle") {
+        await api.updateDebt(debt.id, { is_settled: true });
+      } else if (confirmAction === "delete") {
+        await api.deleteDebt(debt.id);
+      }
+      onRefresh();
+    } catch (err) {
+      console.error(`Failed to ${confirmAction} debt`, err);
+    } finally {
+      setShowConfirm(false);
+    }
+  };
+
+  const getConfirmTitle = () => {
+    if (confirmAction === "settle") return "Settle Debt";
+    if (confirmAction === "delete") return "Delete Debt";
+    return "Confirm";
+  };
+
+  const getConfirmMessage = () => {
+    if (confirmAction === "settle") {
+      return "Are you sure you want to mark this debt as fully settled?";
+    }
+    if (confirmAction === "delete") {
+      if (debt.is_settled) {
+        return "This debt is already settled. Deleting it will remove it from historical data and reports. Are you sure you want to proceed?";
+      }
+      return "Has this debt been Written off or Forgiven by the debitor? Please ensure the debt is resolved before deleting to avoid unsettled records.";
+    }
+    return "";
   };
 
   return (
@@ -78,10 +130,34 @@ function DebtRow({
         <td className="p-4 text-right">
           ${debt.remaining_amount.toLocaleString()}
         </td>
+        <td className="p-4 text-right">
+          <div className="flex justify-end gap-2">
+            {!debt.is_settled && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                onClick={handleSettleClick}
+                title="Settle Debt"
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={handleDeleteClick}
+              title="Delete Debt"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </td>
       </tr>
       {isExpanded && (
         <tr className="bg-muted/30">
-          <td colSpan={6} className="p-4 pl-12">
+          <td colSpan={7} className="p-4 pl-12">
             <div className="space-y-2">
               <h4 className="font-medium text-sm text-muted-foreground">
                 Related Transactions
@@ -122,6 +198,27 @@ function DebtRow({
           </td>
         </tr>
       )}
+
+      <Modal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        title={getConfirmTitle()}
+      >
+        <div className="space-y-4">
+          <p>{getConfirmMessage()}</p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant={confirmAction === "delete" ? "destructive" : "default"}
+              onClick={handleConfirm}
+            >
+              Confirm
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }
@@ -247,6 +344,7 @@ export function FreeDebtsPage() {
                   <th className="p-4 font-medium">Creditor/Debtor</th>
                   <th className="p-4 font-medium text-right">Amount</th>
                   <th className="p-4 font-medium text-right">Remaining</th>
+                  <th className="p-4 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -256,6 +354,7 @@ export function FreeDebtsPage() {
                     debt={debt}
                     getPersonName={getPersonName}
                     api={api}
+                    onRefresh={fetchData}
                   />
                 ))}
               </tbody>
@@ -274,26 +373,24 @@ export function FreeDebtsPage() {
             <table className="w-full text-sm text-left opacity-60">
               <thead className="bg-muted/50 text-muted-foreground">
                 <tr>
+                  <th className="p-4 font-medium w-8"></th>
                   <th className="p-4 font-medium">Date</th>
                   <th className="p-4 font-medium">Description</th>
                   <th className="p-4 font-medium text-right">
                     Original Amount
                   </th>
+                  <th className="p-4 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {settledDebts.map((debt) => (
-                  <tr key={debt.id} className="border-t">
-                    <td className="p-4">
-                      {debt.created_at
-                        ? format(new Date(debt.created_at), "PPP")
-                        : "-"}
-                    </td>
-                    <td className="p-4">{debt.description}</td>
-                    <td className="p-4 text-right">
-                      ${debt.total_amount.toLocaleString()}
-                    </td>
-                  </tr>
+                  <DebtRow
+                    key={debt.id}
+                    debt={debt}
+                    getPersonName={getPersonName}
+                    api={api}
+                    onRefresh={fetchData}
+                  />
                 ))}
               </tbody>
             </table>

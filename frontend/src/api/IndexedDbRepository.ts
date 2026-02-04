@@ -558,6 +558,34 @@ export class IndexedDbRepository implements ApiRepository {
     return db.getAll("debts");
   }
 
+  async updateDebt(
+    id: string,
+    data: Partial<CreateDebtPayload> | { is_settled: boolean },
+  ): Promise<Debt> {
+    const db = await this.dbPromise;
+    const debt = await db.get("debts", id);
+    if (!debt) throw new Error("Debt not found");
+
+    const updatedDebt = { ...debt, ...data };
+
+    // Logic for settlement handling if needed locally, similar to backend
+    if ("is_settled" in data) {
+      if (data.is_settled) {
+        updatedDebt.remaining_amount = 0;
+      }
+      // If un-settling, we keep as is or need logic.
+      // Mirroring backend logic (which currently does nothing specific for un-settling)
+    }
+
+    await db.put("debts", updatedDebt);
+    return updatedDebt;
+  }
+
+  async deleteDebt(id: string): Promise<void> {
+    const db = await this.dbPromise;
+    await db.delete("debts", id);
+  }
+
   async getDebtsSummary(): Promise<DebtSummary[]> {
     // Simple mock or calculation
     return [];

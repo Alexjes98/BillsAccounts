@@ -213,6 +213,11 @@ export interface ApiRepository {
   createDebt(data: CreateDebtPayload): Promise<Debt>;
   getDebts(): Promise<Debt[]>;
   getDebtsSummary(): Promise<DebtSummary[]>;
+  updateDebt(
+    id: string,
+    data: Partial<CreateDebtPayload> | { is_settled: boolean },
+  ): Promise<Debt>;
+  deleteDebt(id: string): Promise<void>;
 
   getPersons(): Promise<Person[]>;
   createPerson(data: CreatePersonPayload): Promise<Person>;

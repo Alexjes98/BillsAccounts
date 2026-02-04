@@ -111,6 +111,18 @@ export class RestApiRepository implements ApiRepository {
     return response.data;
   }
 
+  async updateDebt(
+    id: string,
+    data: Partial<CreateDebtPayload> | { is_settled: boolean },
+  ): Promise<Debt> {
+    const response = await api.put(`/api/debts/${id}`, data);
+    return response.data;
+  }
+
+  async deleteDebt(id: string): Promise<void> {
+    await api.delete(`/api/debts/${id}`);
+  }
+
   async getDebtsSummary(): Promise<DebtSummary[]> {
     const response = await api.get("/api/debts/summary");
     return response.data;
@@ -168,7 +180,7 @@ export class RestApiRepository implements ApiRepository {
     return response.data;
   }
 
-  async createUser(data: any): Promise<User> {
+  async createUser(_data: any): Promise<User> {
     // For online version, this is handled by Auth provider usually, or we can mock it
     throw new Error("Not implemented for REST API");
   }

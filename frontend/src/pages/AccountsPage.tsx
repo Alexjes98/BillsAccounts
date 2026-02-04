@@ -124,10 +124,6 @@ export function AccountsPage() {
 
   const handleTransfer = async () => {
     try {
-      // Find transfer category
-      let transferCategory = categories.find((c) => c.type === "TRANSFER");
-      // If we used a selector, we use that ID. If not, we try to auto-find.
-      // But we will add a selector in UI restricted to TRANSFER type. (or hidden if we prefer auto-select)
       // Requirement: "user to move money...". Usually user doesn't care about category for transfer, but systme needs it.
       // Implementation Plan says: "Category (filtered by type TRANSFER)" in UI.
 

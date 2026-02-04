@@ -11,7 +11,7 @@ def handle_debts():
     session = SessionLocal()
     try:
         if request.method == 'GET':
-            debts = session.query(Debt).all()
+            debts = session.query(Debt).filter(Debt.deleted_at.is_(None)).all()
             return jsonify([DebtOut.model_validate(d).model_dump(mode='json') for d in debts])
         
         elif request.method == 'POST':
@@ -45,6 +45,50 @@ def handle_debts():
             
             return jsonify(DebtOut.model_validate(new_debt).model_dump(mode='json')), 201
             
+    except Exception as e:
+        session.rollback()
+        return jsonify({"error": str(e)}), 500
+    finally:
+        session.close()
+
+@debts_bp.route('/<uuid:debt_id>', methods=['PUT', 'DELETE'], strict_slashes=False)
+def handle_single_debt(debt_id):
+    session = SessionLocal()
+    try:
+        debt = session.query(Debt).filter(Debt.id == debt_id, Debt.deleted_at.is_(None)).first()
+        if not debt:
+            return jsonify({"error": "Debt not found"}), 404
+
+        if request.method == 'PUT':
+            data = request.json
+            
+            # Update fields if present
+            if 'description' in data:
+                debt.description = data['description']
+            if 'due_date' in data:
+                debt.due_date = data['due_date']
+            if 'is_settled' in data:
+                debt.is_settled = data['is_settled']
+                if debt.is_settled:
+                    debt.remaining_amount = 0
+                else:
+                    # If un-settling, what should be the remaining amount?
+                    # Ideally we should track payments, but for now we might reset to total or keep as is?
+                    # The requirement says "Mark debt as settled", implies one way mostly.
+                    # If un-settling, we probably shouldn't auto-reset unless we know the history.
+                    # For safety, let's only auto-zero if settling.
+                    pass
+
+            session.commit()
+            session.refresh(debt)
+            return jsonify(DebtOut.model_validate(debt).model_dump(mode='json'))
+
+        elif request.method == 'DELETE':
+            from datetime import datetime
+            debt.deleted_at = datetime.utcnow()
+            session.commit()
+            return jsonify({"message": "Debt deleted successfully"}), 200
+
     except Exception as e:
         session.rollback()
         return jsonify({"error": str(e)}), 500
