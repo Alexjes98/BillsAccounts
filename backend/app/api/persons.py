@@ -10,7 +10,15 @@ def handle_persons():
     session = SessionLocal()
     try:
         if request.method == 'GET':
-            persons = session.query(Person).all()
+            if not g.user:
+                 return jsonify({"error": "No user found in context."}), 500
+            user = g.user
+            
+            query = session.query(Person)
+            if user.person_id:
+                query = query.filter(Person.id != user.person_id)
+            
+            persons = query.all()
             return jsonify([PersonOut.model_validate(p).model_dump(mode='json') for p in persons])
         
         elif request.method == 'POST':
@@ -96,6 +104,10 @@ def delete_person(person_id):
         person = session.query(Person).filter_by(id=person_id, user_id=user.id).first()
         if not person:
             return jsonify({"error": "Person not found"}), 404
+        
+        # Check if trying to delete self
+        if user.person_id and str(person.id) == str(user.person_id):
+            return jsonify({"error": "Cannot delete your own person entity."}), 400
 
         # Check for existing debts
         if person.debts_as_creditor or person.debts_as_debtor:

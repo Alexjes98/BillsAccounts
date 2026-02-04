@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Person, CreateDebtPayload } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
+import { useUser } from "@/context/UserContext";
 
 interface DebtFormProps {
   onSuccess: () => void;
@@ -10,7 +11,7 @@ interface DebtFormProps {
 }
 
 export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
-  const user = { person_id: "5048520a-da77-4a94-b5e8-0376829ae095" };
+  const { user } = useUser();
   const [persons, setPersons] = useState<Person[]>([]);
   const [isLoadingPersons, setIsLoadingPersons] = useState(false);
   const api = useApi();
@@ -64,15 +65,20 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
     if (direction === "payable") {
       // I owe them -> I am the debtor
       finalCreditorId = counterpartyId;
-      finalDebtorId = user.person_id;
+      finalDebtorId = user?.person_id || "";
     } else {
       // They owe me -> I am the creditor
-      finalCreditorId = user.person_id;
+      finalCreditorId = user?.person_id || "";
       finalDebtorId = counterpartyId;
     }
 
     if (finalCreditorId === finalDebtorId) {
       setError("Creditor and Debtor cannot be the same person.");
+      setIsSubmitting(false);
+      return;
+    }
+    if (!finalCreditorId || !finalDebtorId) {
+      setError("Creditor and Debtor cannot be empty.");
       setIsSubmitting(false);
       return;
     }
@@ -177,7 +183,7 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
           >
             <option value="">Select Person</option>
             {persons
-              .filter((p) => p.id !== user.person_id)
+              .filter((p) => p.id !== user?.person_id)
               .map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}

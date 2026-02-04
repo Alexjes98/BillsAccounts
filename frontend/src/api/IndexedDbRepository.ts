@@ -19,6 +19,7 @@ import {
   TransactionQueryParams,
   TransferPayload,
   User,
+  CreateUserPayload,
 } from "./repository";
 
 // TODO: Refine all behaviours with data relations to ensure data consistency with basic functions
@@ -107,16 +108,10 @@ export class IndexedDbRepository implements ApiRepository {
   }
 
   private async seedInitialData() {
-    const db = await this.dbPromise;
-    const user = await db.getAll("user");
-    if (user.length === 0) {
-      await db.put("user", {
-        id: "local-user",
-        email: "local@user.com",
-        base_currency: "USD",
-        created_at: new Date().toISOString(),
-      });
-    }
+    // const db = await this.dbPromise;
+    // const user = await db.getAll("user");
+    // Removed user seeding to allow onboarding
+    // if (user.length === 0) { ... }
   }
 
   async getTransactions(
@@ -217,6 +212,8 @@ export class IndexedDbRepository implements ApiRepository {
       if (!data.person_id) {
         throw new Error("Person ID is required when linking a debt");
       }
+      console.log("debt", debt);
+      console.log("data", data);
       if (
         data.person_id !== debt.creditor_id &&
         data.person_id !== debt.debtor_id
@@ -568,7 +565,13 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getPersons(): Promise<Person[]> {
     const db = await this.dbPromise;
-    return db.getAll("persons");
+    const persons = await db.getAll("persons");
+    const user = await db.get("user", "local-user");
+
+    if (user && user.person_id) {
+      return persons.filter((p) => p.id !== user.person_id);
+    }
+    return persons;
   }
 
   async createPerson(data: CreatePersonPayload): Promise<Person> {
@@ -686,9 +689,37 @@ export class IndexedDbRepository implements ApiRepository {
     };
   }
 
-  async getUser(): Promise<User> {
+  async getUser(): Promise<User | null> {
     const db = await this.dbPromise;
     const user = await db.get("user", "local-user");
-    return user!;
+    return user || null;
+  }
+
+  async createUser(data: CreateUserPayload): Promise<User> {
+    const db = await this.dbPromise;
+
+    // Automatically create the user person
+    const personName = data.email ? data.email.split("@")[0] : "Me";
+    const userPerson: Person = {
+      id: "local-user-person",
+      name: personName,
+      contact_info: data.email || "",
+      created_at: new Date().toISOString(),
+    };
+
+    userPerson.id = crypto.randomUUID();
+
+    await db.put("persons", userPerson);
+
+    const newUser: User = {
+      id: "local-user",
+      email: data.email || "",
+      base_currency: data.base_currency,
+      person_id: userPerson.id,
+      created_at: new Date().toISOString(),
+    };
+    await db.put("user", newUser);
+
+    return newUser;
   }
 }

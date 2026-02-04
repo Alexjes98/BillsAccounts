@@ -179,6 +179,7 @@ export interface User {
   id: string;
   email: string;
   base_currency: string;
+  person_id?: string;
   created_at: string;
 }
 
@@ -226,5 +227,11 @@ export interface ApiRepository {
     month: number,
   ): Promise<{ message: string; data: MonthlySummary }>;
 
-  getUser(): Promise<User>;
+  getUser(): Promise<User | null>;
+  createUser(data: CreateUserPayload): Promise<User>;
+}
+
+export interface CreateUserPayload {
+  email?: string;
+  base_currency: string;
 }

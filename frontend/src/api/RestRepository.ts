@@ -163,8 +163,13 @@ export class RestApiRepository implements ApiRepository {
     return response.data;
   }
 
-  async getUser(): Promise<User> {
-    const response = await api.get("/api/user");
+  async getUser(): Promise<User | null> {
+    const response = await api.get("/api/users/me");
     return response.data;
+  }
+
+  async createUser(data: any): Promise<User> {
+    // For online version, this is handled by Auth provider usually, or we can mock it
+    throw new Error("Not implemented for REST API");
   }
 }

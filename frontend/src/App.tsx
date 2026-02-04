@@ -12,6 +12,7 @@ import { FreeDashboard } from "@/pages/free/FreeDashboard";
 import { FreeTransactionsPage } from "@/pages/free/FreeTransactionsPage";
 import { FreeDebtsPage } from "@/pages/free/FreeDebtsPage";
 import { FreeYearResume } from "@/pages/free/FreeYearResume";
+import { OnboardingPage } from "@/pages/OnboardingPage";
 
 import { useAppStore } from "@/store/useAppStore";
 import { UserProvider, useUser } from "@/context/UserContext";
@@ -21,8 +22,11 @@ import {
   Route,
   Link,
   useLocation,
+  useNavigate,
 } from "react-router-dom";
+import { useEffect } from "react";
 import { ApiProvider } from "@/contexts/ApiContext";
+import { FreeOnboardingPage } from "./pages/free/FreeOnboardingPage";
 
 function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
   const location = useLocation();
@@ -39,7 +43,22 @@ function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
 function Layout() {
   const { error } = useAppStore();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, loading } = useUser();
   const isFreeMode = location.pathname.includes("/free");
+
+  //TODO: REFINE THIS
+  useEffect(() => {
+    if (!loading && !user && !location.pathname.includes("onboarding")) {
+      if (isFreeMode) {
+        navigate("/free/onboarding");
+      } else {
+        // Online mode typically has auth before this, but if user profile is missing:
+        // For now, keep hardcoded behavior as requested, but if strictly null:
+        navigate("/onboarding");
+      }
+    }
+  }, [loading, user, location.pathname, navigate, isFreeMode]);
 
   const getPath = (path: string) => {
     if (isFreeMode) {
@@ -77,6 +96,7 @@ function Layout() {
         )}
         <Routes>
           {/* Free routes */}
+          <Route path="/free/onboarding" element={<FreeOnboardingPage />} />
           <Route path="/free/dashboard" element={<FreeDashboard />} />
           <Route path="/free/transactions" element={<FreeTransactionsPage />} />
           <Route path="/free/persons" element={<PersonsPage />} />
@@ -92,6 +112,7 @@ function Layout() {
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/year-resume" element={<YearResume />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
         </Routes>
       </main>
     </div>

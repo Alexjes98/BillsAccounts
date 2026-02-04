@@ -114,8 +114,6 @@ export function TransactionsList({
     );
   }
 
-  console.log(transactions);
-
   return (
     <div className="border rounded-md">
       <table className="w-full text-sm">
