@@ -234,9 +234,23 @@ export interface ApiRepository {
 
   getUser(): Promise<User | null>;
   createUser(data: CreateUserPayload): Promise<User>;
+  getAllData?(): Promise<any>;
+  loadData?(data: any): Promise<void>;
 }
 
 export interface CreateUserPayload {
   email?: string;
   base_currency: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  base_currency: string;
+  person_id?: string;
+  created_at: string;
+  person?: {
+    name: string;
+    contact_info?: string;
+  };
 }

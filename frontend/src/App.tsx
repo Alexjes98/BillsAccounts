@@ -13,6 +13,7 @@ import { FreeTransactionsPage } from "@/pages/free/FreeTransactionsPage";
 import { FreeDebtsPage } from "@/pages/free/FreeDebtsPage";
 import { FreeYearResume } from "@/pages/free/FreeYearResume";
 import { OnboardingPage } from "@/pages/OnboardingPage";
+import { ProfilePage } from "@/pages/ProfilePage";
 
 import { useAppStore } from "@/store/useAppStore";
 import { UserProvider, useUser } from "@/context/UserContext";
@@ -81,6 +82,7 @@ function Layout() {
             <NavLink to={getPath("/categories")}>Categories</NavLink>
             <NavLink to={getPath("/accounts")}>Accounts</NavLink>
             <NavLink to={getPath("/year-resume")}>Year Resume</NavLink>
+            <NavLink to={getPath("/profile")}>Profile</NavLink>
           </nav>
           <div className="ml-auto text-sm text-muted-foreground flex items-center gap-2">
             <UserDisplay />
@@ -104,6 +106,7 @@ function Layout() {
           <Route path="/free/categories" element={<CategoriesPage />} />
           <Route path="/free/accounts" element={<AccountsPage />} />
           <Route path="/free/year-resume" element={<FreeYearResume />} />
+          <Route path="/free/profile" element={<ProfilePage />} />
           {/* Free routes */}
           <Route path="/" element={<Dashboard />} />
           <Route path="/transactions" element={<TransactionsPage />} />
@@ -112,6 +115,7 @@ function Layout() {
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/year-resume" element={<YearResume />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
         </Routes>
       </main>

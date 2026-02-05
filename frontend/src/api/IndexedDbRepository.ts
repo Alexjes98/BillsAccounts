@@ -844,4 +844,92 @@ export class IndexedDbRepository implements ApiRepository {
 
     return newUser;
   }
+
+  async getAllData(): Promise<any> {
+    const db = await this.dbPromise;
+    const transactions = await db.getAll("transactions");
+    const categories = await db.getAll("categories");
+    const accounts = await db.getAll("accounts");
+    const debts = await db.getAll("debts");
+    const persons = await db.getAll("persons");
+    const savings_goals = await db.getAll("savings_goals");
+    const user = await db.getAll("user");
+
+    return {
+      transactions,
+      categories,
+      accounts,
+      debts,
+      persons,
+      savings_goals,
+      user,
+      export_date: new Date().toISOString(),
+    };
+  }
+
+  async loadData(data: any): Promise<void> {
+    const db = await this.dbPromise;
+
+    // Basic validation
+    const requiredStores = [
+      "transactions",
+      "categories",
+      "accounts",
+      "debts",
+      "persons",
+      "savings_goals",
+      "user",
+    ];
+    for (const store of requiredStores) {
+      if (!data[store] || !Array.isArray(data[store])) {
+        throw new Error(`Invalid data format: missing or invalid ${store}`);
+      }
+    }
+
+    const tx = db.transaction(
+      [
+        "transactions",
+        "categories",
+        "accounts",
+        "debts",
+        "persons",
+        "savings_goals",
+        "monthly_summaries",
+        "user",
+      ],
+      "readwrite",
+    );
+
+    // Clear all stores
+    await Promise.all([
+      tx.objectStore("transactions").clear(),
+      tx.objectStore("categories").clear(),
+      tx.objectStore("accounts").clear(),
+      tx.objectStore("debts").clear(),
+      tx.objectStore("persons").clear(),
+      tx.objectStore("savings_goals").clear(),
+      tx.objectStore("monthly_summaries").clear(),
+      tx.objectStore("user").clear(),
+    ]);
+
+    // Insert new data
+    const stores = [
+      "transactions",
+      "categories",
+      "accounts",
+      "debts",
+      "persons",
+      "savings_goals",
+      "user",
+    ];
+
+    for (const storeName of stores) {
+      const store = tx.objectStore(storeName as any);
+      for (const item of data[storeName]) {
+        await store.put(item);
+      }
+    }
+
+    await tx.done;
+  }
 }

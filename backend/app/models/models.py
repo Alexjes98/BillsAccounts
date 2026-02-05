@@ -25,7 +25,8 @@ class User(Base):
     debts = relationship("Debt", back_populates="user")
     transactions = relationship("Transaction", back_populates="user")
     monthly_summaries = relationship("MonthlySummary", back_populates="user")
-
+    # Relationship to the 'Self' person
+    person = relationship("Person", foreign_keys=[person_id])
 
 class Category(Base):
     __tablename__ = "categories"

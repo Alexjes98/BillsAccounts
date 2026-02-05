@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from datetime import datetime
+from app.schemas.person import PersonOut
 from typing import Optional
 
 class UserOut(BaseModel):
@@ -8,5 +9,7 @@ class UserOut(BaseModel):
     email: str
     base_currency: str
     created_at: datetime
+    person_id: Optional[UUID] = None
+    person: Optional[PersonOut] = None
     
     model_config = ConfigDict(from_attributes=True)
