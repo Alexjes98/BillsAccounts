@@ -8,7 +8,9 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-// import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
+import { FileText } from "lucide-react";
 import {
   XAxis,
   YAxis,
@@ -31,7 +33,28 @@ export function FreeDashboard() {
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const api = useApi();
+
+  const handleGenerateResume = async () => {
+    if (!data) return;
+    setGenerating(true);
+    try {
+      const { current_date } = data;
+      await api.recalculateSingleMonthSummary(
+        current_date.year,
+        current_date.month_int,
+      );
+      setShowConfirm(false);
+      alert(`Resume for ${current_date.month} generated successfully!`);
+    } catch (err) {
+      console.error("Error generating resume:", err);
+      alert("Failed to generate resume.");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -81,8 +104,44 @@ export function FreeDashboard() {
           <div className="text-3xl font-bold">
             ${cards.balance.toLocaleString()}
           </div>
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConfirm(true)}
+              className="gap-2"
+            >
+              <FileText className="h-4 w-4" />
+              Generate {current_date.month} Resume
+            </Button>
+          </div>
         </div>
       </div>
+
+      <Modal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        title="Generate Monthly Resume"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            This will generate a resume for{" "}
+            <strong>{current_date.month}</strong>.
+            <br />
+            <br />
+            It is recommended to have all transactions for this month closed
+            before proceeding. This action mimics closing the month.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleGenerateResume} disabled={generating}>
+              {generating ? "Generating..." : "Confirm & Generate"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Top Cards */}
       <div className="grid gap-6 md:grid-cols-3">
