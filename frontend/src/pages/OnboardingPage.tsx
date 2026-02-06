@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useApi } from "@/contexts/ApiContext";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,19 @@ import {
 } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { Check, Wallet, CreditCard, Building, Plus, X } from "lucide-react";
+import EmojiPicker from "emoji-picker-react";
+import { createPortal } from "react-dom";
+
+interface Category {
+  name: string;
+  type: string;
+  icon: string;
+  color: string;
+}
 
 export function OnboardingPage() {
   const [step, setStep] = useState(0);
-  const { refreshUser } = useUser(); // We might need to expose createUser from context or use api directly
+  const { refreshUser } = useUser();
   const api = useApi();
   const navigate = useNavigate();
 
@@ -24,12 +33,39 @@ export function OnboardingPage() {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>(["Cash"]);
   const [persons, setPersons] = useState<string[]>([]);
   const [newPerson, setNewPerson] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([
-    "Food",
-    "Rent",
-    "Salary",
+
+  const defaultCategories: Category[] = [
+    { name: "Salary", type: "INCOME", icon: "💰", color: "#10B981" },
+    { name: "Food", type: "EXPENSE", icon: "🍔", color: "#EF4444" },
+    { name: "Rent", type: "EXPENSE", icon: "🏠", color: "#F59E0B" },
+    { name: "Groceries", type: "EXPENSE", icon: "🛒", color: "#3B82F6" },
+    { name: "Transport", type: "EXPENSE", icon: "🚗", color: "#6366F1" },
+    { name: "Utilities", type: "EXPENSE", icon: "💡", color: "#8B5CF6" },
+    { name: "Entertainment", type: "EXPENSE", icon: "🎉", color: "#EC4899" },
+    { name: "Shopping", type: "EXPENSE", icon: "🛍️", color: "#F472B6" },
+    { name: "Health", type: "EXPENSE", icon: "💊", color: "#14B8A6" },
+    { name: "Education", type: "EXPENSE", icon: "🎓", color: "#60A5FA" },
+    { name: "Gym", type: "EXPENSE", icon: "🏋️", color: "#6B7280" },
+    { name: "Home", type: "EXPENSE", icon: "🏡", color: "#A855F7" },
+    { name: "Others", type: "EXPENSE", icon: "❓", color: "#9CA3AF" },
+  ];
+
+  const [selectedCategories, setSelectedCategories] = useState<Category[]>([
+    defaultCategories[0], // Salary
+    defaultCategories[1], // Food
+    defaultCategories[2], // Rent
   ]);
-  const [customCategory, setCustomCategory] = useState("");
+
+  // Custom Category State
+  const [customName, setCustomName] = useState("");
+  const [customType, setCustomType] = useState("EXPENSE");
+  const [customIcon, setCustomIcon] = useState("🏷️");
+  const [customColor, setCustomColor] = useState("#808080");
+
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
+
   const [loading, setLoading] = useState(false);
 
   // Initial User Creation (Step 0)
@@ -54,16 +90,10 @@ export function OnboardingPage() {
   const handleCreateAccounts = async () => {
     setLoading(true);
     try {
-      // "Cash" is often default, but let's create what is selected
       for (const accType of selectedAccounts) {
         let type = "CASH";
         if (accType === "Bank") type = "BANK";
-        if (accType === "Paypal" || accType === "Zelle") type = "Wallet"; // Simplify types?
-
-        // If the backend expects specific types, we should map them.
-        // Assuming "CASH", "BANK", "WALLET" are common.
-        // Or just use the name as type for now if flexible?
-        // Checking code: Account types seem to be strings.
+        if (accType === "Paypal" || accType === "Zelle") type = "Wallet";
 
         await api.createAccount({
           name: accType,
@@ -95,25 +125,46 @@ export function OnboardingPage() {
     }
   };
 
+  const handleAddCustomCategory = () => {
+    if (!customName) return;
+
+    // Check if name already exists in selected
+    if (
+      selectedCategories.some(
+        (c) => c.name.toLowerCase() === customName.toLowerCase(),
+      )
+    ) {
+      return;
+    }
+
+    const newCat: Category = {
+      name: customName,
+      type: customType,
+      icon: customIcon,
+      color: customColor,
+    };
+
+    setSelectedCategories([...selectedCategories, newCat]);
+
+    // Reset form
+    setCustomName("");
+    setCustomType("EXPENSE");
+    setCustomIcon("🏷️");
+    setCustomColor("#808080");
+  };
+
   // Categories Creation (Step 3)
   const handleCreateCategories = async () => {
     setLoading(true);
     try {
-      const allCats = [...selectedCategories, "Others"];
-      // We need to guess type? Or ask?
-      // "Salary" is Income. Rest are Expenses generally.
-      // Heuristic for popular ones.
-      for (const catName of allCats) {
-        let type = "EXPENSE";
-        if (["Salary", "Income", "Freelance", "Dividends"].includes(catName)) {
-          type = "INCOME";
-        }
+      const allCats = [...selectedCategories];
 
+      for (const cat of allCats) {
         await api.createCategory({
-          name: catName,
-          type,
-          icon: "Circle", // Default icon
-          color: type === "INCOME" ? "#10B981" : "#EF4444", // Simple default colors
+          name: cat.name,
+          type: cat.type,
+          icon: cat.icon,
+          color: cat.color,
         });
       }
       setStep(4);
@@ -132,8 +183,6 @@ export function OnboardingPage() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
-        {/* Progress Indicators could go here */}
-
         {step === 0 && (
           <Card className="border-none shadow-xl bg-card/50 backdrop-blur">
             <CardHeader>
@@ -301,70 +350,131 @@ export function OnboardingPage() {
             <CardHeader>
               <CardTitle>Select Categories</CardTitle>
               <CardDescription>
-                Choose some starting categories. We'll add "Others" for you.
+                Choose some starting categories or add your own.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="flex flex-wrap gap-2">
-                {[
-                  "Salary",
-                  "Rent",
-                  "Groceries",
-                  "Food",
-                  "Gym",
-                  "Home",
-                  "Transport",
-                  "Utilities",
-                  "Entertainment",
-                ].map((cat) => (
-                  <div
-                    key={cat}
-                    onClick={() => {
-                      if (selectedCategories.includes(cat)) {
-                        setSelectedCategories(
-                          selectedCategories.filter((c) => c !== cat),
-                        );
-                      } else {
-                        setSelectedCategories([...selectedCategories, cat]);
-                      }
-                    }}
-                    className={`px-4 py-2 rounded-full cursor-pointer border transition-colors ${selectedCategories.includes(cat) ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent border-input"}`}
-                  >
-                    {cat}
-                  </div>
-                ))}
+                {defaultCategories.map((cat) => {
+                  const isSelected = selectedCategories.some(
+                    (c) => c.name === cat.name,
+                  );
+                  return (
+                    <div
+                      key={cat.name}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedCategories(
+                            selectedCategories.filter(
+                              (c) => c.name !== cat.name,
+                            ),
+                          );
+                        } else {
+                          setSelectedCategories([...selectedCategories, cat]);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-full cursor-pointer border transition-colors flex items-center gap-2 ${isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent border-input"}`}
+                    >
+                      <span>{cat.icon}</span>
+                      <span>{cat.name}</span>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="mt-4">
-                <label className="text-sm font-medium mb-2 block">
-                  Custom Category
+
+              <div className="border-t pt-4">
+                <label className="text-sm font-medium mb-3 block">
+                  Add Custom Category
                 </label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Category Name"
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (
-                        customCategory &&
-                        !selectedCategories.includes(customCategory)
-                      ) {
-                        setSelectedCategories([
-                          ...selectedCategories,
-                          customCategory,
-                        ]);
-                        setCustomCategory("");
-                      }
-                    }}
-                  >
-                    Add
-                  </Button>
+                <div className="grid gap-3">
+                  <div className="flex gap-2">
+                    <div className="relative">
+                      <Button
+                        variant="outline"
+                        className="w-12 h-10 px-0"
+                        ref={emojiButtonRef}
+                        onClick={() => {
+                          if (emojiButtonRef.current) {
+                            const rect =
+                              emojiButtonRef.current.getBoundingClientRect();
+                            setPickerPosition({
+                              top: rect.bottom + window.scrollY,
+                              left: rect.left + window.scrollX,
+                            });
+                          }
+                          setShowEmojiPicker(!showEmojiPicker);
+                        }}
+                      >
+                        {customIcon}
+                      </Button>
+                      {showEmojiPicker &&
+                        createPortal(
+                          <div
+                            className="fixed inset-0 z-[9999]"
+                            onClick={(e) => {
+                              if (e.target === e.currentTarget)
+                                setShowEmojiPicker(false);
+                            }}
+                          >
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: pickerPosition.top + 5,
+                                left: pickerPosition.left,
+                                zIndex: 10000,
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <EmojiPicker
+                                onEmojiClick={(emojiObject) => {
+                                  setCustomIcon(emojiObject.emoji);
+                                  setShowEmojiPicker(false);
+                                }}
+                              />
+                            </div>
+                          </div>,
+                          document.body,
+                        )}
+                    </div>
+                    <Input
+                      placeholder="Category Name"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <select
+                      className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      value={customType}
+                      onChange={(e) => setCustomType(e.target.value)}
+                    >
+                      <option value="EXPENSE">Expense</option>
+                      <option value="INCOME">Income</option>
+                    </select>
+                    <Input
+                      type="color"
+                      value={customColor}
+                      onChange={(e) => setCustomColor(e.target.value)}
+                      className="h-10 w-16 p-1 cursor-pointer"
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={handleAddCustomCategory}
+                      disabled={!customName}
+                      className="flex-1"
+                    >
+                      Add Custom
+                    </Button>
+                  </div>
                 </div>
               </div>
+
               <div className="flex justify-end pt-4">
-                <Button onClick={handleCreateCategories} disabled={loading}>
+                <Button
+                  onClick={handleCreateCategories}
+                  disabled={loading || selectedCategories.length === 0}
+                >
                   Create & Finish
                 </Button>
               </div>
