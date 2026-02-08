@@ -14,6 +14,7 @@ import { FreeDebtsPage } from "@/pages/free/FreeDebtsPage";
 import { FreeYearResume } from "@/pages/free/FreeYearResume";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { ProfilePage } from "@/pages/ProfilePage";
+import { ModeSelectionPage } from "@/pages/ModeSelectionPage";
 
 import { useAppStore } from "@/store/useAppStore";
 import { UserProvider, useUser } from "@/context/UserContext";
@@ -50,7 +51,12 @@ function Layout() {
 
   //TODO: REFINE THIS
   useEffect(() => {
-    if (!loading && !user && !location.pathname.includes("onboarding")) {
+    if (
+      !loading &&
+      !user &&
+      !location.pathname.includes("onboarding") &&
+      !location.pathname.includes("mode-selection")
+    ) {
       if (isFreeMode) {
         navigate("/free/onboarding");
       } else {
@@ -71,26 +77,34 @@ function Layout() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans antialiased">
-      <header className="border-b sticky top-0 bg-background z-10">
-        <div className="flex h-16 items-center px-4 max-w-7xl mx-auto gap-6">
-          <div className="font-bold text-xl mr-4">MyFinance App</div>
-          <nav className="flex items-center gap-6">
-            <NavLink to={getPath("/")}>Dashboard</NavLink>
-            <NavLink to={getPath("/transactions")}>Transactions</NavLink>
-            <NavLink to={getPath("/debts")}>Debts</NavLink>
-            <NavLink to={getPath("/persons")}>Persons</NavLink>
-            <NavLink to={getPath("/categories")}>Categories</NavLink>
-            <NavLink to={getPath("/accounts")}>Accounts</NavLink>
-            <NavLink to={getPath("/year-resume")}>Year Resume</NavLink>
-            <NavLink to={getPath("/profile")}>Profile</NavLink>
-          </nav>
-          <div className="ml-auto text-sm text-muted-foreground flex items-center gap-2">
-            <UserDisplay />
-            {isFreeMode && <span>Beta (Free Mode)</span>}
+      {location.pathname !== "/mode-selection" && (
+        <header className="border-b sticky top-0 bg-background z-10">
+          <div className="flex h-16 items-center px-4 max-w-7xl mx-auto gap-6">
+            <div className="font-bold text-xl mr-4">MyFinance App</div>
+            <nav className="flex items-center gap-6">
+              <NavLink to={getPath("/")}>Dashboard</NavLink>
+              <NavLink to={getPath("/transactions")}>Transactions</NavLink>
+              <NavLink to={getPath("/debts")}>Debts</NavLink>
+              <NavLink to={getPath("/persons")}>Persons</NavLink>
+              <NavLink to={getPath("/categories")}>Categories</NavLink>
+              <NavLink to={getPath("/accounts")}>Accounts</NavLink>
+              <NavLink to={getPath("/year-resume")}>Year Resume</NavLink>
+              <NavLink to={getPath("/profile")}>Profile</NavLink>
+            </nav>
+            <div className="ml-auto text-sm text-muted-foreground flex items-center gap-2">
+              <UserDisplay />
+              {isFreeMode && <span>Beta (Free Mode)</span>}
+            </div>
           </div>
-        </div>
-      </header>
-      <main className="py-6 px-4 max-w-7xl mx-auto">
+        </header>
+      )}
+      <main
+        className={
+          location.pathname === "/mode-selection"
+            ? ""
+            : "py-6 px-4 max-w-7xl mx-auto"
+        }
+      >
         {error && (
           <div className="max-w-md mx-auto mb-4 p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-md">
             {error}
@@ -101,6 +115,7 @@ function Layout() {
           <Route path="/free/onboarding" element={<FreeOnboardingPage />} />
           <Route path="/free/dashboard" element={<FreeDashboard />} />
           <Route path="/free/transactions" element={<FreeTransactionsPage />} />
+          {/* Free routes */}
           <Route path="/free/persons" element={<PersonsPage />} />
           <Route path="/free/debts" element={<FreeDebtsPage />} />
           <Route path="/free/categories" element={<CategoriesPage />} />
@@ -108,7 +123,9 @@ function Layout() {
           <Route path="/free/year-resume" element={<FreeYearResume />} />
           <Route path="/free/profile" element={<ProfilePage />} />
           {/* Free routes */}
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<RootRedirector />} />
+          <Route path="/mode-selection" element={<ModeSelectionPage />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/transactions" element={<TransactionsPage />} />
           <Route path="/persons" element={<PersonsPage />} />
           <Route path="/debts" element={<DebtsPage />} />
@@ -122,6 +139,25 @@ function Layout() {
     </div>
   );
 }
+
+function RootRedirector() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const preference = localStorage.getItem("mode-preference");
+
+    if (preference === "online") {
+      navigate("/dashboard");
+    } else if (preference === "offline") {
+      navigate("/free/dashboard");
+    } else {
+      navigate("/mode-selection");
+    }
+  }, [navigate]);
+
+  return null;
+}
+
 function UserDisplay() {
   const { user, loading } = useUser();
 

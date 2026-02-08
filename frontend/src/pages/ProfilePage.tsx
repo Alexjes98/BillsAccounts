@@ -246,6 +246,31 @@ export function ProfilePage() {
           </CardContent>
         </Card>
       </div>
+
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Application Settings</h2>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-medium mb-1">Mode Preference</h3>
+              <p className="text-sm text-muted-foreground mb-2">
+                Reset your default mode preference (Online/Offline). You will be
+                asked to select again next time.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  localStorage.removeItem("mode-preference");
+                  window.location.href = "/";
+                }}
+                className="w-fit"
+              >
+                Reset Mode Preference
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
