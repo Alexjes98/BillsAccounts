@@ -104,7 +104,7 @@ export function Layout() {
           <div className="flex h-16 items-center px-4 max-w-7xl mx-auto gap-6">
             <div className="font-bold text-xl mr-4">MyFinance App</div>
             <nav className="flex items-center gap-6">
-              <NavLink to={getPath("/")}>Dashboard</NavLink>
+              <NavLink to={getPath("/dashboard")}>Dashboard</NavLink>
               <NavLink to={getPath("/transactions")}>Transactions</NavLink>
               <NavLink to={getPath("/debts")}>Debts</NavLink>
               <NavLink to={getPath("/persons")}>Persons</NavLink>

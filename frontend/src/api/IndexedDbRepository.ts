@@ -694,16 +694,39 @@ export class IndexedDbRepository implements ApiRepository {
       return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
     });
 
+    // Initialize Chart Data
+    const numDays = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const chartDataMap: Record<
+      number,
+      { day: number; income: number; expenses: number }
+    > = {};
+    for (let i = 1; i <= numDays; i++) {
+      chartDataMap[i] = { day: i, income: 0, expenses: 0 };
+    }
+
     let income = 0;
     let expenses = 0;
 
     currentMonthTx.forEach((t) => {
       const type = catMap.get(t.category_id)?.type;
-      if (type === "INCOME") income += t.amount;
-      if (type === "EXPENSE") expenses += t.amount;
+      const val = Math.abs(t.amount);
+      const day = new Date(t.transaction_date).getDate();
+
+      if (type === "INCOME") {
+        income += t.amount;
+        if (chartDataMap[day]) chartDataMap[day].income += val;
+      }
+      if (type === "EXPENSE") {
+        expenses += t.amount;
+        if (chartDataMap[day]) chartDataMap[day].expenses += val;
+      }
     });
     income = Math.abs(income);
     expenses = Math.abs(expenses);
+
+    const chart_data = Object.values(chartDataMap).sort(
+      (a, b) => a.day - b.day,
+    );
 
     return {
       current_date: {
@@ -720,7 +743,7 @@ export class IndexedDbRepository implements ApiRepository {
         current: { income, expenses },
         last: { income: 0, expenses: 0 }, // TODO: Implement last month
       },
-      chart_data: [],
+      chart_data,
     };
   }
 

@@ -29,9 +29,6 @@ def get_accounts():
     finally:
         session.close()
         
-
-
-
 @transactions_bp.route('/savings-goals', methods=['GET'])
 def get_savings_goals():
     session = SessionLocal()
