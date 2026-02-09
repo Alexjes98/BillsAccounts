@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Suspense, use, useMemo, useState } from "react";
 // import { useAppStore } from "@/store/useAppStore";
 // import { FileUpload } from "@/components/FileUpload";
 import {
@@ -28,11 +28,12 @@ import { ArrowUpIcon, ArrowDownIcon, Wallet } from "lucide-react";
 import { DashboardData } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
 
-export function FreeDashboard() {
-  // const { freeData, userMode, reset } = useAppStore();
-
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+function FreeDashboardContent({
+  dataPromise,
+}: {
+  dataPromise: Promise<DashboardData>;
+}) {
+  const data = use(dataPromise);
   const [showConfirm, setShowConfirm] = useState(false);
   const [generating, setGenerating] = useState(false);
   const api = useApi();
@@ -56,35 +57,7 @@ export function FreeDashboard() {
     }
   };
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const data = await api.getDashboardSummary();
-        setData(data);
-      } catch (err) {
-        console.error("Error fetching dashboard data:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  if (loading) {
-    return <div className="p-10 text-center">Loading dashboard...</div>;
-  }
-
-  if (!data) {
-    return <div className="p-10 text-center">Error loading data.</div>;
-  }
-
   const { current_date, cards, month_comparison, chart_data } = data;
-
-  // Comparison logic pre-calculated in backend? No, backend sends values. We calculate strings/percents here?
-  // "Please avoid making calculations in the frontend and make all calculations in the python backend."
-  // Checks dashboard.py... I returned raw numbers. The user requested "a resume for last month showing last month against the actual month".
-  // I'll display the raw numbers side by side or a simple diff if needed, but strictly I should have calculated the diff in backend if I wanted to show diff %.
-  // For now I will show the numbers.
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
@@ -341,5 +314,18 @@ export function FreeDashboard() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export function FreeDashboard() {
+  const api = useApi();
+  const dataPromise = useMemo(() => api.getDashboardSummary(), [api]);
+
+  return (
+    <Suspense
+      fallback={<div className="p-10 text-center">Loading dashboard...</div>}
+    >
+      <FreeDashboardContent dataPromise={dataPromise} />
+    </Suspense>
   );
 }
