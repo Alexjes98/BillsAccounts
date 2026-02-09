@@ -65,6 +65,11 @@ Whenever you make changes to the frontend code:
 
 1.  Run `npm run build` in `frontend/`.
 2.  Run the `aws s3 sync` command again.
+3.  **Invalidate CloudFront Cache**: Run the following command to make changes visible immediately:
+    ```bash
+    aws cloudfront create-invalidation --distribution-id YOUR_DISTRIBUTION_ID --paths "/*"
+    ```
+    _Replace `YOUR_DISTRIBUTION_ID` with the `cloudfront_distribution_id` from Terraform outputs._
 
 ## Teardown
 

@@ -24,14 +24,13 @@ import {
 
 // TODO: Refine all behaviours with data relations to ensure data consistency with basic functions
 
-// TODO: changing the implementation of crypto with a custom simple implementation while the domain and SSL certificated is handled later on.
-function generateSimpleUUID() {
+/*function generateSimpleUUID() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0,
       v = c == "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
-}
+}*/
 
 interface MyDB extends DBSchema {
   transactions: {
@@ -194,9 +193,7 @@ export class IndexedDbRepository implements ApiRepository {
     data: CreateTransactionPayload,
   ): Promise<Transaction> {
     const db = await this.dbPromise;
-    // const id = crypto.randomUUID();
-    // TODO: changing the implementation of crypto with a custom simple implementation while the domain and SSL certificated is handled later on.
-    const id = generateSimpleUUID();
+    const id = crypto.randomUUID();
 
     // Fetch related objects to hydrate the response
     const category = await db.get("categories", data.category_id);
@@ -413,9 +410,7 @@ export class IndexedDbRepository implements ApiRepository {
 
     // Create Outgoing Transaction
     const txOut: Transaction = {
-      // id: crypto.randomUUID(),
-      // TODO: changing the implementation of crypto with a custom simple implementation while the domain and SSL certificated is handled later on.
-      id: generateSimpleUUID(),
+      id: crypto.randomUUID(),
       name: `Transfer to ${toAccount.name}`,
       description: data.description,
       amount: -Math.abs(data.amount),
@@ -428,9 +423,7 @@ export class IndexedDbRepository implements ApiRepository {
 
     // Create Incoming Transaction
     const txIn: Transaction = {
-      // id: crypto.randomUUID(),
-      // TODO: changing the implementation of crypto with a custom simple implementation while the domain and SSL certificated is handled later on.
-      id: generateSimpleUUID(),
+      id: crypto.randomUUID(),
       name: `Transfer from ${fromAccount.name}`,
       description: data.description,
       amount: Math.abs(data.amount),
@@ -465,9 +458,7 @@ export class IndexedDbRepository implements ApiRepository {
   async createCategory(data: CategoryCreate): Promise<Category> {
     const db = await this.dbPromise;
     const newCat: Category = {
-      // id: crypto.randomUUID(),
-      // TODO: changing the implementation of crypto with a custom simple implementation while the domain and SSL certificated is handled later on.
-      id: generateSimpleUUID(),
+      id: crypto.randomUUID(),
       ...data,
       created_at: new Date().toISOString(),
     };
@@ -513,9 +504,7 @@ export class IndexedDbRepository implements ApiRepository {
   async createAccount(data: CreateAccountPayload): Promise<Account> {
     const db = await this.dbPromise;
     const newAcc: Account = {
-      // id: crypto.randomUUID(),
-      // TODO: changing the implementation of crypto with a custom simple implementation while the domain and SSL certificated is handled later on.
-      id: generateSimpleUUID(),
+      id: crypto.randomUUID(),
       name: data.name,
       type: data.type,
       current_balance: data.current_balance || 0,
@@ -557,9 +546,7 @@ export class IndexedDbRepository implements ApiRepository {
   async createDebt(data: CreateDebtPayload): Promise<Debt> {
     const db = await this.dbPromise;
     const newDebt: Debt = {
-      // id: crypto.randomUUID(),
-      // TODO: changing the implementation of crypto with a custom simple implementation while the domain and SSL certificated is handled later on.
-      id: generateSimpleUUID(),
+      id: crypto.randomUUID(),
       user_id: "local-user",
       ...data,
       remaining_amount: data.total_amount,
@@ -655,9 +642,7 @@ export class IndexedDbRepository implements ApiRepository {
   async createPerson(data: CreatePersonPayload): Promise<Person> {
     const db = await this.dbPromise;
     const newPerson: Person = {
-      // id: crypto.randomUUID(),
-      // TODO: changing the implementation of crypto with a custom simple implementation while the domain and SSL certificated is handled later on.
-      id: generateSimpleUUID(),
+      id: crypto.randomUUID(),
       name: data.name,
       contact_info: data.contact_info || "",
       created_at: new Date().toISOString(),
@@ -816,9 +801,7 @@ export class IndexedDbRepository implements ApiRepository {
     const existing = existingSummaries.find((s) => s.month === month);
 
     const summary: MonthlySummary = {
-      // id: existing ? existing.id : crypto.randomUUID(),
-      // TODO: changing the implementation of crypto with a custom simple implementation while the domain and SSL certificated is handled later on.
-      id: existing ? existing.id : generateSimpleUUID(),
+      id: existing ? existing.id : crypto.randomUUID(),
       year,
       month,
       month_name: monthName,
@@ -853,9 +836,7 @@ export class IndexedDbRepository implements ApiRepository {
       created_at: new Date().toISOString(),
     };
 
-    // userPerson.id = crypto.randomUUID();
-    // TODO: changing the implementation of crypto with a custom simple implementation while the domain and SSL certificated is handled later on.
-    userPerson.id = generateSimpleUUID();
+    userPerson.id = crypto.randomUUID();
 
     await db.put("persons", userPerson);
 
