@@ -30,10 +30,19 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const response = await api.getUser();
       setUser(response);
     } catch (err: any) {
-      console.error("Failed to fetch user:", err);
-      // Don't block the UI completely if user fetch fails, but log it
-      setError("Failed to load user profile");
-      setUser(null);
+      // If 401/403 (unauthorized), it just means no user is logged in.
+      // This is a valid state, not an error to show the user.
+      if (
+        err.response &&
+        (err.response.status === 401 || err.response.status === 403)
+      ) {
+        console.log("User is not logged in (Unauthorized)");
+        setUser(null);
+      } else {
+        console.error("Failed to fetch user:", err);
+        setError("Failed to load user profile");
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -41,7 +50,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchUser();
-  }, []);
+  }, [api]);
 
   return (
     <UserContext.Provider
