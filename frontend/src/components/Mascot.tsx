@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMascot } from "@/context/MascotContext";
 import { useNavigate } from "react-router-dom";
 
@@ -70,7 +70,7 @@ export function Mascot() {
         <img
           src={imageSrc}
           alt="Mascot"
-          onError={(e) => {
+          onError={() => {
             // Fallback to default if load fails
             if (imageSrc !== DEFAULT_MASCOT) {
               setImageSrc(DEFAULT_MASCOT);

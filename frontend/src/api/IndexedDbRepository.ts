@@ -799,7 +799,8 @@ export class IndexedDbRepository implements ApiRepository {
     // If it's a past month, we'd theoretically need to subtract subsequent transactions.
     // Given the offline constraint and typical usage, we'll use the *current* total balance of accounts.
     // Ideally, we would sum up all transactions up to the end of that month + initial balances.
-    const monthLastDay = new Date(year, monthIndex + 1, 0); // Last day of that month
+    //TODO: What is this?
+    //const monthLastDay = new Date(year, monthIndex + 1, 0); // Last day of that month
     // Simplified: using current balance for now as requested for "free mode" simplicity or lack of historical balance tracking
     const currentAccounts = await db.getAll("accounts");
     const closing_balance = currentAccounts.reduce(
