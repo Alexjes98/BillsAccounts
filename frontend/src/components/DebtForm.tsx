@@ -131,7 +131,17 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
           type="number"
           step="0.01"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "" || parseFloat(val) <= 1000000000) {
+              setAmount(val);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (["e", "E", "-", "+"].includes(e.key)) {
+              e.preventDefault();
+            }
+          }}
           placeholder="0.00"
           required
         />
@@ -155,6 +165,7 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
             Type *
           </label>
           <select
+            autoComplete="off"
             id="direction"
             value={direction}
             onChange={(e) =>
@@ -174,6 +185,7 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
             Person *
           </label>
           <select
+            autoComplete="off"
             id="counterparty"
             value={counterpartyId}
             onChange={(e) => setCounterpartyId(e.target.value)}

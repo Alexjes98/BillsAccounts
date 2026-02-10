@@ -234,7 +234,17 @@ export function TransactionForm({
           type="number"
           step="0.01"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (val === "" || parseFloat(val) <= 1000000000) {
+              setAmount(val);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (["e", "E", "-", "+"].includes(e.key)) {
+              e.preventDefault();
+            }
+          }}
           placeholder="0.00"
           required
         />
@@ -258,6 +268,7 @@ export function TransactionForm({
           Category *
         </label>
         <select
+          autoComplete="off"
           id="category"
           value={categoryId}
           onChange={(e) => setCategoryId(e.target.value)}
@@ -303,6 +314,7 @@ export function TransactionForm({
             Account
           </label>
           <select
+            autoComplete="off"
             id="account"
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
@@ -327,6 +339,7 @@ export function TransactionForm({
             Link to Debt (Optional)
           </label>
           <select
+            autoComplete="off"
             id="debt"
             value={debtId}
             onChange={(e) => setDebtId(e.target.value)}
@@ -336,11 +349,14 @@ export function TransactionForm({
             {isLoadingDebts ? (
               <option>Loading debts...</option>
             ) : (
-              debts.map((deb) => (
-                <option key={deb.id} value={deb.id}>
-                  {deb.description}
-                </option>
-              ))
+              debts.map(
+                (deb) =>
+                  !deb.is_settled && (
+                    <option key={deb.id} value={deb.id}>
+                      {deb.description}
+                    </option>
+                  ),
+              )
             )}
           </select>
         </div>
@@ -352,6 +368,7 @@ export function TransactionForm({
             Savings Goal (Optional)
           </label>
           <select
+            autoComplete="off"
             id="savings"
             value={savingsGoalId}
             onChange={(e) => setSavingsGoalId(e.target.value)}

@@ -99,6 +99,7 @@ export function CategoryForm({
           Type
         </label>
         <select
+          autoComplete="off"
           id="type"
           value={type}
           onChange={(e) => setType(e.target.value)}
@@ -115,29 +116,24 @@ export function CategoryForm({
           <label htmlFor="icon" className="text-sm font-medium">
             Icon (Emoji)
           </label>
-          <div className="flex gap-2">
-            <Input
-              id="icon"
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
-              placeholder="e.g. 🛒"
-            />
+          <div className="relative">
             <Button
               type="button"
               variant="outline"
+              className="w-12 h-10 px-0 text-lg"
               ref={emojiButtonRef}
               onClick={() => {
                 if (emojiButtonRef.current) {
                   const rect = emojiButtonRef.current.getBoundingClientRect();
                   setPickerPosition({
                     top: rect.bottom + window.scrollY - 200,
-                    left: rect.left + window.scrollX - 300,
+                    left: rect.left + window.scrollX,
                   });
                 }
                 setShowEmojiPicker(!showEmojiPicker);
               }}
             >
-              😀
+              {icon || "😀"}
             </Button>
           </div>
           {showEmojiPicker &&
