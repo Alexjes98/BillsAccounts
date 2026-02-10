@@ -163,6 +163,49 @@ export function TransactionForm({
       return;
     }
 
+    // Debt Validation Logic
+    if (debtId) {
+      const selectedDebt = debts.find((d) => d.id === debtId);
+      const selectedCategory = categories.find((c) => c.id === categoryId);
+      const transactionAmount = parseFloat(amount);
+
+      if (selectedDebt) {
+        // Validation 1: Overpayment
+        if (transactionAmount > selectedDebt.remaining_amount) {
+          setError(
+            `Transaction amount (${transactionAmount}) cannot exceed the remaining debt amount (${selectedDebt.remaining_amount}).`,
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Validation 2: Debt Type Mismatch
+        // Case A: I am the Creditor (Someone owes me)
+        if (
+          user.person_id === selectedDebt.creditor_id &&
+          selectedCategory?.type === "INCOME"
+        ) {
+          setError(
+            "When someone pays you back, it cannot be categorized as INCOME. Please select a different category (e.g., Transfer or specific repayment category).",
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Case B: I am the Debtor (I owe someone)
+        if (
+          user.person_id === selectedDebt.debtor_id &&
+          selectedCategory?.type !== "EXPENSE"
+        ) {
+          setError(
+            "Repayment of a debt you owe must be categorized as an EXPENSE.",
+          );
+          setIsSubmitting(false);
+          return;
+        }
+      }
+    }
+
     try {
       const payload: CreateTransactionPayload = {
         name,
