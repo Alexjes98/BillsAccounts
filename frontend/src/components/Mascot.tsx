@@ -37,7 +37,7 @@ export function Mascot() {
   return (
     <div
       className="fixed bottom-4 right-4 z-50 flex flex-col items-end pointer-events-none group"
-      style={{ pointerEvents: "auto" }} // Allow clicks on the mascot itself
+      style={{ userSelect: "none" }} // Allow clicks on the mascot itself
     >
       {/* Message Bubble - Only show if message exists */}
       {message && ( // Conditional rendering for message bubble
@@ -46,6 +46,7 @@ export function Mascot() {
           ${animate ? "scale-105" : "scale-100"}
           border border-gray-100 relative
           `}
+          style={{ pointerEvents: "auto", userSelect: "auto" }}
         >
           <button
             onClick={hideMessage} // Changed to hideMessage
@@ -61,6 +62,7 @@ export function Mascot() {
       {/* Mascot Image */}
       <div
         className="relative cursor-pointer mb-1"
+        style={{ pointerEvents: "auto", userSelect: "auto" }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={() => {
