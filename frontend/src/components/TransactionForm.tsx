@@ -83,9 +83,6 @@ export function TransactionForm({
       try {
         const data = await api.getDebts();
         setDebts(data);
-        if (data.length > 0) {
-          setDebtId(data[0].id);
-        }
       } catch (err) {
         console.error("Failed to load debts", err);
         setError("Failed to load debts. Please try again.");
@@ -98,9 +95,6 @@ export function TransactionForm({
       try {
         const data = await api.getSavingsGoals();
         setSavingsGoals(data);
-        if (data.length > 0) {
-          setSavingsGoalId(data[0].id);
-        }
       } catch (err) {
         console.error("Failed to load savings goals", err);
         setError("Failed to load savings goals. Please try again.");
