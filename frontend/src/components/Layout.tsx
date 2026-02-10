@@ -56,6 +56,9 @@ export function Layout() {
     // Allow access to mode selection without checks
     if (path === "/mode-selection") return;
 
+    // Allow RootRedirector to handle the root path
+    if (path === "/") return;
+
     if (isOfflineMode) {
       // Offline Mode Logic
       if (!user) {
