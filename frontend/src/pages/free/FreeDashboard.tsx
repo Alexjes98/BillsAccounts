@@ -1,4 +1,4 @@
-import { Suspense, use, useMemo, useState } from "react";
+import { Suspense, use, useMemo, useState, useEffect } from "react";
 // import { useAppStore } from "@/store/useAppStore";
 // import { FileUpload } from "@/components/FileUpload";
 import {
@@ -27,6 +27,7 @@ import {
 import { ArrowUpIcon, ArrowDownIcon, Wallet } from "lucide-react";
 import { DashboardData } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
+import { useMascot } from "@/context/MascotContext";
 
 function FreeDashboardContent({
   dataPromise,
@@ -37,6 +38,13 @@ function FreeDashboardContent({
   const [showConfirm, setShowConfirm] = useState(false);
   const [generating, setGenerating] = useState(false);
   const api = useApi();
+  const { loadMessage } = useMascot();
+
+  useEffect(() => {
+    if (Math.random() < 0.3) {
+      loadMessage("home");
+    }
+  }, [loadMessage]);
 
   const handleGenerateResume = async () => {
     if (!data) return;

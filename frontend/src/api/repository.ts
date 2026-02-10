@@ -1,3 +1,5 @@
+import { MascotMessage } from "./mascotMessages";
+
 export interface Transaction {
   id: string;
   transaction_date: string;
@@ -236,6 +238,7 @@ export interface ApiRepository {
   createUser(data: CreateUserPayload): Promise<User>;
   getAllData?(): Promise<any>;
   loadData?(data: any): Promise<void>;
+  getMascotMessage?(context: string): Promise<MascotMessage | null>;
 }
 
 export interface CreateUserPayload {

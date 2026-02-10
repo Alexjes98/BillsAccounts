@@ -1,4 +1,4 @@
-import { Suspense, use, useMemo } from "react";
+import { Suspense, use, useMemo, useEffect } from "react";
 // import { useAppStore } from "@/store/useAppStore";
 // import { FileUpload } from "@/components/FileUpload";
 import {
@@ -25,6 +25,7 @@ import {
 import { ArrowUpIcon, ArrowDownIcon, Wallet } from "lucide-react";
 import { DashboardData } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
+import { useMascot } from "@/context/MascotContext";
 
 function DashboardContent({
   dataPromise,
@@ -32,6 +33,14 @@ function DashboardContent({
   dataPromise: Promise<DashboardData>;
 }) {
   const data = use(dataPromise);
+  const { loadMessage } = useMascot();
+
+  useEffect(() => {
+    if (Math.random() < 0.3) {
+      console.log("Loading mascot message");
+      loadMessage("home");
+    }
+  }, [loadMessage]);
 
   const { current_date, cards, month_comparison, chart_data } = data;
 

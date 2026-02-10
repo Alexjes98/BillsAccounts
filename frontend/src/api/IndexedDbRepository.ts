@@ -21,6 +21,7 @@ import {
   User,
   CreateUserPayload,
 } from "./repository";
+import { MascotMessage, FALLBACK_MESSAGES } from "./mascotMessages";
 
 // TODO: Refine all behaviours with data relations to ensure data consistency with basic functions
 
@@ -798,47 +799,42 @@ export class IndexedDbRepository implements ApiRepository {
     // If it's a past month, we'd theoretically need to subtract subsequent transactions.
     // Given the offline constraint and typical usage, we'll use the *current* total balance of accounts.
     // Ideally, we would sum up all transactions up to the end of that month + initial balances.
-    // Let's try to be deeper: Sum of all accounts NOW.
-    const accounts = await db.getAll("accounts");
-    const currentTotalBalance = accounts.reduce(
-      (sum, acc) => sum + acc.current_balance,
+    const monthLastDay = new Date(year, monthIndex + 1, 0); // Last day of that month
+    // Simplified: using current balance for now as requested for "free mode" simplicity or lack of historical balance tracking
+    const currentAccounts = await db.getAll("accounts");
+    const closing_balance = currentAccounts.reduce(
+      (acc, curr) => acc + curr.current_balance,
       0,
     );
-    // If calculating for current month, this is accurate.
-    // If calculating for past month, it's an approximation unless we rollback.
-    // For now, using current total balance as "Closing Balance" for the snapshot.
-    // This matches the user requirement "generate... for the current month".
-    const closing_balance = currentTotalBalance;
-
-    // 5. Create or Update Summary
-    const monthName = new Date(year, monthIndex).toLocaleString("default", {
-      month: "long",
-    });
-
-    // Check if exists
-    const existingSummaries = await db.getAllFromIndex(
-      "monthly_summaries",
-      "by-year",
-      year,
-    );
-    const existing = existingSummaries.find((s) => s.month === month);
 
     const summary: MonthlySummary = {
-      id: existing ? existing.id : crypto.randomUUID(),
+      id: `${year}-${month}`,
       year,
       month,
-      month_name: monthName,
+      month_name: new Date(year, monthIndex).toLocaleString("default", {
+        month: "long",
+      }),
       total_income,
       total_expense,
       closing_balance,
     };
 
-    await db.put("monthly_summaries", summary);
+    return { message: "Recalculated locally", data: summary };
+  }
 
-    return {
-      message: "Monthly resume generated successfully",
-      data: summary,
-    };
+  async getMascotMessage(context: string): Promise<MascotMessage | null> {
+    // For offline/IndexedDB, we just pick a random message from fallback
+    let candidates = FALLBACK_MESSAGES.filter((m) => m.context === context);
+    if (candidates.length === 0) {
+      candidates = FALLBACK_MESSAGES.filter((m) => m.context === "generic");
+    }
+
+    if (candidates.length > 0) {
+      const randomMsg =
+        candidates[Math.floor(Math.random() * candidates.length)];
+      return randomMsg;
+    }
+    return null;
   }
 
   async getUser(): Promise<User | null> {

@@ -2,13 +2,18 @@ import { UserProvider } from "@/context/UserContext";
 import { BrowserRouter as Router, useLocation } from "react-router-dom";
 import { ApiProvider } from "@/contexts/ApiContext";
 import { Layout } from "@/components/Layout";
+import { MascotProvider } from "@/context/MascotContext";
+import { Mascot } from "@/components/Mascot";
 
 function App() {
   return (
     <Router>
       <ApiWrapper>
         <UserProvider>
-          <Layout />
+          <MascotProvider>
+            <Layout />
+            <Mascot />
+          </MascotProvider>
         </UserProvider>
       </ApiWrapper>
     </Router>

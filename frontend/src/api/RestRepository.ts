@@ -20,6 +20,7 @@ import {
   TransferPayload,
   User,
 } from "./repository";
+import { MascotMessage } from "./mascotMessages";
 
 export class RestApiRepository implements ApiRepository {
   async getTransactions(
@@ -183,5 +184,15 @@ export class RestApiRepository implements ApiRepository {
   async createUser(_data: any): Promise<User> {
     // For online version, this is handled by Auth provider usually, or we can mock it
     throw new Error("Not implemented for REST API");
+  }
+
+  async getMascotMessage(context: string): Promise<MascotMessage | null> {
+    try {
+      const response = await api.get(`/api/mascot/message?context=${context}`);
+      return response.data;
+    } catch (error) {
+      console.warn("Failed to fetch mascot message from server", error);
+      return null; // Fallback will be handled by context
+    }
   }
 }
