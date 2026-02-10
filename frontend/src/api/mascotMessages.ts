@@ -8,6 +8,36 @@ export interface MascotMessage {
 
 export const FALLBACK_MESSAGES: MascotMessage[] = [
   {
+    id: "onboarding-0",
+    text: "Welcome friend. Let's create your user, don't worry your data won't leave your device. ",
+    context: "onboarding",
+    type: "info",
+  },
+  {
+    id: "onboarding-1",
+    text: "You can add more later on, for now select the basic accounts you use frequently.",
+    context: "onboarding",
+    type: "info",
+  },
+  {
+    id: "onboarding-2",
+    text: "Persons will serve as reference for debts and credits.",
+    context: "onboarding",
+    type: "info",
+  },
+  {
+    id: "onboarding-3",
+    text: "Is recomended that you create categories for usual expenses and incomes to keep things organized",
+    context: "onboarding",
+    type: "info",
+  },
+  {
+    id: "onboarding-4",
+    text: "All set, let's start tracking your expenses!",
+    context: "onboarding",
+    type: "info",
+  },
+  {
     id: "welcome-1",
     text: "Welcome back! Let me know if you need help tracking your expenses.",
     context: "home",

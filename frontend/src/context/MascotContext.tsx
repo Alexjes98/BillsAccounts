@@ -14,7 +14,8 @@ interface MascotContextType {
   showMascot: (msg: string | MascotMessage) => void;
   hideMascot: () => void;
   hideMessage: () => void;
-  loadMessage: (context: string) => void;
+  loadMessageByContext: (context: string) => void;
+  loadMessageById: (id: string) => void;
 }
 
 const MascotContext = createContext<MascotContextType | undefined>(undefined);
@@ -47,7 +48,7 @@ export function MascotProvider({ children }: { children: ReactNode }) {
     setMessage(null);
   }, []);
 
-  const loadMessage = useCallback(
+  const loadMessageByContext = useCallback(
     async (context: string) => {
       // Try to get from API
       if (api.getMascotMessage) {
@@ -79,6 +80,17 @@ export function MascotProvider({ children }: { children: ReactNode }) {
     [api],
   );
 
+  const loadMessageById = useCallback((id: string) => {
+    // Only looking in fallback messages for specific IDs for now
+    const msg = FALLBACK_MESSAGES.find((m) => m.id === id);
+    if (msg) {
+      setMessage(msg);
+      setIsVisible(true);
+    } else {
+      console.warn(`Mascot message with id ${id} not found`);
+    }
+  }, []);
+
   return (
     <MascotContext.Provider
       value={{
@@ -87,7 +99,8 @@ export function MascotProvider({ children }: { children: ReactNode }) {
         showMascot,
         hideMascot,
         hideMessage,
-        loadMessage,
+        loadMessageByContext,
+        loadMessageById,
       }}
     >
       {children}

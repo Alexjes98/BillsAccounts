@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useApi } from "@/contexts/ApiContext";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,21 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Check, Wallet, CreditCard, Building, Plus, X } from "lucide-react";
+import { Wallet, CreditCard, Building, Plus, X, Loader2 } from "lucide-react";
+import EmojiPicker from "emoji-picker-react";
+import { createPortal } from "react-dom";
+import { useMascot } from "@/context/MascotContext";
+
+interface Category {
+  name: string;
+  type: string;
+  icon: string;
+  color: string;
+}
 
 export function FreeOnboardingPage() {
   const [step, setStep] = useState(0);
-  const { refreshUser } = useUser(); // We might need to expose createUser from context or use api directly
+  const { refreshUser } = useUser();
   const api = useApi();
   const navigate = useNavigate();
 
@@ -24,118 +34,171 @@ export function FreeOnboardingPage() {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>(["Cash"]);
   const [persons, setPersons] = useState<string[]>([]);
   const [newPerson, setNewPerson] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([
-    "Food",
-    "Rent",
-    "Salary",
+
+  const defaultCategories: Category[] = [
+    { name: "Salary", type: "INCOME", icon: "💰", color: "#10B981" },
+    { name: "Food", type: "EXPENSE", icon: "🍔", color: "#EF4444" },
+    { name: "Rent", type: "EXPENSE", icon: "🏠", color: "#F59E0B" },
+    { name: "Groceries", type: "EXPENSE", icon: "🛒", color: "#3B82F6" },
+    { name: "Transport", type: "EXPENSE", icon: "🚗", color: "#6366F1" },
+    { name: "Utilities", type: "EXPENSE", icon: "💡", color: "#8B5CF6" },
+    { name: "Entertainment", type: "EXPENSE", icon: "🎉", color: "#EC4899" },
+    { name: "Shopping", type: "EXPENSE", icon: "🛍️", color: "#F472B6" },
+    { name: "Health", type: "EXPENSE", icon: "💊", color: "#14B8A6" },
+    { name: "Education", type: "EXPENSE", icon: "🎓", color: "#60A5FA" },
+    { name: "Gym", type: "EXPENSE", icon: "🏋️", color: "#6B7280" },
+    { name: "Home", type: "EXPENSE", icon: "🏡", color: "#A855F7" },
+    { name: "Others", type: "EXPENSE", icon: "❓", color: "#9CA3AF" },
+  ];
+
+  const [selectedCategories, setSelectedCategories] = useState<Category[]>([
+    defaultCategories[0], // Salary
+    defaultCategories[1], // Food
+    defaultCategories[2], // Rent
   ]);
-  const [customCategory, setCustomCategory] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  // Initial User Creation (Step 0)
-  const handleCreateUser = async () => {
+  // Custom Category State
+  const [customName, setCustomName] = useState("");
+  const [customType, setCustomType] = useState("EXPENSE");
+  const [customIcon, setCustomIcon] = useState("🏷️");
+  const [customColor, setCustomColor] = useState("#808080");
+
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
+
+  // Note: We use local state for "loading" the final submission because
+  // 'step' state transition serves as the immediate UI feedback.
+  const [submitting, setSubmitting] = useState(false);
+
+  // Initial User Creation (Step 0) - Just advance step
+  const handleStep0Next = () => {
     if (!userData.currency) return;
-    setLoading(true);
-    try {
-      await api.createUser({
-        email: userData.email,
-        base_currency: userData.currency,
-      });
-      await refreshUser();
-      setStep(1);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
+    setStep(1);
   };
 
-  // Accounts Creation (Step 1)
-  const handleCreateAccounts = async () => {
-    setLoading(true);
-    try {
-      // "Cash" is often default, but let's create what is selected
-      for (const accType of selectedAccounts) {
-        let type = "CASH";
-        if (accType === "Bank") type = "BANK";
-        if (accType === "Paypal" || accType === "Zelle") type = "Wallet"; // Simplify types?
+  // Accounts Creation (Step 1) - Just advance step
+  const handleStep1Next = () => {
+    setStep(2);
+  };
 
-        // If the backend expects specific types, we should map them.
-        // Assuming "CASH", "BANK", "WALLET" are common.
-        // Or just use the name as type for now if flexible?
-        // Checking code: Account types seem to be strings.
+  // Persons Creation (Step 2) - Just advance step
+  const handleStep2Next = () => {
+    setStep(3);
+  };
 
-        await api.createAccount({
-          name: accType,
-          type: type,
-          current_balance: 0,
-          currency: userData.currency,
+  const handleAddCustomCategory = () => {
+    if (!customName) return;
+
+    // Check if name already exists in selected
+    if (
+      selectedCategories.some(
+        (c) => c.name.toLowerCase() === customName.toLowerCase(),
+      )
+    ) {
+      return;
+    }
+
+    const newCat: Category = {
+      name: customName,
+      type: customType,
+      icon: customIcon,
+      color: customColor,
+    };
+
+    setSelectedCategories([...selectedCategories, newCat]);
+
+    // Reset form
+    setCustomName("");
+    setCustomType("EXPENSE");
+    setCustomIcon("🏷️");
+    setCustomColor("#808080");
+  };
+
+  // Categories Creation (Step 3) - Trigger Final Submission
+  const handleFinishOnboarding = async () => {
+    setStep(4); // Move to loading screen immediately
+    setSubmitting(true);
+
+    // Use deferred execution to allow UI to update to Step 4 first
+    setTimeout(async () => {
+      try {
+        // 1. Create User
+        await api.createUser({
+          email: userData.email,
+          base_currency: userData.currency,
         });
-      }
-      setStep(2);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // Persons Creation (Step 2)
-  const handleCreatePersons = async () => {
-    setLoading(true);
-    try {
-      for (const name of persons) {
-        await api.createPerson({ name });
-      }
-      setStep(3);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
+        // 2. Create Accounts
+        for (const accType of selectedAccounts) {
+          let type = "CASH";
+          if (accType === "Bank") type = "BANK";
+          if (accType === "Paypal" || accType === "Zelle") type = "Wallet";
 
-  // Categories Creation (Step 3)
-  const handleCreateCategories = async () => {
-    setLoading(true);
-    try {
-      const allCats = [...selectedCategories, "Others"];
-      // We need to guess type? Or ask?
-      // "Salary" is Income. Rest are Expenses generally.
-      // Heuristic for popular ones.
-      for (const catName of allCats) {
-        let type = "EXPENSE";
-        if (["Salary", "Income", "Freelance", "Dividends"].includes(catName)) {
-          type = "INCOME";
+          await api.createAccount({
+            name: accType,
+            type: type,
+            current_balance: 0,
+            currency: userData.currency,
+          });
         }
 
-        await api.createCategory({
-          name: catName,
-          type,
-          icon: "Circle", // Default icon
-          color: type === "INCOME" ? "#10B981" : "#EF4444", // Simple default colors
-        });
+        // 3. Create Persons
+        for (const name of persons) {
+          await api.createPerson({ name });
+        }
+
+        // 4. Create Categories
+        for (const cat of selectedCategories) {
+          await api.createCategory({
+            name: cat.name,
+            type: cat.type,
+            icon: cat.icon,
+            color: cat.color,
+          });
+        }
+
+        // 5. Finalize
+        await refreshUser();
+        navigate("/");
+      } catch (e) {
+        console.error("Onboarding failed", e);
+        alert(
+          "Something went wrong setting up your account. Please try again.",
+        );
+        setStep(3); // Go back to previous step on error
+        setSubmitting(false);
       }
-      setStep(4);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    }, 1000); // Small artificial delay to show the nice loading animation if wanted, or just 0
   };
 
-  const handleAllSet = () => {
-    navigate("/free/dashboard");
-    window.location.reload();
-  };
+  const { loadMessageById } = useMascot();
+
+  useEffect(() => {
+    switch (step) {
+      case 0:
+        loadMessageById("onboarding-0");
+        break;
+      case 1:
+        loadMessageById("onboarding-1");
+        break;
+      case 2:
+        loadMessageById("onboarding-2");
+        break;
+      case 3:
+        loadMessageById("onboarding-3");
+        break;
+      case 4:
+        loadMessageById("onboarding-4");
+        break;
+    }
+  }, [step, loadMessageById]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
-        {/* Progress Indicators could go here */}
-
         {step === 0 && (
-          <Card className="border-none shadow-xl bg-card/50 backdrop-blur">
+          <Card className="border-none shadow-xl bg-card/50 backdrop-blur animate-in fade-in slide-in-from-bottom-4 duration-500">
             <CardHeader>
               <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
                 Welcome!
@@ -170,19 +233,15 @@ export function FreeOnboardingPage() {
                   <option value="JPY">JPY (¥)</option>
                 </select>
               </div>
-              <Button
-                className="w-full mt-4"
-                onClick={handleCreateUser}
-                disabled={loading}
-              >
-                {loading ? "Creating..." : "Start Setup"}
+              <Button className="w-full mt-4" onClick={handleStep0Next}>
+                Start Setup
               </Button>
             </CardContent>
           </Card>
         )}
 
         {step === 1 && (
-          <Card className="border-none shadow-xl">
+          <Card className="border-none shadow-xl animate-in fade-in slide-in-from-right-8 duration-500">
             <CardHeader>
               <CardTitle>Create Accounts</CardTitle>
               <CardDescription>
@@ -223,8 +282,8 @@ export function FreeOnboardingPage() {
                   Only Cash
                 </Button>
                 <Button
-                  onClick={handleCreateAccounts}
-                  disabled={loading || selectedAccounts.length === 0}
+                  onClick={handleStep1Next}
+                  disabled={selectedAccounts.length === 0}
                 >
                   Next
                 </Button>
@@ -234,7 +293,7 @@ export function FreeOnboardingPage() {
         )}
 
         {step === 2 && (
-          <Card className="border-none shadow-xl">
+          <Card className="border-none shadow-xl animate-in fade-in slide-in-from-right-8 duration-500">
             <CardHeader>
               <CardTitle>Add Persons</CardTitle>
               <CardDescription>
@@ -288,83 +347,142 @@ export function FreeOnboardingPage() {
                 )}
               </div>
               <div className="flex justify-end pt-4">
-                <Button onClick={handleCreatePersons} disabled={loading}>
-                  Next
-                </Button>
+                <Button onClick={handleStep2Next}>Next</Button>
               </div>
             </CardContent>
           </Card>
         )}
 
         {step === 3 && (
-          <Card className="border-none shadow-xl">
+          <Card className="border-none shadow-xl animate-in fade-in slide-in-from-right-8 duration-500">
             <CardHeader>
               <CardTitle>Select Categories</CardTitle>
               <CardDescription>
-                Choose some starting categories. We'll add "Others" for you.
+                Choose some starting categories or add your own.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="flex flex-wrap gap-2">
-                {[
-                  "Salary",
-                  "Rent",
-                  "Groceries",
-                  "Food",
-                  "Gym",
-                  "Home",
-                  "Transport",
-                  "Utilities",
-                  "Entertainment",
-                ].map((cat) => (
-                  <div
-                    key={cat}
-                    onClick={() => {
-                      if (selectedCategories.includes(cat)) {
-                        setSelectedCategories(
-                          selectedCategories.filter((c) => c !== cat),
-                        );
-                      } else {
-                        setSelectedCategories([...selectedCategories, cat]);
-                      }
-                    }}
-                    className={`px-4 py-2 rounded-full cursor-pointer border transition-colors ${selectedCategories.includes(cat) ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent border-input"}`}
-                  >
-                    {cat}
-                  </div>
-                ))}
+                {defaultCategories.map((cat) => {
+                  const isSelected = selectedCategories.some(
+                    (c) => c.name === cat.name,
+                  );
+                  return (
+                    <div
+                      key={cat.name}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedCategories(
+                            selectedCategories.filter(
+                              (c) => c.name !== cat.name,
+                            ),
+                          );
+                        } else {
+                          setSelectedCategories([...selectedCategories, cat]);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-full cursor-pointer border transition-colors flex items-center gap-2 ${isSelected ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent border-input"}`}
+                    >
+                      <span>{cat.icon}</span>
+                      <span>{cat.name}</span>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="mt-4">
-                <label className="text-sm font-medium mb-2 block">
-                  Custom Category
+
+              <div className="border-t pt-4">
+                <label className="text-sm font-medium mb-3 block">
+                  Add Custom Category
                 </label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Category Name"
-                    value={customCategory}
-                    onChange={(e) => setCustomCategory(e.target.value)}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      if (
-                        customCategory &&
-                        !selectedCategories.includes(customCategory)
-                      ) {
-                        setSelectedCategories([
-                          ...selectedCategories,
-                          customCategory,
-                        ]);
-                        setCustomCategory("");
-                      }
-                    }}
-                  >
-                    Add
-                  </Button>
+                <div className="grid gap-3">
+                  <div className="flex gap-2">
+                    <div className="relative">
+                      <Button
+                        variant="outline"
+                        className="w-12 h-10 px-0"
+                        ref={emojiButtonRef}
+                        onClick={() => {
+                          if (emojiButtonRef.current) {
+                            const rect =
+                              emojiButtonRef.current.getBoundingClientRect();
+                            setPickerPosition({
+                              top: rect.bottom + window.scrollY,
+                              left: rect.left + window.scrollX,
+                            });
+                          }
+                          setShowEmojiPicker(!showEmojiPicker);
+                        }}
+                      >
+                        {customIcon}
+                      </Button>
+                      {showEmojiPicker &&
+                        createPortal(
+                          <div
+                            className="fixed inset-0 z-[9999]"
+                            onClick={(e) => {
+                              if (e.target === e.currentTarget)
+                                setShowEmojiPicker(false);
+                            }}
+                          >
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: pickerPosition.top + 5,
+                                left: pickerPosition.left,
+                                zIndex: 10000,
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <EmojiPicker
+                                onEmojiClick={(emojiObject) => {
+                                  setCustomIcon(emojiObject.emoji);
+                                  setShowEmojiPicker(false);
+                                }}
+                              />
+                            </div>
+                          </div>,
+                          document.body,
+                        )}
+                    </div>
+                    <Input
+                      placeholder="Category Name"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      className="flex-1"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <select
+                      className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      value={customType}
+                      onChange={(e) => setCustomType(e.target.value)}
+                    >
+                      <option value="EXPENSE">Expense</option>
+                      <option value="INCOME">Income</option>
+                    </select>
+                    <Input
+                      type="color"
+                      value={customColor}
+                      onChange={(e) => setCustomColor(e.target.value)}
+                      className="h-10 w-16 p-1 cursor-pointer"
+                    />
+                    <Button
+                      variant="secondary"
+                      onClick={handleAddCustomCategory}
+                      disabled={!customName}
+                      className="flex-1"
+                    >
+                      Add Custom
+                    </Button>
+                  </div>
                 </div>
               </div>
+
               <div className="flex justify-end pt-4">
-                <Button onClick={handleCreateCategories} disabled={loading}>
+                <Button
+                  onClick={handleFinishOnboarding}
+                  disabled={submitting || selectedCategories.length === 0}
+                >
                   Create & Finish
                 </Button>
               </div>
@@ -374,16 +492,17 @@ export function FreeOnboardingPage() {
 
         {step === 4 && (
           <div className="text-center space-y-6 animate-in fade-in zoom-in duration-500">
-            <div className="bg-primary/20 p-6 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-primary">
-              <Check className="h-12 w-12" />
+            <div className="relative">
+              <div className="bg-primary/20 p-6 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-primary relative z-10">
+                <Loader2 className="h-12 w-12 animate-spin" />
+              </div>
             </div>
-            <h1 className="text-4xl font-bold">All Set!</h1>
+
+            <h1 className="text-4xl font-bold">Setting up your space...</h1>
             <p className="text-xl text-muted-foreground">
-              Your finance journey begins now.
+              Creating your accounts, categories, and personalizing your
+              experience.
             </p>
-            <Button size="lg" className="mt-8 px-8" onClick={handleAllSet}>
-              Go to Dashboard
-            </Button>
           </div>
         )}
       </div>

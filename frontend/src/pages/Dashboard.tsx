@@ -33,14 +33,13 @@ function DashboardContent({
   dataPromise: Promise<DashboardData>;
 }) {
   const data = use(dataPromise);
-  const { loadMessage } = useMascot();
+  const { loadMessageByContext } = useMascot();
 
   useEffect(() => {
     if (Math.random() < 0.3) {
-      console.log("Loading mascot message");
-      loadMessage("home");
+      loadMessageByContext("home");
     }
-  }, [loadMessage]);
+  }, [loadMessageByContext]);
 
   const { current_date, cards, month_comparison, chart_data } = data;
 

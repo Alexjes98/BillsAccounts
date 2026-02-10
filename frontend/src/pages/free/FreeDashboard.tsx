@@ -38,13 +38,13 @@ function FreeDashboardContent({
   const [showConfirm, setShowConfirm] = useState(false);
   const [generating, setGenerating] = useState(false);
   const api = useApi();
-  const { loadMessage } = useMascot();
+  const { loadMessageByContext } = useMascot();
 
   useEffect(() => {
     if (Math.random() < 0.3) {
-      loadMessage("home");
+      loadMessageByContext("home");
     }
-  }, [loadMessage]);
+  }, [loadMessageByContext]);
 
   const handleGenerateResume = async () => {
     if (!data) return;
