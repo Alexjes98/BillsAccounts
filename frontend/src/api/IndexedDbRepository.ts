@@ -220,8 +220,6 @@ export class IndexedDbRepository implements ApiRepository {
       if (!data.person_id) {
         throw new Error("Person ID is required when linking a debt");
       }
-      console.log("debt", debt);
-      console.log("data", data);
       if (
         data.person_id !== debt.creditor_id &&
         data.person_id !== debt.debtor_id
@@ -358,15 +356,76 @@ export class IndexedDbRepository implements ApiRepository {
       updatedTx.account = undefined;
     }
 
-    // Update other hydrated fields if IDs changed
-    if (data.debt_id) {
-      const debt = await db.get("debts", data.debt_id);
-      if (debt)
+    // 4. Handle Debt Updates
+    const oldDebtId = tx.debt_id;
+    const newDebtId = updatedTx.debt_id;
+    const oldAmountAbs = Math.abs(tx.amount);
+    const newAmountAbs = Math.abs(updatedTx.amount);
+
+    // Scenario A: Debt ID Changed (or removed)
+    if (oldDebtId && oldDebtId !== newDebtId) {
+      const oldDebt = await db.get("debts", oldDebtId);
+      if (oldDebt) {
+        oldDebt.remaining_amount += oldAmountAbs;
+        oldDebt.is_settled = false;
+        await db.put("debts", oldDebt);
+      }
+    }
+
+    if (newDebtId && newDebtId !== oldDebtId) {
+      const newDebt = await db.get("debts", newDebtId);
+      if (newDebt) {
+        newDebt.remaining_amount -= newAmountAbs;
+        if (newDebt.remaining_amount <= 0) {
+          newDebt.remaining_amount = 0;
+          newDebt.is_settled = true;
+        } else {
+          newDebt.is_settled = false;
+        }
+        await db.put("debts", newDebt);
+
+        // Update hydrated debt
+        updatedTx.debt = {
+          description: newDebt.description,
+          remaining_amount: newDebt.remaining_amount,
+        };
+      }
+    }
+
+    // Scenario B: Debt ID Unchanged, Amount Changed
+    if (newDebtId && newDebtId === oldDebtId && oldAmountAbs !== newAmountAbs) {
+      const debt = await db.get("debts", newDebtId);
+      if (debt) {
+        const diff = oldAmountAbs - newAmountAbs;
+        debt.remaining_amount += diff;
+
+        if (debt.remaining_amount <= 0) {
+          debt.remaining_amount = 0;
+          debt.is_settled = true;
+        } else {
+          debt.is_settled = false;
+        }
+        await db.put("debts", debt);
+
+        // Update hydrated debt
         updatedTx.debt = {
           description: debt.description,
           remaining_amount: debt.remaining_amount,
         };
+      }
+    } else if (newDebtId && newDebtId === oldDebtId) {
+      // Just refresh hydration if needed (e.g. if debt was updated elsewhere, though unlikely in this flow)
+      const debt = await db.get("debts", newDebtId);
+      if (debt) {
+        updatedTx.debt = {
+          description: debt.description,
+          remaining_amount: debt.remaining_amount,
+        };
+      }
+    } else if (!newDebtId) {
+      updatedTx.debt = undefined;
     }
+
     if (data.savings_goal_id) {
       const sg = await db.get("savings_goals", data.savings_goal_id);
       if (sg) updatedTx.savings_goal = { name: sg.name };
@@ -387,6 +446,22 @@ export class IndexedDbRepository implements ApiRepository {
       if (account) {
         account.current_balance -= tx.amount;
         await db.put("accounts", account);
+      }
+    }
+
+    // Revert Debt Balance
+    if (tx.debt_id) {
+      const debt = await db.get("debts", tx.debt_id);
+      if (debt) {
+        // Revert the payment: Add back the absolute transaction amount
+        debt.remaining_amount += Math.abs(tx.amount);
+
+        // If the debt was settled, mark it as pending (not settled)
+        if (debt.is_settled) {
+          debt.is_settled = false;
+        }
+
+        await db.put("debts", debt);
       }
     }
 
