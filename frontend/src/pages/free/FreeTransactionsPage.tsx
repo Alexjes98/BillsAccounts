@@ -314,7 +314,7 @@ export function FreeTransactionsPage() {
               <div>
                 {new Date(
                   viewingTransaction.transaction_date,
-                ).toLocaleDateString()}
+                ).toLocaleDateString(undefined, { timeZone: "UTC" })}
               </div>
 
               <div className="font-medium text-muted-foreground">Name</div>

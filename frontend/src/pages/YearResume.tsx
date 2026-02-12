@@ -28,8 +28,52 @@ export function YearResume() {
   );
 
   // Generate last 5 years for selection
-  const currentYear = new Date().getFullYear();
+  const currentTotalDate = new Date();
+  const currentYear = currentTotalDate.getFullYear();
+  const currentMonthIndex = currentTotalDate.getMonth(); // 0-indexed
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+
+  // Generate all 12 months for the selected year
+  const allMonths = Array.from({ length: 12 }, (_, i) => {
+    const monthIndex = i; // 0-indexed
+    const monthNum = i + 1; // 1-indexed
+    const date = new Date(year, monthIndex, 1);
+    const monthName = date.toLocaleString("default", { month: "short" });
+
+    // Check if summary exists
+    const hasSummary = summaries.some((s) => s.month === monthNum);
+
+    // Determine status
+    let status:
+      | "present"
+      | "missing-past"
+      | "missing-current"
+      | "missing-future" = "present";
+
+    if (!hasSummary) {
+      if (year < currentYear) {
+        status = "missing-past";
+      } else if (year > currentYear) {
+        status = "missing-future";
+      } else {
+        // Same year
+        if (monthIndex < currentMonthIndex) {
+          status = "missing-past";
+        } else if (monthIndex === currentMonthIndex) {
+          status = "missing-current";
+        } else {
+          status = "missing-future";
+        }
+      }
+    }
+
+    return {
+      monthNum,
+      monthName,
+      status,
+      hasSummary,
+    };
+  });
 
   const fetchSummaries = async (selectedYear: number) => {
     setLoading(true);
@@ -120,6 +164,47 @@ export function YearResume() {
             )}
           </Button>
         </div>
+      </div>
+
+      {/* Month Status Indicators */}
+      <div className="flex flex-wrap gap-2 pb-2">
+        {allMonths.map((m) => {
+          let badgeClass =
+            "bg-secondary text-secondary-foreground hover:bg-secondary/80";
+          let cursorClass = "cursor-default";
+          let onClick = undefined;
+
+          if (m.status === "present") {
+            badgeClass =
+              "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800";
+          } else if (m.status === "missing-past") {
+            badgeClass =
+              "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 cursor-pointer hover:bg-red-200 dark:hover:bg-red-900/50";
+            cursorClass = "cursor-pointer";
+            onClick = () => handleRecalculateMonth(m.monthNum);
+          } else if (m.status === "missing-current") {
+            badgeClass =
+              "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900/50";
+            cursorClass = "cursor-pointer";
+            onClick = () => handleRecalculateMonth(m.monthNum);
+          } else if (m.status === "missing-future") {
+            badgeClass =
+              "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700";
+          }
+
+          const isLoading = recalculatingMonth === m.monthNum;
+
+          return (
+            <div
+              key={m.monthNum}
+              className={`px-3 py-1 rounded-full border text-xs font-medium flex items-center gap-1 transition-colors ${badgeClass} ${cursorClass}`}
+              onClick={!isLoading && onClick ? onClick : undefined}
+            >
+              {m.monthName}
+              {isLoading && <Loader2 className="h-3 w-3 animate-spin ml-1" />}
+            </div>
+          );
+        })}
       </div>
 
       {/* Yearly Summary Cards */}
