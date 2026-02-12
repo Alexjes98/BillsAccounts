@@ -11,6 +11,7 @@ import {
 } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
 import { useUser } from "@/context/UserContext";
+import { CategorySelector } from "@/components/CategorySelector";
 
 interface TransactionFormProps {
   initialData?: Transaction;
@@ -146,6 +147,27 @@ export function TransactionForm({
     }
   }, [initialData]);
 
+  const handleCreateCategory = async (
+    name: string,
+    type: "INCOME" | "EXPENSE",
+  ) => {
+    try {
+      const newCategory = await api.createCategory({
+        name,
+        type,
+        icon: type === "INCOME" ? "💰" : "💸", // Default icons
+        color: type === "INCOME" ? "green" : "red", // Default colors
+      });
+      setCategories((prev) => [...prev, newCategory]);
+      setCategoryId(newCategory.id);
+    } catch (error) {
+      console.error("Failed to create category", error);
+      // Optional: set error state if you want to show it in the form error block
+      // setError("Failed to create category");
+      throw error; // Re-throw so CategorySelector knows it failed
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -233,14 +255,6 @@ export function TransactionForm({
     }
   };
 
-  const selectedCategory = categories.find((c) => c.id === categoryId);
-  const categoryColorClass =
-    selectedCategory?.type === "INCOME"
-      ? "text-green-600"
-      : selectedCategory?.type === "EXPENSE"
-        ? "text-red-600"
-        : "";
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
@@ -304,29 +318,12 @@ export function TransactionForm({
         <label htmlFor="category" className="text-sm font-medium">
           Category *
         </label>
-        <select
-          autoComplete="off"
-          id="category"
+        <CategorySelector
+          categories={categories}
           value={categoryId}
-          onChange={(e) => setCategoryId(e.target.value)}
-          className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${categoryColorClass}`}
-          disabled={isLoadingCategories}
-          required
-        >
-          {isLoadingCategories ? (
-            <option>Loading categories...</option>
-          ) : (
-            categories.map((cat) => (
-              <option
-                key={cat.id}
-                style={{ color: cat.type === "INCOME" ? "green" : "red" }}
-                value={cat.id}
-              >
-                {cat.icon} {cat.name}
-              </option>
-            ))
-          )}
-        </select>
+          onChange={setCategoryId}
+          onCreate={handleCreateCategory}
+        />
       </div>
 
       <div className="space-y-2">
