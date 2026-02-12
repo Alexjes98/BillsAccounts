@@ -171,7 +171,7 @@ function CategoryCard({
       <CardContent className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-sm"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-3xl shadow-sm"
             style={{ backgroundColor: category.color || "#f0f0f0" }}
           >
             {category.icon || (category.type === "INCOME" ? "💰" : "💸")}
