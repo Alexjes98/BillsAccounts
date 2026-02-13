@@ -825,7 +825,12 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getMonthlySummaries(year: number): Promise<MonthlySummary[]> {
     const db = await this.dbPromise;
-    return db.getAllFromIndex("monthly_summaries", "by-year", year);
+    const summaries = await db.getAllFromIndex(
+      "monthly_summaries",
+      "by-year",
+      year,
+    );
+    return summaries.sort((a, b) => a.month - b.month);
   }
 
   async recalculateMonthlySummaries(): Promise<{
@@ -837,18 +842,25 @@ export class IndexedDbRepository implements ApiRepository {
     const categories = await db.getAll("categories");
     const catMap = new Map(categories.map((c) => [c.id, c]));
 
+    const currentYear = new Date().getFullYear();
+
     // 1. Identify all months from transactions
     const monthsSet = new Set<string>();
     transactions.forEach((t) => {
       const d = new Date(t.transaction_date);
-      const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
-      monthsSet.add(key);
+      const year = d.getFullYear();
+      if (year >= currentYear) {
+        const key = `${year}-${d.getMonth() + 1}`;
+        monthsSet.add(key);
+      }
     });
 
     // 2. Identify all months from existing summaries
     const existingSummaries = await db.getAll("monthly_summaries");
     existingSummaries.forEach((s) => {
-      monthsSet.add(`${s.year}-${s.month}`);
+      if (s.year >= currentYear) {
+        monthsSet.add(`${s.year}-${s.month}`);
+      }
     });
 
     // 3. Recalculate for each unique month
@@ -903,6 +915,11 @@ export class IndexedDbRepository implements ApiRepository {
     year: number,
     month: number,
   ): Promise<{ message: string; data: MonthlySummary }> {
+    const currentYear = new Date().getFullYear();
+    if (year < currentYear) {
+      throw new Error("Recalculation is disabled for past years.");
+    }
+
     const db = await this.dbPromise;
     const monthIndex = month - 1;
 
@@ -1003,6 +1020,7 @@ export class IndexedDbRepository implements ApiRepository {
     const debts = await db.getAll("debts");
     const persons = await db.getAll("persons");
     const savings_goals = await db.getAll("savings_goals");
+    const monthly_summaries = await db.getAll("monthly_summaries");
     const user = await db.getAll("user");
 
     return {
@@ -1012,6 +1030,7 @@ export class IndexedDbRepository implements ApiRepository {
       debts,
       persons,
       savings_goals,
+      monthly_summaries,
       user,
       export_date: new Date().toISOString(),
     };
@@ -1063,6 +1082,7 @@ export class IndexedDbRepository implements ApiRepository {
     ]);
 
     // Insert new data
+    // Insert new data
     const stores = [
       "transactions",
       "categories",
@@ -1070,13 +1090,17 @@ export class IndexedDbRepository implements ApiRepository {
       "debts",
       "persons",
       "savings_goals",
+      "monthly_summaries",
       "user",
     ];
 
     for (const storeName of stores) {
-      const store = tx.objectStore(storeName as any);
-      for (const item of data[storeName]) {
-        await store.put(item);
+      // Check if data for this store exists in the import file
+      if (data[storeName] && Array.isArray(data[storeName])) {
+        const store = tx.objectStore(storeName as any);
+        for (const item of data[storeName]) {
+          await store.put(item);
+        }
       }
     }
 
