@@ -10,3 +10,8 @@ dist
 terraform.tfstate
 terraform.tfstate.backup
 *.tfvars
+
+frontend/dist
+frontend/node_modules
+frontend/.env.production
+frontend/.env.development
