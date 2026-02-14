@@ -21,6 +21,13 @@ import {
   User,
 } from "./repository";
 import { MascotMessage } from "./mascotMessages";
+import {
+  sanitizeInput,
+  validateInput,
+  MAX_NAME_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+  MAX_CONTACT_INFO_LENGTH,
+} from "@/lib/sanitization";
 
 export class RestApiRepository implements ApiRepository {
   async getTransactions(
@@ -41,6 +48,8 @@ export class RestApiRepository implements ApiRepository {
   }
 
   async createCategory(data: CategoryCreate): Promise<Category> {
+    validateInput(data.name, MAX_NAME_LENGTH, "Category Name");
+    data.name = sanitizeInput(data.name);
     const response = await api.post("/api/categories", data);
     return response.data;
   }
@@ -49,6 +58,10 @@ export class RestApiRepository implements ApiRepository {
     id: string,
     data: Partial<CategoryCreate>,
   ): Promise<Category> {
+    if (data.name !== undefined) {
+      validateInput(data.name, MAX_NAME_LENGTH, "Category Name");
+      data.name = sanitizeInput(data.name);
+    }
     const response = await api.put(`/api/categories/${id}`, data);
     return response.data;
   }
@@ -63,6 +76,8 @@ export class RestApiRepository implements ApiRepository {
   }
 
   async createAccount(data: CreateAccountPayload): Promise<Account> {
+    validateInput(data.name, MAX_NAME_LENGTH, "Account Name");
+    data.name = sanitizeInput(data.name);
     const response = await api.post("/api/accounts", data);
     return response.data;
   }
@@ -71,6 +86,10 @@ export class RestApiRepository implements ApiRepository {
     id: string,
     data: Partial<CreateAccountPayload>,
   ): Promise<Account> {
+    if (data.name !== undefined) {
+      validateInput(data.name, MAX_NAME_LENGTH, "Account Name");
+      data.name = sanitizeInput(data.name);
+    }
     const response = await api.put(`/api/accounts/${id}`, data);
     return response.data;
   }
@@ -80,6 +99,14 @@ export class RestApiRepository implements ApiRepository {
   }
 
   async createDebt(data: CreateDebtPayload): Promise<Debt> {
+    if (data.description) {
+      validateInput(
+        data.description,
+        MAX_DESCRIPTION_LENGTH,
+        "Debt Description",
+      );
+      data.description = sanitizeInput(data.description);
+    }
     const response = await api.post("/api/debts", data);
     return response.data;
   }
@@ -87,6 +114,18 @@ export class RestApiRepository implements ApiRepository {
   async createTransaction(
     data: CreateTransactionPayload,
   ): Promise<Transaction> {
+    validateInput(data.name, MAX_NAME_LENGTH, "Transaction Name");
+    data.name = sanitizeInput(data.name);
+
+    if (data.description) {
+      validateInput(
+        data.description,
+        MAX_DESCRIPTION_LENGTH,
+        "Transaction Description",
+      );
+      data.description = sanitizeInput(data.description);
+    }
+
     const response = await api.post("/api/transactions", data);
     return response.data;
   }
@@ -95,6 +134,18 @@ export class RestApiRepository implements ApiRepository {
     id: string,
     data: Partial<CreateTransactionPayload>,
   ): Promise<Transaction> {
+    if (data.name !== undefined) {
+      validateInput(data.name, MAX_NAME_LENGTH, "Transaction Name");
+      data.name = sanitizeInput(data.name);
+    }
+    if (data.description !== undefined) {
+      validateInput(
+        data.description,
+        MAX_DESCRIPTION_LENGTH,
+        "Transaction Description",
+      );
+      data.description = sanitizeInput(data.description);
+    }
     const response = await api.put(`/api/transactions/${id}`, data);
     return response.data;
   }
@@ -116,6 +167,14 @@ export class RestApiRepository implements ApiRepository {
     id: string,
     data: Partial<CreateDebtPayload> | { is_settled: boolean },
   ): Promise<Debt> {
+    if ("description" in data && data.description) {
+      validateInput(
+        data.description,
+        MAX_DESCRIPTION_LENGTH,
+        "Debt Description",
+      );
+      data.description = sanitizeInput(data.description);
+    }
     const response = await api.put(`/api/debts/${id}`, data);
     return response.data;
   }
@@ -135,11 +194,25 @@ export class RestApiRepository implements ApiRepository {
   }
 
   async createPerson(data: CreatePersonPayload): Promise<Person> {
+    validateInput(data.name, MAX_NAME_LENGTH, "Person Name");
+    data.name = sanitizeInput(data.name);
+
+    if (data.contact_info) {
+      validateInput(data.contact_info, MAX_CONTACT_INFO_LENGTH, "Contact Info");
+      data.contact_info = sanitizeInput(data.contact_info);
+    }
     const response = await api.post("/api/persons", data);
     return response.data;
   }
 
   async updatePerson(id: string, data: CreatePersonPayload): Promise<Person> {
+    validateInput(data.name, MAX_NAME_LENGTH, "Person Name");
+    data.name = sanitizeInput(data.name);
+
+    if (data.contact_info) {
+      validateInput(data.contact_info, MAX_CONTACT_INFO_LENGTH, "Contact Info");
+      data.contact_info = sanitizeInput(data.contact_info);
+    }
     const response = await api.put(`/api/persons/${id}`, data);
     return response.data;
   }

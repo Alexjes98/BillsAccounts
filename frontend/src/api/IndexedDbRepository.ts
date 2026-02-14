@@ -22,6 +22,13 @@ import {
   CreateUserPayload,
 } from "./repository";
 import { MascotMessage, FALLBACK_MESSAGES } from "./mascotMessages";
+import {
+  sanitizeInput,
+  validateInput,
+  MAX_NAME_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+  MAX_CONTACT_INFO_LENGTH,
+} from "@/lib/sanitization";
 
 // TODO: Refine all behaviours with data relations to ensure data consistency with basic functions
 
@@ -215,6 +222,21 @@ export class IndexedDbRepository implements ApiRepository {
       data.amount = -Math.abs(data.amount);
     }
 
+    // Sanitize and Validate Inputs
+    validateInput(data.name, MAX_NAME_LENGTH, "Transaction Name");
+    if (data.description) {
+      validateInput(
+        data.description,
+        MAX_DESCRIPTION_LENGTH,
+        "Transaction Description",
+      );
+    }
+
+    data.name = sanitizeInput(data.name);
+    if (data.description) {
+      data.description = sanitizeInput(data.description);
+    }
+
     // 2. Handle Debt Update (Only on Create)
     if (data.debt_id && debt) {
       if (!data.person_id) {
@@ -342,6 +364,20 @@ export class IndexedDbRepository implements ApiRepository {
         icon: category.icon,
       },
     };
+
+    // Sanitize and Validate Inputs if updated
+    if (data.name !== undefined) {
+      validateInput(data.name, MAX_NAME_LENGTH, "Transaction Name");
+      updatedTx.name = sanitizeInput(data.name);
+    }
+    if (data.description !== undefined) {
+      validateInput(
+        data.description,
+        MAX_DESCRIPTION_LENGTH,
+        "Transaction Description",
+      );
+      updatedTx.description = sanitizeInput(data.description);
+    }
 
     // 3. Apply New Balance Effect
     if (updatedTx.account_id) {
@@ -538,6 +574,10 @@ export class IndexedDbRepository implements ApiRepository {
       ...data,
       created_at: new Date().toISOString(),
     };
+
+    validateInput(newCat.name, MAX_NAME_LENGTH, "Category Name");
+    newCat.name = sanitizeInput(newCat.name);
+
     await db.put("categories", newCat);
     return newCat;
   }
@@ -550,6 +590,12 @@ export class IndexedDbRepository implements ApiRepository {
     const cat = await db.get("categories", id);
     if (!cat) throw new Error("Category not found");
     const updated = { ...cat, ...data };
+
+    if (data.name !== undefined) {
+      validateInput(updated.name, MAX_NAME_LENGTH, "Category Name");
+      updated.name = sanitizeInput(updated.name);
+    }
+
     await db.put("categories", updated);
     return updated;
   }
@@ -587,6 +633,10 @@ export class IndexedDbRepository implements ApiRepository {
       currency: data.currency || "USD",
       updated_at: new Date().toISOString(),
     };
+
+    validateInput(newAcc.name, MAX_NAME_LENGTH, "Account Name");
+    newAcc.name = sanitizeInput(newAcc.name);
+
     await db.put("accounts", newAcc);
     return newAcc;
   }
@@ -599,6 +649,12 @@ export class IndexedDbRepository implements ApiRepository {
     const acc = await db.get("accounts", id);
     if (!acc) throw new Error("Account not found");
     const updated = { ...acc, ...data, updated_at: new Date().toISOString() };
+
+    if (data.name !== undefined) {
+      validateInput(updated.name, MAX_NAME_LENGTH, "Account Name");
+      updated.name = sanitizeInput(updated.name);
+    }
+
     await db.put("accounts", updated);
     return updated;
   }
@@ -632,6 +688,16 @@ export class IndexedDbRepository implements ApiRepository {
       description: data.description || "",
       due_date: data.due_date || "",
     };
+
+    if (newDebt.description) {
+      validateInput(
+        newDebt.description,
+        MAX_DESCRIPTION_LENGTH,
+        "Debt Description",
+      );
+      newDebt.description = sanitizeInput(newDebt.description);
+    }
+
     await db.put("debts", newDebt);
     return newDebt;
   }
@@ -658,6 +724,15 @@ export class IndexedDbRepository implements ApiRepository {
       }
       // If un-settling, we keep as is or need logic.
       // Mirroring backend logic (which currently does nothing specific for un-settling)
+    }
+
+    if ("description" in data && data.description) {
+      validateInput(
+        data.description,
+        MAX_DESCRIPTION_LENGTH,
+        "Debt Description",
+      );
+      updatedDebt.description = sanitizeInput(data.description);
     }
 
     await db.put("debts", updatedDebt);
@@ -723,6 +798,19 @@ export class IndexedDbRepository implements ApiRepository {
       contact_info: data.contact_info || "",
       created_at: new Date().toISOString(),
     };
+
+    validateInput(newPerson.name, MAX_NAME_LENGTH, "Person Name");
+    newPerson.name = sanitizeInput(newPerson.name);
+
+    if (newPerson.contact_info) {
+      validateInput(
+        newPerson.contact_info,
+        MAX_CONTACT_INFO_LENGTH,
+        "Contact Info",
+      );
+      newPerson.contact_info = sanitizeInput(newPerson.contact_info);
+    }
+
     await db.put("persons", newPerson);
     return newPerson;
   }
@@ -736,6 +824,19 @@ export class IndexedDbRepository implements ApiRepository {
       name: data.name,
       contact_info: data.contact_info || "",
     };
+
+    validateInput(updated.name, MAX_NAME_LENGTH, "Person Name");
+    updated.name = sanitizeInput(updated.name);
+
+    if (updated.contact_info) {
+      validateInput(
+        updated.contact_info,
+        MAX_CONTACT_INFO_LENGTH,
+        "Contact Info",
+      );
+      updated.contact_info = sanitizeInput(updated.contact_info);
+    }
+
     await db.put("persons", updated);
     return updated;
   }
