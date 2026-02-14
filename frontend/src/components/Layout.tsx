@@ -256,5 +256,9 @@ function UserDisplay() {
   if (loading) return <span>Loading...</span>;
   if (!user) return null;
 
-  return <span className="font-medium text-foreground">{user.email}</span>;
+  return (
+    <span className="font-medium text-foreground">
+      {user.name || user.email}
+    </span>
+  );
 }

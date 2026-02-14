@@ -180,14 +180,6 @@ export interface MonthlySummary {
   closing_balance: number;
 }
 
-export interface User {
-  id: string;
-  email: string;
-  base_currency: string;
-  person_id?: string;
-  created_at: string;
-}
-
 export interface ApiRepository {
   getTransactions(
     params?: TransactionQueryParams,
@@ -245,13 +237,15 @@ export interface ApiRepository {
 }
 
 export interface CreateUserPayload {
+  name: string;
   email?: string;
   base_currency: string;
 }
 
 export interface User {
   id: string;
-  email: string;
+  name?: string;
+  email?: string;
   base_currency: string;
   person_id?: string;
   created_at: string;

@@ -1118,7 +1118,7 @@ export class IndexedDbRepository implements ApiRepository {
     const db = await this.dbPromise;
 
     // Automatically create the user person
-    const personName = data.email ? data.email.split("@")[0] : "Me";
+    const personName = data.name;
     const userPerson: Person = {
       id: "local-user-person",
       name: personName,
@@ -1132,6 +1132,7 @@ export class IndexedDbRepository implements ApiRepository {
 
     const newUser: User = {
       id: "local-user",
+      name: data.name,
       email: data.email || "",
       base_currency: data.base_currency,
       person_id: userPerson.id,

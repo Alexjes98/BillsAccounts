@@ -295,7 +295,8 @@ export const recalculateSingleMonthSummary = async (
 
 export interface User {
   id: string;
-  email: string;
+  name?: string;
+  email?: string;
   base_currency: string;
   created_at: string;
 }

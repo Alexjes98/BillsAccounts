@@ -7,7 +7,8 @@ Project AccountantApp {
 
 Table users {
   id uuid [pk, default: `uuid_generate_v4()`]
-  email varchar [unique, not null]
+  name varchar
+  email varchar [unique]
   password_hash varchar [not null]
   base_currency varchar(3) [default: 'USD', note: 'The currency used for all internal math']
   person_id uuid [ref: > persons.id, note: 'The person that the user is representing can be null']

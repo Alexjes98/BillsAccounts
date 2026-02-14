@@ -29,7 +29,11 @@ export function OnboardingPage() {
   const navigate = useNavigate();
 
   // Form States
-  const [userData, setUserData] = useState({ email: "", currency: "USD" });
+  const [userData, setUserData] = useState({
+    name: "",
+    email: "",
+    currency: "USD",
+  });
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>(["Cash"]);
   const [persons, setPersons] = useState<string[]>([]);
   const [newPerson, setNewPerson] = useState("");
@@ -70,11 +74,12 @@ export function OnboardingPage() {
 
   // Initial User Creation (Step 0)
   const handleCreateUser = async () => {
-    if (!userData.currency) return;
+    if (!userData.currency || !userData.name || !userData.email) return;
     setLoading(true);
     try {
       await api.createUser({
-        email: userData.email,
+        name: userData.name,
+        email: userData.email || undefined,
         base_currency: userData.currency,
       });
       await refreshUser();
@@ -195,7 +200,17 @@ export function OnboardingPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Email (Optional)</label>
+                <label className="text-sm font-medium">Name</label>
+                <Input
+                  placeholder="Your Name"
+                  value={userData.name}
+                  onChange={(e) =>
+                    setUserData({ ...userData, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Email</label>
                 <Input
                   placeholder="you@example.com"
                   value={userData.email}

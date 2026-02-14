@@ -116,9 +116,17 @@ export function ProfilePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-muted-foreground">
+                Name
+              </label>
+              <div className="text-lg font-medium">
+                {dbUser.name || (dbUser.person && dbUser.person.name) || "-"}
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">
                 Email
               </label>
-              <div className="text-lg font-medium">{dbUser.email}</div>
+              <div className="text-lg font-medium">{dbUser.email || "-"}</div>
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">
@@ -126,64 +134,6 @@ export function ProfilePage() {
               </label>
               <div className="text-lg font-medium">{dbUser.base_currency}</div>
             </div>
-
-            {(dbUser.person || dbUser.person_id) && (
-              // If person nested object exists (Online) or we fetch it?
-              // In offline, our getUser logic in Repository returns the User object.
-              // But does it join the Person?
-              // Looking at IndexedDbRepository.getUser, it returns "user" store item.
-              // It does NOT join person.
-              // We might need to fetch that separately if not present.
-              // However, for MVP let's display what we have.
-              // Ideally we should fix getUser to join person in both modes if possible
-              // OR fetch person here if missing.
-              // The task said "including personal information about the user... online retrieve from python... frontend from indexedDB"
-
-              // Update: The online part returns 'person' object.
-              // The offline part (IndexedDbRepository) 'getUser' strictly returns 'user' store object.
-              // The 'createUser' logic creates a person but stores only ID in user.
-              // So offline user object lacks name/contact unless we join.
-              // Let's rely on 'person' object if present.
-              // If not, and we have person_id, we could fetch it, but 'useUser' context might not do deep fetch.
-              // Let's just try to display what we have for now, or improve it.
-
-              // Wait, for offline, IndexedDbRepository.getUser() returns just the User object.
-              // I should probably update IndexedDbRepository.getUser to fetch the person name too
-              // or do it in the component.
-              // Doing it in component is easier for now.
-
-              <>
-                {dbUser.person ? (
-                  <>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Name
-                      </label>
-                      <div className="text-lg font-medium">
-                        {dbUser.person.name}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-muted-foreground">
-                        Contact Info
-                      </label>
-                      <div className="text-lg font-medium">
-                        {dbUser.person.contact_info || "-"}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="md:col-span-2 text-sm text-muted-foreground italic">
-                    (Person details not linked or loaded)
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Fallback for Offline if User object has no person but we know there is one linked 
-                We can try to fetch it if we had access to getPersons logic or similar, 
-                but let's stick to the plan.
-            */}
           </div>
         </CardContent>
       </Card>
