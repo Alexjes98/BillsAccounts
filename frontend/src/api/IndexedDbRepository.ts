@@ -814,6 +814,19 @@ export class IndexedDbRepository implements ApiRepository {
     const lastMonthId = `${lastMonthYear}-${lastMonthIndex + 1}`;
     const lastMonthSummary = await db.get("monthly_summaries", lastMonthId);
 
+    // New Calculations
+    const currentDay = now.getDate();
+    const daily_expense_rate = currentDay > 0 ? expenses / currentDay : 0;
+    const month_balance = income - expenses;
+
+    const lastMonthIncome = lastMonthSummary
+      ? lastMonthSummary.total_income
+      : 0;
+    const income_trend =
+      lastMonthIncome > 0
+        ? ((income - lastMonthIncome) / lastMonthIncome) * 100
+        : 0;
+
     return {
       current_date: {
         year: currentYear,
@@ -824,13 +837,16 @@ export class IndexedDbRepository implements ApiRepository {
         balance,
         income,
         expenses,
+        daily_expense_rate,
+        month_balance,
       },
       month_comparison: {
         current: { income, expenses },
         last: {
-          income: lastMonthSummary ? lastMonthSummary.total_income : 0,
+          income: lastMonthIncome,
           expenses: lastMonthSummary ? lastMonthSummary.total_expense : 0,
         },
+        income_trend,
       },
       chart_data,
     };

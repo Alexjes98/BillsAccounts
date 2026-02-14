@@ -159,10 +159,13 @@ export interface DashboardData {
     balance: number;
     income: number;
     expenses: number;
+    daily_expense_rate: number;
+    month_balance: number;
   };
   month_comparison: {
     current: { income: number; expenses: number };
     last: { income: number; expenses: number };
+    income_trend: number;
   };
   chart_data: { day: number; income: number; expenses: number }[];
 }

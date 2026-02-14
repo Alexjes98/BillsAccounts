@@ -18,13 +18,13 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-  AreaChart,
+  ComposedChart,
   Area,
   BarChart,
   Bar,
 } from "recharts";
 // import { RefreshCcw } from "lucide-react";
-import { ArrowUpIcon, ArrowDownIcon, Wallet } from "lucide-react";
+import { ArrowUpIcon, ArrowDownIcon, Wallet, Scale } from "lucide-react";
 import { DashboardData } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
 import { useMascot } from "@/context/MascotContext";
@@ -125,7 +125,7 @@ function FreeDashboardContent({
       </Modal>
 
       {/* Top Cards */}
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-4">
         <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -143,6 +143,24 @@ function FreeDashboardContent({
           </CardContent>
         </Card>
 
+        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-100 dark:border-purple-900 shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
+              Month Balance
+            </CardTitle>
+            <Scale className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-purple-900 dark:text-purple-100">
+              {cards.month_balance >= 0 ? "+" : ""}$
+              {cards.month_balance.toLocaleString()}
+            </div>
+            <p className="text-xs text-purple-600/80 dark:text-purple-400 mt-1">
+              Net flow this month
+            </p>
+          </CardContent>
+        </Card>
+
         <Card className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-100 dark:border-emerald-900 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
@@ -155,7 +173,8 @@ function FreeDashboardContent({
               +${cards.income.toLocaleString()}
             </div>
             <p className="text-xs text-emerald-600/80 dark:text-emerald-400 mt-1">
-              Actual month
+              {month_comparison.income_trend > 0 ? "+" : ""}
+              {month_comparison.income_trend.toFixed(1)}% vs last month
             </p>
           </CardContent>
         </Card>
@@ -172,7 +191,7 @@ function FreeDashboardContent({
               -${cards.expenses.toLocaleString()}
             </div>
             <p className="text-xs text-red-600/80 dark:text-red-400 mt-1">
-              Actual month
+              Daily Avg: ${cards.daily_expense_rate.toFixed(1)}
             </p>
           </CardContent>
         </Card>
@@ -190,7 +209,7 @@ function FreeDashboardContent({
           <CardContent className="pl-0">
             <div className="h-[350px] w-full mt-4">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
+                <ComposedChart
                   data={chart_data}
                   margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                 >
@@ -246,7 +265,7 @@ function FreeDashboardContent({
                     stroke="#10b981"
                     fillOpacity={1}
                     fill="url(#colorIncome)"
-                    name="Income"
+                    name="Income Area"
                     strokeWidth={2}
                   />
                   <Area
@@ -255,10 +274,24 @@ function FreeDashboardContent({
                     stroke="#ef4444"
                     fillOpacity={1}
                     fill="url(#colorExpense)"
-                    name="Expenses"
+                    name="Expenses Area"
                     strokeWidth={2}
                   />
-                </AreaChart>
+                  <Bar
+                    dataKey="income"
+                    barSize={20}
+                    fill="#10b981"
+                    opacity={0.3}
+                    name="Income Bar"
+                  />
+                  <Bar
+                    dataKey="expenses"
+                    barSize={20}
+                    fill="#ef4444"
+                    opacity={0.3}
+                    name="Expenses Bar"
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
@@ -267,56 +300,114 @@ function FreeDashboardContent({
         {/* Comparison Side Panel */}
         <Card className="md:col-span-2 shadow-sm bg-muted/20">
           <CardHeader>
-            <CardTitle className="text-lg">Last Month</CardTitle>
-            <CardDescription>Comparisons with previous period</CardDescription>
+            <CardTitle className="text-lg">Monthly Comparison</CardTitle>
+            <CardDescription>Income vs Expenses</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="h-[300px] w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={[
-                    {
-                      name: "Last Month",
-                      income: month_comparison.last.income,
-                      expenses: month_comparison.last.expenses,
-                    },
-                  ]}
-                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    className="stroke-muted/40"
-                  />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(value) => `$${value}`}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "transparent" }}
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "none",
-                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                    }}
-                  />
-                  <Legend />
-                  <Bar
-                    dataKey="income"
-                    name="Income"
-                    fill="#10b981"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="expenses"
-                    name="Expenses"
-                    fill="#ef4444"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">
+                This Month
+              </h4>
+              <div className="h-[180px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      {
+                        name: "This Month",
+                        income: month_comparison.current.income,
+                        expenses: month_comparison.current.expenses,
+                      },
+                    ]}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      className="stroke-muted/40"
+                    />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(value) => `$${value}`}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "transparent" }}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="income"
+                      name="Income"
+                      fill="#10b981"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="expenses"
+                      name="Expenses"
+                      fill="#ef4444"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">
+                Last Month
+              </h4>
+              <div className="h-[180px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={[
+                      {
+                        name: "Last Month",
+                        income: month_comparison.last.income,
+                        expenses: month_comparison.last.expenses,
+                      },
+                    ]}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      className="stroke-muted/40"
+                    />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(value) => `$${value}`}
+                    />
+                    <Tooltip
+                      cursor={{ fill: "transparent" }}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      }}
+                    />
+                    <Legend />
+                    <Bar
+                      dataKey="income"
+                      name="Income"
+                      fill="#10b981"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="expenses"
+                      name="Expenses"
+                      fill="#ef4444"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </CardContent>
         </Card>
