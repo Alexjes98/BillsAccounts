@@ -38,6 +38,7 @@ export function FreeOnboardingPage() {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>(["Cash"]);
   const [persons, setPersons] = useState<string[]>([]);
   const [newPerson, setNewPerson] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   const defaultCategories: Category[] = [
     { name: "Salary", type: "INCOME", icon: "💰", color: "#10B981" },
@@ -78,6 +79,15 @@ export function FreeOnboardingPage() {
   // Initial User Creation (Step 0) - Just advance step
   const handleStep0Next = () => {
     if (!userData.currency || !userData.name) return;
+
+    if (userData.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userData.email)) {
+        setEmailError("Please enter a valid email address.");
+        return;
+      }
+    }
+
     setStep(1);
   };
 
@@ -228,10 +238,22 @@ export function FreeOnboardingPage() {
                 <Input
                   placeholder="you@example.com"
                   value={userData.email}
-                  onChange={(e) =>
-                    setUserData({ ...userData, email: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setUserData({ ...userData, email: e.target.value });
+                    if (emailError) setEmailError("");
+                  }}
+                  onBlur={() => {
+                    if (userData.email) {
+                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                      if (!emailRegex.test(userData.email)) {
+                        setEmailError("Please enter a valid email address.");
+                      }
+                    }
+                  }}
                 />
+                {emailError && (
+                  <p className="text-xs text-destructive">{emailError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Currency</label>
