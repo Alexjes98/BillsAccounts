@@ -13,7 +13,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     password_hash = Column(String, nullable=False)
     base_currency = Column(String(3), default='USD', nullable=False)
-    person_id = Column(UUID(as_uuid=True), ForeignKey("persons.id"), nullable=True)
+    person_id = Column(UUID(as_uuid=True), ForeignKey("persons.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -33,7 +33,7 @@ class Category(Base):
     __tablename__ = "categories"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     name = Column(String, nullable=False)
     icon = Column(String)
     color = Column(String)
@@ -53,7 +53,7 @@ class SavingsGoal(Base):
     __tablename__ = "savings_goals"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     name = Column(String, nullable=False)
     target_amount = Column(Numeric(15, 2), nullable=False)
     current_amount = Column(Numeric(15, 2), default=0)
@@ -69,7 +69,7 @@ class Person(Base):
     __tablename__ = "persons"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     name = Column(String, nullable=False)
     contact_info = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -87,7 +87,7 @@ class Budget(Base):
     __tablename__ = "budgets"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     category_id = Column(UUID(as_uuid=True), ForeignKey("categories.id"))
     amount_limit = Column(Numeric(15, 2), nullable=False)
     period_month = Column(Integer, nullable=False)
@@ -106,7 +106,7 @@ class Account(Base):
     __tablename__ = "accounts"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     name = Column(String, nullable=False)
     type = Column(String, nullable=False)
     current_balance = Column(Numeric(15, 2), default=0)
@@ -121,9 +121,9 @@ class Debt(Base):
     __tablename__ = "debts"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
-    creditor_id = Column(UUID(as_uuid=True), ForeignKey("persons.id"))
-    debtor_id = Column(UUID(as_uuid=True), ForeignKey("persons.id"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+    creditor_id = Column(UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"))
+    debtor_id = Column(UUID(as_uuid=True), ForeignKey("persons.id", ondelete="CASCADE"))
     
     total_amount = Column(Numeric(15, 2), nullable=False)
     remaining_amount = Column(Numeric(15, 2), nullable=False)
@@ -149,7 +149,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=True)
     debt_id = Column(UUID(as_uuid=True), ForeignKey("debts.id"), nullable=True)
     savings_goal_id = Column(UUID(as_uuid=True), ForeignKey("savings_goals.id"), nullable=True)
@@ -185,7 +185,7 @@ class MonthlySummary(Base):
     __tablename__ = "monthly_summaries"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     year = Column(Integer)
     month = Column(Integer)
     total_income = Column(Numeric(15, 2))

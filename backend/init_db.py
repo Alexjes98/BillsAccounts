@@ -31,6 +31,7 @@ def init_db():
             # Create User
             user = User(
                 email="test@example.com",
+                name="Test User",
                 password_hash="hashed_secret", # In production use real hashing
                 base_currency="USD"
             )
