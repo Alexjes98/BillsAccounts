@@ -50,6 +50,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchUser();
+
+    // Listen for auth events
+    // We import dynamically to avoid circular dependencies if any,
+    // but standard import is usually fine.
+    import("aws-amplify/utils").then(({ Hub }) => {
+      const listener = (data: any) => {
+        switch (data.payload.event) {
+          case "signedIn":
+            fetchUser();
+            break;
+          case "signedOut":
+            setUser(null);
+            break;
+        }
+      };
+
+      const cancelListener = Hub.listen("auth", listener);
+      return () => cancelListener();
+    });
   }, [api]);
 
   return (

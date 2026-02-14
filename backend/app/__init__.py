@@ -11,6 +11,10 @@ from app.api.accounts import accounts_bp
 from app.api.monthly_summaries import monthly_summaries_bp
 def create_app() -> Flask:
     app = Flask(__name__)
+
+    # TODO: Implement JWT verification for Cognito User Pool tokens.
+    # The frontend will send the access token in the Authorization header.
+    # We need to verify the signature and claims before processing requests.
     
     # Initialize App Context (User retrieval)
     from app.core.context import setup_app_context

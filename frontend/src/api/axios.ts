@@ -18,4 +18,19 @@ api.interceptors.response.use(
   },
 );
 
+import { fetchAuthSession } from "aws-amplify/auth";
+
+api.interceptors.request.use(async (config) => {
+  try {
+    const session = await fetchAuthSession();
+    const token = session.tokens?.accessToken?.toString();
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch (error) {
+    // User is likely not signed in, which is fine for public/free routes
+  }
+  return config;
+});
+
 export default api;

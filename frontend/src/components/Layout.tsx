@@ -1,4 +1,5 @@
 import { Dashboard } from "@/pages/Dashboard";
+import { RequireAuth } from "@/components/RequireAuth";
 import { TransactionsPage } from "@/pages/TransactionsPage";
 import { PersonsPage } from "@/pages/PersonsPage";
 import { DebtsPage } from "@/pages/DebtsPage";
@@ -148,17 +149,83 @@ export function Layout() {
           <Route path="/free/year-resume" element={<FreeYearResume />} />
           <Route path="/free/profile" element={<ProfilePage />} />
           {/* Free routes */}
+          {/* Free routes */}
           <Route path="/" element={<RootRedirector />} />
           <Route path="/mode-selection" element={<ModeSelectionPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/transactions" element={<TransactionsPage />} />
-          <Route path="/persons" element={<PersonsPage />} />
-          <Route path="/debts" element={<DebtsPage />} />
-          <Route path="/categories" element={<CategoriesPage />} />
-          <Route path="/accounts" element={<AccountsPage />} />
-          <Route path="/year-resume" element={<YearResume />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/onboarding" element={<OnboardingPage />} />
+
+          {/* Online Routes - Protected by Amplify */}
+          <Route
+            path="/dashboard"
+            element={
+              <RequireAuth>
+                <Dashboard />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/transactions"
+            element={
+              <RequireAuth>
+                <TransactionsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/persons"
+            element={
+              <RequireAuth>
+                <PersonsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/debts"
+            element={
+              <RequireAuth>
+                <DebtsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/categories"
+            element={
+              <RequireAuth>
+                <CategoriesPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/accounts"
+            element={
+              <RequireAuth>
+                <AccountsPage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/year-resume"
+            element={
+              <RequireAuth>
+                <YearResume />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <RequireAuth>
+                <ProfilePage />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/onboarding"
+            element={
+              <RequireAuth>
+                <OnboardingPage />
+              </RequireAuth>
+            }
+          />
         </Routes>
       </main>
     </div>
