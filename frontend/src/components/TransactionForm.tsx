@@ -54,7 +54,7 @@ export function TransactionForm({
       try {
         const data = await api.getCategories();
         setCategories(data);
-        if (data.length > 0) {
+        if (data.length > 0 && !initialData) {
           setCategoryId(data[0].id);
         }
       } catch (err) {
@@ -69,7 +69,7 @@ export function TransactionForm({
       try {
         const data = await api.getAccounts();
         setAccounts(data);
-        if (data.length > 0) {
+        if (data.length > 0 && !initialData) {
           setAccountId(data[0].id);
         }
       } catch (err) {
