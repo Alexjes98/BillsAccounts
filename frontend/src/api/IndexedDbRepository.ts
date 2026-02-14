@@ -804,6 +804,16 @@ export class IndexedDbRepository implements ApiRepository {
       (a, b) => a.day - b.day,
     );
 
+    // Calculate last month summary (1-based month index)
+    let lastMonthYear = currentYear;
+    let lastMonthIndex = currentMonth - 1; // 0-indexed: -1..10
+    if (lastMonthIndex < 0) {
+      lastMonthIndex = 11; // December
+      lastMonthYear -= 1;
+    }
+    const lastMonthId = `${lastMonthYear}-${lastMonthIndex + 1}`;
+    const lastMonthSummary = await db.get("monthly_summaries", lastMonthId);
+
     return {
       current_date: {
         year: currentYear,
@@ -817,7 +827,10 @@ export class IndexedDbRepository implements ApiRepository {
       },
       month_comparison: {
         current: { income, expenses },
-        last: { income: 0, expenses: 0 }, // TODO: Implement last month
+        last: {
+          income: lastMonthSummary ? lastMonthSummary.total_income : 0,
+          expenses: lastMonthSummary ? lastMonthSummary.total_expense : 0,
+        },
       },
       chart_data,
     };
