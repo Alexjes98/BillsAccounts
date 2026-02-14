@@ -40,10 +40,22 @@ import {
   });
 }*/
 
+// Internal type for what we actually store in IndexedDB
+// We make relational fields optional because we want to hydrate them at runtime
+type StoredTransaction = Omit<
+  Transaction,
+  "category" | "account" | "debt" | "savings_goal"
+> & {
+  category?: { name: string; icon?: string };
+  account?: { name: string };
+  debt?: { description: string; remaining_amount: number };
+  savings_goal?: { name: string };
+};
+
 interface MyDB extends DBSchema {
   transactions: {
     key: string;
-    value: Transaction;
+    value: StoredTransaction;
     indexes: {
       "by-date": string;
       "by-account": string;
@@ -130,71 +142,167 @@ export class IndexedDbRepository implements ApiRepository {
     // if (user.length === 0) { ... }
   }
 
+  // Helper to fetch all related entities and create maps for hydration
+  private async getAllMaps() {
+    const db = await this.dbPromise;
+    const [categories, accounts, debts, savingsGoals] = await Promise.all([
+      db.getAll("categories"),
+      db.getAll("accounts"),
+      db.getAll("debts"),
+      db.getAll("savings_goals"),
+    ]);
+
+    return {
+      categoryMap: new Map(categories.map((c) => [c.id, c])),
+      accountMap: new Map(accounts.map((a) => [a.id, a])),
+      debtMap: new Map(debts.map((d) => [d.id, d])),
+      savingsGoalMap: new Map(savingsGoals.map((s) => [s.id, s])),
+    };
+  }
+
+  // Helper to hydrate a stored transaction with latest related data
+  private hydrateTransaction(
+    tx: StoredTransaction,
+    maps: {
+      categoryMap: Map<string, Category>;
+      accountMap: Map<string, Account>;
+      debtMap: Map<string, Debt>;
+      savingsGoalMap: Map<string, SavingsGoal>;
+    },
+  ): Transaction {
+    const category = maps.categoryMap.get(tx.category_id);
+    const account = tx.account_id
+      ? maps.accountMap.get(tx.account_id)
+      : undefined;
+    const debt = tx.debt_id ? maps.debtMap.get(tx.debt_id) : undefined;
+    const savingsGoal = tx.savings_goal_id
+      ? maps.savingsGoalMap.get(tx.savings_goal_id)
+      : undefined;
+
+    return {
+      ...tx,
+      category: {
+        name: category?.name || "Unknown",
+        icon: category?.icon,
+      },
+      account: account ? { name: account.name } : undefined,
+      debt: debt
+        ? {
+            description: debt.description,
+            remaining_amount: debt.remaining_amount,
+          }
+        : undefined,
+      savings_goal: savingsGoal ? { name: savingsGoal.name } : undefined,
+    } as Transaction;
+  }
+
   async getTransactions(
     params?: TransactionQueryParams,
   ): Promise<PaginatedResponse<Transaction>> {
     const db = await this.dbPromise;
-    let transactions = await db.getAll("transactions");
+    const maps = await this.getAllMaps();
 
-    // Filtering
-    if (params) {
-      if (params.search) {
-        const search = params.search.toLowerCase();
-        transactions = transactions.filter(
-          (t) =>
-            t.name.toLowerCase().includes(search) ||
-            t.description?.toLowerCase().includes(search),
-        );
-      }
-      if (params.category_id) {
-        transactions = transactions.filter(
-          (t) => t.category_id === params.category_id,
-        );
-      }
-      if (params.account_id) {
-        transactions = transactions.filter(
-          (t) => t.account_id === params.account_id,
-        );
-      }
-      if (params.debt_id) {
-        transactions = transactions.filter((t) => t.debt_id === params.debt_id);
-      }
-      if (params.date) {
-        // Simple date matching if needed, or by month
-      }
-      // If type filter is needed, we need to join with category
-      if (params.type) {
-        // This would require checking category type.
-        // For efficiency in a real app we'd index this or denormalize.
-        // For now, let's fetch categories.
-        const categories = await db.getAll("categories");
-        const catMap = new Map(categories.map((c) => [c.id, c]));
-        transactions = transactions.filter(
-          (t) => catMap.get(t.category_id)?.type === params.type,
-        );
-      }
-    }
+    // Strategy:
+    // We strictly use the generic 'by-date' index for sorting.
+    // Filtering is done by iterating the cursor and checking conditions.
+    // Pagination is done by skipping matched items.
 
-    // Sorting (descending date)
-    transactions.sort(
-      (a, b) =>
-        new Date(b.transaction_date).getTime() -
-        new Date(a.transaction_date).getTime(),
-    );
+    const txStore = db.transaction("transactions", "readonly").store;
+    const index = txStore.index("by-date");
 
-    // Pagination
+    // We walk backwards (descending date)
+    let cursor = await index.openCursor(null, "prev");
+
+    const items: Transaction[] = [];
+
+    // Pagination params
     const page = params?.page || 1;
     const per_page = params?.per_page || 20;
-    const total = transactions.length;
-    const items = transactions.slice((page - 1) * per_page, page * per_page);
+    const skipCount = (page - 1) * per_page;
 
-    return {
-      items,
-      total,
-      page,
-      per_page,
-      pages: Math.ceil(total / per_page),
-    };
+    // Filters
+    const search = params?.search?.toLowerCase();
+    const categoryId = params?.category_id;
+    const accountId = params?.account_id;
+    const debtId = params?.debt_id;
+    const type = params?.type;
+
+    // Optimization: If no filters, we can just count total and then advance cursor
+    const hasFilters = !!(search || categoryId || accountId || debtId || type);
+
+    if (!hasFilters) {
+      const total = await txStore.count();
+
+      // Advance to the correct page
+      if (skipCount > 0 && skipCount < total) {
+        // Re-open cursor if we need to advance (sometimes safer than advance() on a fresh cursor depending on implementation, but advance() is standard)
+        // Actually, we already opened it.
+        await cursor?.advance(skipCount);
+      }
+
+      while (cursor && items.length < per_page) {
+        items.push(this.hydrateTransaction(cursor.value, maps));
+        cursor = await cursor.continue();
+      }
+
+      return {
+        items,
+        total,
+        page,
+        per_page,
+        pages: Math.ceil(total / per_page),
+      };
+    } else {
+      // Filtered Case: We must iterate to find matches
+      // Note: Getting total count for filtered items in IDB is hard without iterating all.
+      // For now, we unfortunately have to iterate potentially everything to get the TOTAL count for pagination to work correctly (pages count).
+      // IF performance becomes an issue with 10k items + filters, we might need a separate count index or just "approximate" pages.
+      // Optimally, we cap this to avoid freezing the UI on huge datasets with broad filters.
+
+      const MAX_MATCHES_LIMIT = 2000; // Cap at 100 pages of 20 items
+      const allMatches: Transaction[] = [];
+
+      while (cursor) {
+        const tx = cursor.value;
+        let isMatch = true;
+
+        if (categoryId && tx.category_id !== categoryId) isMatch = false;
+        else if (accountId && tx.account_id !== accountId) isMatch = false;
+        else if (debtId && tx.debt_id !== debtId) isMatch = false;
+        else if (search) {
+          const nameMatch = tx.name.toLowerCase().includes(search);
+          const descMatch = tx.description?.toLowerCase().includes(search);
+          if (!nameMatch && !descMatch) isMatch = false;
+        }
+
+        if (isMatch && type) {
+          // Check category type from map
+          const cat = maps.categoryMap.get(tx.category_id);
+          if (cat?.type !== type) isMatch = false;
+        }
+
+        if (isMatch) {
+          allMatches.push(this.hydrateTransaction(tx, maps));
+          if (allMatches.length >= MAX_MATCHES_LIMIT) {
+            break;
+          }
+        }
+
+        cursor = await cursor.continue();
+      }
+
+      // Now we have all matches, we can slice for pagination
+      const total = allMatches.length;
+      const paginatedItems = allMatches.slice(skipCount, skipCount + per_page);
+
+      return {
+        items: paginatedItems,
+        total,
+        page,
+        per_page,
+        pages: Math.ceil(total / per_page),
+      };
+    }
   }
 
   async createTransaction(
@@ -203,9 +311,14 @@ export class IndexedDbRepository implements ApiRepository {
     const db = await this.dbPromise;
     const id = crypto.randomUUID();
 
+    // Helper to get fresh maps would be expensive here if we just need single items?
+    // But for consistency and since we need to return hydrated, let's just fetch what we can or use the helper.
+    // Optimization: Just get specific items for mutation logic, but we need full maps for proper hydration return?
+    // Actually, we can just construct the hydrated object manually from the specific items we fetched.
+
     // Fetch related objects to hydrate the response
     const category = await db.get("categories", data.category_id);
-    if (!category) throw new Error("Category not found"); // Basic validation matching backend
+    if (!category) throw new Error("Category not found");
 
     const account = data.account_id
       ? await db.get("accounts", data.account_id)
@@ -275,14 +388,29 @@ export class IndexedDbRepository implements ApiRepository {
       }
     }
 
-    const newTx: Transaction = {
+    // CREATE StoredTransaction (no hydrated fields)
+    const newTx: StoredTransaction = {
       id,
       ...data,
       account_id: data.account_id ?? undefined,
       debt_id: data.debt_id ?? undefined,
       savings_goal_id: data.savings_goal_id ?? undefined,
+      // explicitly omit category, account, debt, savings_goal objects
+    };
+
+    await db.put("transactions", newTx);
+
+    // 3. Update Account Balance
+    if (data.account_id && account) {
+      account.current_balance += data.amount;
+      await db.put("accounts", account);
+    }
+
+    // RETURN Hydrated Transaction
+    return {
+      ...newTx,
       category: {
-        name: category.name || "Unknown",
+        name: category.name,
         icon: category.icon,
       },
       account: account ? { name: account.name } : undefined,
@@ -293,19 +421,7 @@ export class IndexedDbRepository implements ApiRepository {
           }
         : undefined,
       savings_goal: savings_goal ? { name: savings_goal.name } : undefined,
-    };
-
-    await db.put("transactions", newTx);
-
-    // 3. Update Account Balance
-    if (data.account_id && account) {
-      // Backend logic: account.current_balance += amount
-      // (amount is already signed correctly above)
-      account.current_balance += data.amount;
-      await db.put("accounts", account);
-    }
-
-    return newTx;
+    } as Transaction;
   }
 
   async updateTransaction(
@@ -353,17 +469,19 @@ export class IndexedDbRepository implements ApiRepository {
       finalAmount = category.type === "EXPENSE" ? -absAmount : absAmount;
     }
 
-    // Merge updates
-    const updatedTx: Transaction = {
+    // Merge updates into StoredTransaction
+    const updatedTx: StoredTransaction = {
       ...tx,
       ...data,
       amount: finalAmount,
-      // Update hydration if needed (simplified)
-      category: {
-        name: category.name,
-        icon: category.icon,
-      },
+      // Ensure we clean up any old hydrated data if it existed in the record (filtering it out effectively by typing)
     };
+
+    // Explicitly delete optional hydrated fields if they were present in 'tx' (from old DB data)
+    delete (updatedTx as any).category;
+    delete (updatedTx as any).account;
+    delete (updatedTx as any).debt;
+    delete (updatedTx as any).savings_goal;
 
     // Sanitize and Validate Inputs if updated
     if (data.name !== undefined) {
@@ -385,11 +503,7 @@ export class IndexedDbRepository implements ApiRepository {
       if (newAccount) {
         newAccount.current_balance += updatedTx.amount;
         await db.put("accounts", newAccount);
-        // Update hydrated name
-        updatedTx.account = { name: newAccount.name };
       }
-    } else {
-      updatedTx.account = undefined;
     }
 
     // 4. Handle Debt Updates
@@ -408,6 +522,8 @@ export class IndexedDbRepository implements ApiRepository {
       }
     }
 
+    let debtObj: Debt | undefined;
+
     if (newDebtId && newDebtId !== oldDebtId) {
       const newDebt = await db.get("debts", newDebtId);
       if (newDebt) {
@@ -419,12 +535,7 @@ export class IndexedDbRepository implements ApiRepository {
           newDebt.is_settled = false;
         }
         await db.put("debts", newDebt);
-
-        // Update hydrated debt
-        updatedTx.debt = {
-          description: newDebt.description,
-          remaining_amount: newDebt.remaining_amount,
-        };
+        debtObj = newDebt;
       }
     }
 
@@ -442,33 +553,41 @@ export class IndexedDbRepository implements ApiRepository {
           debt.is_settled = false;
         }
         await db.put("debts", debt);
-
-        // Update hydrated debt
-        updatedTx.debt = {
-          description: debt.description,
-          remaining_amount: debt.remaining_amount,
-        };
+        debtObj = debt;
       }
     } else if (newDebtId && newDebtId === oldDebtId) {
-      // Just refresh hydration if needed (e.g. if debt was updated elsewhere, though unlikely in this flow)
-      const debt = await db.get("debts", newDebtId);
-      if (debt) {
-        updatedTx.debt = {
-          description: debt.description,
-          remaining_amount: debt.remaining_amount,
-        };
-      }
-    } else if (!newDebtId) {
-      updatedTx.debt = undefined;
+      // Just fetch it for hydration
+      debtObj = await db.get("debts", newDebtId);
     }
 
-    if (data.savings_goal_id) {
-      const sg = await db.get("savings_goals", data.savings_goal_id);
-      if (sg) updatedTx.savings_goal = { name: sg.name };
+    let savingsGoalObj: SavingsGoal | undefined;
+    if (updatedTx.savings_goal_id) {
+      savingsGoalObj = await db.get("savings_goals", updatedTx.savings_goal_id);
+    }
+
+    let accountObj: Account | undefined;
+    if (updatedTx.account_id) {
+      accountObj = await db.get("accounts", updatedTx.account_id);
     }
 
     await db.put("transactions", updatedTx);
-    return updatedTx;
+
+    // Return Hydrated
+    return {
+      ...updatedTx,
+      category: {
+        name: category.name,
+        icon: category.icon,
+      },
+      account: accountObj ? { name: accountObj.name } : undefined,
+      debt: debtObj
+        ? {
+            description: debtObj.description,
+            remaining_amount: debtObj.remaining_amount,
+          }
+        : undefined,
+      savings_goal: savingsGoalObj ? { name: savingsGoalObj.name } : undefined,
+    } as Transaction;
   }
 
   async deleteTransaction(id: string): Promise<void> {
@@ -521,7 +640,7 @@ export class IndexedDbRepository implements ApiRepository {
     }
 
     // Create Outgoing Transaction
-    const txOut: Transaction = {
+    const txOut: StoredTransaction = {
       id: crypto.randomUUID(),
       name: `Transfer to ${toAccount.name}`,
       description: data.description,
@@ -529,12 +648,12 @@ export class IndexedDbRepository implements ApiRepository {
       transaction_date: data.transaction_date,
       category_id: category.id,
       account_id: fromAccount.id,
-      category: { name: category.name, icon: category.icon },
-      account: { name: fromAccount.name },
+      // category: { name: category.name, icon: category.icon },
+      // account: { name: fromAccount.name },
     };
 
     // Create Incoming Transaction
-    const txIn: Transaction = {
+    const txIn: StoredTransaction = {
       id: crypto.randomUUID(),
       name: `Transfer from ${fromAccount.name}`,
       description: data.description,
@@ -542,8 +661,8 @@ export class IndexedDbRepository implements ApiRepository {
       transaction_date: data.transaction_date,
       category_id: category.id,
       account_id: toAccount.id,
-      category: { name: category.name, icon: category.icon },
-      account: { name: toAccount.name },
+      // category: { name: category.name, icon: category.icon },
+      // account: { name: toAccount.name },
     };
 
     await db.put("transactions", txOut);
