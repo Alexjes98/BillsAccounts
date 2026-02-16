@@ -39,6 +39,7 @@ export interface Account {
   id: string;
   name: string;
   type: string;
+  classification?: "ASSET" | "LIABILITY" | "EQUITY";
   current_balance: number;
   currency: string;
   updated_at: string;
@@ -118,6 +119,7 @@ export interface CategoryCreate {
 export interface CreateAccountPayload {
   name: string;
   type: string;
+  classification: "ASSET" | "LIABILITY" | "EQUITY";
   current_balance?: number;
   currency?: string;
 }

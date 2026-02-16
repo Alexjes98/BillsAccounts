@@ -68,13 +68,13 @@ Table budgets {
 }
 
 Table accounts {
-  id uuid [pk, default: `uuid_generate_v4()`]
+  id uuid [pk]
   user_id uuid [ref: > users.id]
   name varchar [not null]
-  type varchar [not null]
-  current_balance numeric(15,2) [default: 0, note: 'Updated automatically via Trigger. Denormalized for speed.']
+  classification varchar [not null] // asset, liability, equity
+  type varchar [not null] // cash, bank, receivable, payable, credit_card
+  current_balance numeric(15,2) [default: 0]
   currency varchar(3) [default: 'USD']
-  updated_at timestamptz [default: `now()`]
 }
 
 Table debts {

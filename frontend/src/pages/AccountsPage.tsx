@@ -40,6 +40,7 @@ export function AccountsPage() {
   const [formData, setFormData] = useState<CreateAccountPayload>({
     name: "",
     type: "",
+    classification: "ASSET",
     current_balance: 0,
     currency: "USD",
   });
@@ -75,6 +76,7 @@ export function AccountsPage() {
     setFormData({
       name: "",
       type: "",
+      classification: "ASSET",
       current_balance: 0,
       currency: "USD",
     });
@@ -99,6 +101,7 @@ export function AccountsPage() {
       await api.updateAccount(selectedAccount.id, {
         name: formData.name,
         type: formData.type,
+        classification: formData.classification,
       });
       setIsEditOpen(false);
       resetForm();
@@ -159,6 +162,7 @@ export function AccountsPage() {
     setFormData({
       name: account.name,
       type: account.type,
+      classification: account.classification || "ASSET",
       current_balance: account.current_balance,
       currency: account.currency,
     });
@@ -188,50 +192,72 @@ export function AccountsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {accounts.map((account) => (
-          <Card key={account.id} className="relative group">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {account.name}
-              </CardTitle>
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => openEdit(account)}
-                >
-                  <Pencil className="h-4 w-4 text-muted-foreground" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 hover:text-destructive"
-                  onClick={() => openDelete(account)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+      <div className="space-y-8">
+        {["ASSET", "LIABILITY", "EQUITY"].map((classification) => {
+          const filteredAccounts = accounts.filter(
+            (a) => (a.classification || "ASSET") === classification,
+          );
+
+          if (filteredAccounts.length === 0) return null;
+
+          return (
+            <div key={classification} className="space-y-4">
+              <h2 className="text-xl font-semibold tracking-tight">
+                {classification === "ASSET"
+                  ? "Assets"
+                  : classification === "LIABILITY"
+                    ? "Liabilities"
+                    : "Equity"}
+              </h2>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredAccounts.map((account) => (
+                  <Card key={account.id} className="relative group">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        {account.name}
+                      </CardTitle>
+                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => openEdit(account)}
+                        >
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 hover:text-destructive"
+                          onClick={() => openDelete(account)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">
+                        {new Intl.NumberFormat("en-US", {
+                          style: "currency",
+                          currency: account.currency,
+                        }).format(account.current_balance)}
+                      </div>
+                      <div className="flex justify-between items-center mt-1">
+                        <CardDescription className="text-xs text-muted-foreground">
+                          Current Balance
+                        </CardDescription>
+                        <div className="text-xs text-muted-foreground uppercase bg-muted px-2 py-0.5 rounded">
+                          {account.type}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: account.currency,
-                }).format(account.current_balance)}
-              </div>
-              <div className="flex justify-between items-center mt-1">
-                <CardDescription className="text-xs text-muted-foreground">
-                  Current Balance
-                </CardDescription>
-                <div className="text-xs text-muted-foreground uppercase bg-muted px-2 py-0.5 rounded">
-                  {account.type}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          );
+        })}
+
         {accounts.length === 0 && (
           <div className="col-span-full text-center text-muted-foreground py-10">
             No accounts found.
@@ -255,6 +281,26 @@ export function AccountsPage() {
               }
               placeholder="E.g. Main Checking"
             />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Classification</label>
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              value={formData.classification}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  classification: e.target.value as
+                    | "ASSET"
+                    | "LIABILITY"
+                    | "EQUITY",
+                })
+              }
+            >
+              <option value="ASSET">Asset</option>
+              <option value="LIABILITY">Liability</option>
+              <option value="EQUITY">Equity</option>
+            </select>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Type</label>
@@ -317,6 +363,26 @@ export function AccountsPage() {
                 setFormData({ ...formData, name: e.target.value })
               }
             />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Classification</label>
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              value={formData.classification}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  classification: e.target.value as
+                    | "ASSET"
+                    | "LIABILITY"
+                    | "EQUITY",
+                })
+              }
+            >
+              <option value="ASSET">Asset</option>
+              <option value="LIABILITY">Liability</option>
+              <option value="EQUITY">Equity</option>
+            </select>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium">Type</label>

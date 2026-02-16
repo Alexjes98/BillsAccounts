@@ -108,7 +108,8 @@ class Account(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("uuid_generate_v4()"))
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
     name = Column(String, nullable=False)
-    type = Column(String, nullable=False)
+    classification = Column(String, nullable=False) # asset, liability, equity
+    type = Column(String, nullable=False) # cash, bank, receivable, payable, credit_card
     current_balance = Column(Numeric(15, 2), default=0)
     currency = Column(String(3), default='USD')
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

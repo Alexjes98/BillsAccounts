@@ -6,6 +6,7 @@ from decimal import Decimal
 
 class AccountBase(BaseModel):
     name: str
+    classification: str
     type: str
     current_balance: Decimal = Decimal('0.00')
     currency: str = 'USD'
