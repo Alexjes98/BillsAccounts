@@ -45,6 +45,8 @@ export interface Account {
   updated_at: string;
 }
 
+export type DebtType = "DELAYED_PAYMENT" | "PASSIVE_DEBT" | "LOAN";
+
 export interface Debt {
   id: string;
   user_id: string;
@@ -55,6 +57,7 @@ export interface Debt {
   description: string;
   due_date: string;
   is_settled: boolean;
+  type?: DebtType;
   deleted_at: string;
   created_at: string;
 }
@@ -88,6 +91,7 @@ export interface TransferPayload {
   category_id: string;
   transaction_date: string;
   description?: string;
+  debt_id?: string;
 }
 
 export interface TransactionQueryParams {
@@ -130,6 +134,9 @@ export interface CreateDebtPayload {
   total_amount: number;
   description?: string;
   due_date?: string;
+  type: DebtType;
+  category_id?: string; // For Delayed Payment
+  account_id?: string; // For Loan ("User Equity" source)
 }
 
 export interface DebtSummary {

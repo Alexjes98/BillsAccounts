@@ -20,6 +20,7 @@ import {
   TransferPayload,
   User,
   CreateUserPayload,
+  DebtType,
 } from "./repository";
 import { MascotMessage, FALLBACK_MESSAGES } from "./mascotMessages";
 import {
@@ -639,6 +640,21 @@ export class IndexedDbRepository implements ApiRepository {
       throw new Error("Insufficient funds in source account");
     }
 
+    // Handle Debt Update
+    if (data.debt_id) {
+      const debt = await db.get("debts", data.debt_id);
+      if (debt) {
+        debt.remaining_amount -= Math.abs(data.amount);
+        if (debt.remaining_amount <= 0) {
+          debt.remaining_amount = 0;
+          debt.is_settled = true;
+        } else {
+          debt.is_settled = false;
+        }
+        await db.put("debts", debt);
+      }
+    }
+
     // Create Outgoing Transaction
     const txOut: StoredTransaction = {
       id: crypto.randomUUID(),
@@ -648,6 +664,7 @@ export class IndexedDbRepository implements ApiRepository {
       transaction_date: data.transaction_date,
       category_id: category.id,
       account_id: fromAccount.id,
+      debt_id: data.debt_id,
       // category: { name: category.name, icon: category.icon },
       // account: { name: fromAccount.name },
     };
@@ -661,6 +678,7 @@ export class IndexedDbRepository implements ApiRepository {
       transaction_date: data.transaction_date,
       category_id: category.id,
       account_id: toAccount.id,
+      debt_id: data.debt_id,
       // category: { name: category.name, icon: category.icon },
       // account: { name: toAccount.name },
     };
@@ -820,6 +838,122 @@ export class IndexedDbRepository implements ApiRepository {
         "Debt Description",
       );
       newDebt.description = sanitizeInput(newDebt.description);
+    }
+
+    // Logic based on Debt Type
+    if (data.type === "DELAYED_PAYMENT") {
+      // 1. Create/Find Asset Account for Person (User is Creditor, Person is Debtor)
+      // ID: user_id + person_id + debt_id
+      const accountId = `${newDebt.user_id}-${newDebt.debtor_id}-${newDebt.id}`;
+      let account = await db.get("accounts", accountId);
+
+      if (!account) {
+        const person = await db.get("persons", newDebt.debtor_id);
+        const personName = person ? person.name : "Unknown";
+        account = {
+          id: accountId,
+          name: `${personName} Asset`,
+          type: "ASSET",
+          classification: "ASSET",
+          current_balance: 0,
+          currency: "USD",
+          updated_at: new Date().toISOString(),
+        };
+        await db.put("accounts", account);
+      }
+
+      // 2. Create Income Transaction
+      if (!data.category_id)
+        throw new Error("Category is required for Delayed Payment");
+
+      const txData: CreateTransactionPayload = {
+        name: `Delayed Payment: ${data.description || "Debt"}`,
+        amount: data.total_amount,
+        transaction_date: new Date().toISOString(),
+        category_id: data.category_id,
+        account_id: accountId,
+        debt_id: newDebt.id,
+        person_id: newDebt.debtor_id,
+      };
+      await this.createTransaction(txData);
+    } else if (data.type === "PASSIVE_DEBT") {
+      // User owes Person (Liability)
+      // ID: user_id + creditor_id + debt_id
+      const accountId = `${newDebt.user_id}-${newDebt.creditor_id}-${newDebt.id}`;
+      let account = await db.get("accounts", accountId);
+
+      if (!account) {
+        const person = await db.get("persons", newDebt.creditor_id);
+        const personName = person ? person.name : "Unknown";
+        account = {
+          id: accountId,
+          name: `${personName} Liability`,
+          type: "LIABILITY",
+          classification: "LIABILITY",
+          current_balance: 0,
+          currency: "USD",
+          updated_at: new Date().toISOString(),
+        };
+        await db.put("accounts", account);
+      }
+
+      // Create Expense Transaction (Dr Expense, Cr Liability)
+      // We need a category. We check if provided.
+      if (data.category_id) {
+        const txData: CreateTransactionPayload = {
+          name: `Passive Debt: ${data.description || "Owed"}`,
+          amount: data.total_amount, // Positive passed, createTransaction makes it negative based on Expense Type
+          transaction_date: new Date().toISOString(),
+          category_id: data.category_id,
+          account_id: accountId,
+          debt_id: newDebt.id,
+          person_id: newDebt.creditor_id,
+        };
+        await this.createTransaction(txData);
+      } else {
+        // Fallback: Just update balance if no category provided (though UI should enforce)
+        account.current_balance -= data.total_amount; // Debt = Negative balance
+        await db.put("accounts", account);
+      }
+    } else if (data.type === "LOAN") {
+      // User Loaned to Person
+      // Transfer: Equity (Source) -> Asset (Target)
+      if (!data.account_id)
+        throw new Error("Source Account is required for Loan");
+
+      const targetAccountId = `${newDebt.user_id}-${newDebt.debtor_id}-${newDebt.id}`;
+      let targetAccount = await db.get("accounts", targetAccountId);
+
+      if (!targetAccount) {
+        const person = await db.get("persons", newDebt.debtor_id);
+        const personName = person ? person.name : "Unknown";
+        targetAccount = {
+          id: targetAccountId,
+          name: `${personName} Loan Asset`,
+          type: "ASSET",
+          classification: "ASSET",
+          current_balance: 0,
+          currency: "USD",
+          updated_at: new Date().toISOString(),
+        };
+        await db.put("accounts", targetAccount);
+      }
+
+      // Transfer
+      const categories = await db.getAll("categories");
+      const transferCat = categories.find((c) => c.type === "TRANSFER");
+      if (!transferCat)
+        throw new Error("No TRANSFER category found for Loan creation");
+
+      const transferData: TransferPayload = {
+        from_account_id: data.account_id,
+        to_account_id: targetAccountId,
+        amount: data.total_amount,
+        category_id: transferCat.id,
+        transaction_date: new Date().toISOString(),
+        description: `Loan to ${data.description || "Person"}`,
+      };
+      await this.transfer(transferData);
     }
 
     await db.put("debts", newDebt);

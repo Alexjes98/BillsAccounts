@@ -1,9 +1,17 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronRight, Check, Trash2 } from "lucide-react";
+import {
+  Plus,
+  ChevronDown,
+  ChevronRight,
+  Check,
+  Trash2,
+  DollarSign,
+} from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { DebtForm } from "@/components/DebtForm";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import {
   DebtSummary,
@@ -11,8 +19,13 @@ import {
   Person,
   Transaction,
   ApiRepository,
+  Category,
+  Account,
+  CreateTransactionPayload,
+  TransferPayload,
 } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
+import { useUser } from "@/context/UserContext";
 
 // Component for expandable debt row
 function DebtRow({
@@ -20,19 +33,19 @@ function DebtRow({
   getPersonName,
   api,
   onRefresh,
+  onPay,
+  onDelete,
 }: {
   debt: Debt;
   getPersonName: (id: string) => string;
   api: ApiRepository;
   onRefresh: () => void;
+  onPay: (debt: Debt) => void;
+  onDelete: (debt: Debt) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoadingTx, setIsLoadingTx] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<
-    "delete" | "settle" | null
-  >(null);
 
   const toggleExpand = async () => {
     if (!isExpanded && transactions.length === 0) {
@@ -40,7 +53,7 @@ function DebtRow({
       try {
         const res = await api.getTransactions({
           debt_id: debt.id,
-          per_page: 100, // Fetch enough to show
+          per_page: 100,
         });
         setTransactions(res.items);
       } catch (err) {
@@ -50,52 +63,6 @@ function DebtRow({
       }
     }
     setIsExpanded(!isExpanded);
-  };
-
-  const handleSettleClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setConfirmAction("settle");
-    setShowConfirm(true);
-  };
-
-  const handleDeleteClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setConfirmAction("delete");
-    setShowConfirm(true);
-  };
-
-  const handleConfirm = async () => {
-    try {
-      if (confirmAction === "settle") {
-        await api.updateDebt(debt.id, { is_settled: true });
-      } else if (confirmAction === "delete") {
-        await api.deleteDebt(debt.id);
-      }
-      onRefresh();
-    } catch (err) {
-      console.error(`Failed to ${confirmAction} debt`, err);
-    } finally {
-      setShowConfirm(false);
-    }
-  };
-
-  const getConfirmTitle = () => {
-    if (confirmAction === "settle") return "Settle Debt";
-    if (confirmAction === "delete") return "Delete Debt";
-    return "Confirm";
-  };
-
-  const getConfirmMessage = () => {
-    if (confirmAction === "settle") {
-      return "Are you sure you want to mark this debt as fully settled?";
-    }
-    if (confirmAction === "delete") {
-      if (debt.is_settled) {
-        return "This debt is already settled. Deleting it will remove it from historical data and reports. Are you sure you want to proceed?";
-      }
-      return "Has this debt been Written off or Forgiven by the debitor? Please ensure the debt is resolved before deleting to avoid unsettled records.";
-    }
-    return "";
   };
 
   return (
@@ -118,7 +85,14 @@ function DebtRow({
         <td className="p-4">
           {debt.created_at ? format(new Date(debt.created_at), "PPP") : "-"}
         </td>
-        <td className="p-4">{debt.description || "No description"}</td>
+        <td className="p-4">
+          <div className="flex flex-col">
+            <span>{debt.description || "No description"}</span>
+            <span className="text-xs text-muted-foreground">
+              {debt.type ? debt.type.replace("_", " ") : "Legacy"}
+            </span>
+          </div>
+        </td>
         <td className="p-4">
           <span className="font-medium">{getPersonName(debt.creditor_id)}</span>
           <span className="mx-2 text-muted-foreground">→</span>
@@ -132,22 +106,28 @@ function DebtRow({
         </td>
         <td className="p-4 text-right">
           <div className="flex justify-end gap-2">
-            {!debt.is_settled && (
+            {!debt.is_settled && debt.type && (
               <Button
                 variant="outline"
                 size="icon"
                 className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
-                onClick={handleSettleClick}
-                title="Settle Debt"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPay(debt);
+                }}
+                title="Record Payment"
               >
-                <Check className="h-4 w-4" />
+                <DollarSign className="h-4 w-4" />
               </Button>
             )}
             <Button
               variant="outline"
               size="icon"
               className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              onClick={handleDeleteClick}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(debt);
+              }}
               title="Delete Debt"
             >
               <Trash2 className="h-4 w-4" />
@@ -198,27 +178,6 @@ function DebtRow({
           </td>
         </tr>
       )}
-
-      <Modal
-        isOpen={showConfirm}
-        onClose={() => setShowConfirm(false)}
-        title={getConfirmTitle()}
-      >
-        <div className="space-y-4">
-          <p>{getConfirmMessage()}</p>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowConfirm(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant={confirmAction === "delete" ? "destructive" : "default"}
-              onClick={handleConfirm}
-            >
-              Confirm
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </>
   );
 }
@@ -227,23 +186,43 @@ export function FreeDebtsPage() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [summary, setSummary] = useState<DebtSummary[]>([]);
   const [persons, setPersons] = useState<Person[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+
   const api = useApi();
+  const { user } = useUser();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Pay Modal State
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [selectedDebt, setSelectedDebt] = useState<Debt | null>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payAccountId, setPayAccountId] = useState("");
+  const [isPaying, setIsPaying] = useState(false);
+
+  // Delete Modal State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [debtToDelete, setDebtToDelete] = useState<Debt | null>(null);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [debtsRes, summaryRes, personsRes] = await Promise.all([
-        api.getDebts(),
-        api.getDebtsSummary(),
-        api.getPersons(),
-      ]);
+      const [debtsRes, summaryRes, personsRes, catsRes, accsRes] =
+        await Promise.all([
+          api.getDebts(),
+          api.getDebtsSummary(),
+          api.getPersons(),
+          api.getCategories(),
+          api.getAccounts(),
+        ]);
 
       setDebts(debtsRes);
       setSummary(summaryRes);
       setPersons(personsRes);
+      setCategories(catsRes);
+      setAccounts(accsRes);
     } catch (err) {
       console.error("Failed to fetch debts data", err);
       setError("Failed to load debts data.");
@@ -264,6 +243,87 @@ export function FreeDebtsPage() {
   const getPersonName = (id: string) => {
     const person = persons.find((p) => p.id === id);
     return person ? person.name : "Me";
+  };
+
+  const handlePayClick = (debt: Debt) => {
+    setSelectedDebt(debt);
+    setPayAmount(debt.remaining_amount.toString());
+    setPayAccountId("");
+    setPayModalOpen(true);
+  };
+
+  const handlePaySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDebt || !payAmount || !payAccountId || !selectedDebt.type)
+      return;
+
+    setIsPaying(true);
+    try {
+      const amountVal = parseFloat(payAmount);
+      const transferCat = categories.find((c) => c.type === "TRANSFER");
+      if (!transferCat) throw new Error("Transfer Category not found");
+
+      let fromAccountId = "";
+      let toAccountId = "";
+      let description = "";
+
+      if (
+        selectedDebt.type === "DELAYED_PAYMENT" ||
+        selectedDebt.type === "LOAN"
+      ) {
+        // User receives money (Repayment of Asset)
+        // From: Person Asset Account (Derived)
+        // To: User Selected Account (payAccountId)
+        fromAccountId = `${selectedDebt.user_id}-${selectedDebt.debtor_id}-${selectedDebt.id}`;
+        toAccountId = payAccountId;
+        description = `Repayment for ${selectedDebt.description}`;
+      } else if (selectedDebt.type === "PASSIVE_DEBT") {
+        // User pays money (Reducing Liability)
+        // From: User Selected Account (payAccountId)
+        // To: Liability Account (Derived)
+        // Liability ID: user_id + creditor_id + debt_id
+        fromAccountId = payAccountId;
+        toAccountId = `${selectedDebt.user_id}-${selectedDebt.creditor_id}-${selectedDebt.id}`;
+        description = `Repayment for ${selectedDebt.description}`;
+      }
+
+      if (fromAccountId && toAccountId) {
+        const payload: TransferPayload = {
+          from_account_id: fromAccountId,
+          to_account_id: toAccountId,
+          amount: amountVal,
+          category_id: transferCat.id,
+          transaction_date: new Date().toISOString(),
+          description: description,
+          debt_id: selectedDebt.id, // Updates debt remaining amount
+        };
+        await api.transfer(payload);
+      }
+
+      setPayModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      console.error("Payment failed", err);
+      alert("Payment failed: " + err.message);
+    } finally {
+      setIsPaying(false);
+    }
+  };
+
+  const handleDeleteClick = (debt: Debt) => {
+    setDebtToDelete(debt);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!debtToDelete) return;
+    try {
+      await api.deleteDebt(debtToDelete.id);
+      setDeleteModalOpen(false);
+      fetchData();
+    } catch (err) {
+      console.error("Delete failed", err);
+    }
   };
 
   if (isLoading) {
@@ -328,6 +388,84 @@ export function FreeDebtsPage() {
         />
       </Modal>
 
+      <Modal
+        isOpen={payModalOpen}
+        onClose={() => setPayModalOpen(false)}
+        title="Register Repayment"
+      >
+        <form onSubmit={handlePaySubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Amount</label>
+            <Input
+              type="number"
+              step="0.01"
+              value={payAmount}
+              onChange={(e) => setPayAmount(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {selectedDebt && selectedDebt.type === "PASSIVE_DEBT"
+                ? "Pay From Account (Bank/Equity)"
+                : "Deposit To Account (Bank/Equity)"}
+            </label>
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={payAccountId}
+              onChange={(e) => setPayAccountId(e.target.value)}
+              required
+            >
+              <option value="">Select Account</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} (${a.current_balance})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPayModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isPaying}>
+              Confirm Payment
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Delete Debt"
+      >
+        <div className="space-y-4">
+          <p>
+            Are you sure you want to delete this debt? This action cannot be
+            undone.
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="button" variant="destructive" onClick={confirmDelete}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Active Debts Section */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Active Debts</h2>
@@ -355,6 +493,8 @@ export function FreeDebtsPage() {
                     getPersonName={getPersonName}
                     api={api}
                     onRefresh={fetchData}
+                    onPay={handlePayClick}
+                    onDelete={handleDeleteClick}
                   />
                 ))}
               </tbody>
@@ -376,9 +516,11 @@ export function FreeDebtsPage() {
                   <th className="p-4 font-medium w-8"></th>
                   <th className="p-4 font-medium">Date</th>
                   <th className="p-4 font-medium">Description</th>
+                  <th className="p-4 font-medium">Creditor/Debtor</th>
                   <th className="p-4 font-medium text-right">
                     Original Amount
                   </th>
+                  <th className="p-4 font-medium text-right">Remaining</th>
                   <th className="p-4 font-medium text-right">Actions</th>
                 </tr>
               </thead>
@@ -390,6 +532,8 @@ export function FreeDebtsPage() {
                     getPersonName={getPersonName}
                     api={api}
                     onRefresh={fetchData}
+                    onPay={handlePayClick}
+                    onDelete={handleDeleteClick}
                   />
                 ))}
               </tbody>
