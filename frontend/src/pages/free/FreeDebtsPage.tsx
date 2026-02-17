@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import {
   DebtSummary,
+  GroupedDebts,
   Debt,
   Person,
   Transaction,
@@ -201,7 +202,13 @@ function DebtRow({
 }
 
 export function FreeDebtsPage() {
-  const [debts, setDebts] = useState<Debt[]>([]);
+  const [debts, setDebts] = useState<GroupedDebts>({
+    delayed_payments: [],
+    loans: [],
+    passive_debts: [],
+    others: [],
+    settled: [],
+  });
   const [summary, setSummary] = useState<DebtSummary[]>([]);
   const [persons, setPersons] = useState<Person[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -236,7 +243,7 @@ export function FreeDebtsPage() {
     try {
       const [debtsRes, summaryRes, personsRes, catsRes, accsRes] =
         await Promise.all([
-          api.getDebts(),
+          api.getGroupedDebts(),
           api.getDebtsSummary(),
           api.getPersons(),
           api.getCategories(),
@@ -317,6 +324,7 @@ export function FreeDebtsPage() {
           category_id: settleCategoryId,
           account_id: accountId,
           debt_id: debtToSettle.id,
+          is_system_generated: true,
           person_id: personId,
         };
 
@@ -425,8 +433,51 @@ export function FreeDebtsPage() {
     return <div className="text-destructive">{error}</div>;
   }
 
-  const activeDebts = debts.filter((d) => !d.is_settled);
-  const settledDebts = debts.filter((d) => d.is_settled);
+  const {
+    delayed_payments,
+    loans,
+    passive_debts,
+    others: otherDebts,
+    settled: settledDebts,
+  } = debts;
+
+  const hasActiveDebts =
+    delayed_payments.length > 0 ||
+    loans.length > 0 ||
+    passive_debts.length > 0 ||
+    otherDebts.length > 0;
+
+  const renderDebtTable = (debtList: Debt[]) => (
+    <div className="rounded-md border">
+      <table className="w-full text-sm text-left">
+        <thead className="bg-muted/50 text-muted-foreground">
+          <tr>
+            <th className="p-4 font-medium w-8"></th>
+            <th className="p-4 font-medium">Date</th>
+            <th className="p-4 font-medium">Description</th>
+            <th className="p-4 font-medium">Creditor/Debtor</th>
+            <th className="p-4 font-medium text-right">Amount</th>
+            <th className="p-4 font-medium text-right">Remaining</th>
+            <th className="p-4 font-medium text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {debtList.map((debt) => (
+            <DebtRow
+              key={debt.id}
+              debt={debt}
+              getPersonName={getPersonName}
+              api={api}
+              onRefresh={fetchData}
+              onPay={handlePayClick}
+              onSettle={handleSettleClick}
+              onDelete={handleDeleteClick}
+            />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 
   return (
     <div className="space-y-8">
@@ -440,30 +491,63 @@ export function FreeDebtsPage() {
 
       {/* Summary Section */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {summary.map((item, index) => (
-          <Card key={index}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                {item.creditor_name} → {item.debtor_name}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                $
-                {item.total_amount.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {item.count} debt{item.count !== 1 ? "s" : ""}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+        {summary.map((item, index) => {
+          const isUserCreditor = user?.person_id === item.creditor_id;
+          const isUserDebtor = user?.person_id === item.debtor_id;
+
+          let cardColorClass = "";
+          let statusText = "";
+
+          if (isUserCreditor) {
+            cardColorClass = "border-l-4 border-l-green-500";
+            statusText = "Owes You";
+          } else if (isUserDebtor) {
+            cardColorClass = "border-l-4 border-l-red-500";
+            statusText = "You Owe";
+          }
+
+          // types is now from API
+          const typesList = item.types
+            ? item.types.map((t) => t.replace("_", " ")).join(", ")
+            : "";
+
+          return (
+            <Card key={index} className={cardColorClass}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  {item.creditor_name} → {item.debtor_name}
+                </CardTitle>
+                {statusText && (
+                  <span
+                    className={`text-xs font-bold px-2 py-1 rounded-full ${isUserCreditor ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}
+                  >
+                    {statusText}
+                  </span>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  $
+                  {item.total_amount.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {item.count} debt{item.count !== 1 ? "s" : ""}
+                </p>
+                {typesList && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Includes: {typesList}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
         {summary.length === 0 && (
-          <div className="text-muted-foreground">
-            No debt summaries available.
+          <div className="text-muted-foreground col-span-full">
+            No active debt summaries available.
           </div>
         )}
       </div>
@@ -509,11 +593,13 @@ export function FreeDebtsPage() {
               required
             >
               <option value="">Select Account</option>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name} (${a.current_balance})
-                </option>
-              ))}
+              {accounts
+                .filter((a) => a.classification === "EQUITY")
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} (${a.current_balance})
+                  </option>
+                ))}
             </select>
           </div>
 
@@ -539,8 +625,8 @@ export function FreeDebtsPage() {
       >
         <div className="space-y-4">
           <p>
-            Are you sure you want to delete this debt? This action cannot be
-            undone.
+            All transactions related to this debt will be deleted. Are you sure
+            you want to delete this debt? This action cannot be undone.
           </p>
           <div className="flex justify-end gap-3">
             <Button
@@ -646,40 +732,45 @@ export function FreeDebtsPage() {
       </Modal>
 
       {/* Active Debts Section */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">Active Debts</h2>
-        {activeDebts.length === 0 ? (
-          <p className="text-muted-foreground">No active debts.</p>
-        ) : (
-          <div className="rounded-md border">
-            <table className="w-full text-sm text-left">
-              <thead className="bg-muted/50 text-muted-foreground">
-                <tr>
-                  <th className="p-4 font-medium w-8"></th>
-                  <th className="p-4 font-medium">Date</th>
-                  <th className="p-4 font-medium">Description</th>
-                  <th className="p-4 font-medium">Creditor/Debtor</th>
-                  <th className="p-4 font-medium text-right">Amount</th>
-                  <th className="p-4 font-medium text-right">Remaining</th>
-                  <th className="p-4 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeDebts.map((debt) => (
-                  <DebtRow
-                    key={debt.id}
-                    debt={debt}
-                    getPersonName={getPersonName}
-                    api={api}
-                    onRefresh={fetchData}
-                    onPay={handlePayClick}
-                    onSettle={handleSettleClick}
-                    onDelete={handleDeleteClick}
-                  />
-                ))}
-              </tbody>
-            </table>
+      <div className="space-y-8">
+        {delayed_payments.length > 0 && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4 text-green-700">
+              Delayed Payments (To Wait For)
+            </h2>
+            {renderDebtTable(delayed_payments)}
           </div>
+        )}
+
+        {loans.length > 0 && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4 text-emerald-700">
+              Loans (Given)
+            </h2>
+            {renderDebtTable(loans)}
+          </div>
+        )}
+
+        {passive_debts.length > 0 && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4 text-red-700">
+              Passive Debts (To Pay)
+            </h2>
+            {renderDebtTable(passive_debts)}
+          </div>
+        )}
+
+        {otherDebts.length > 0 && (
+          <div>
+            <h2 className="text-xl font-semibold mb-4">
+              Other / Unclassified Debts
+            </h2>
+            {renderDebtTable(otherDebts)}
+          </div>
+        )}
+
+        {!hasActiveDebts && (
+          <p className="text-muted-foreground">No active debts.</p>
         )}
       </div>
 

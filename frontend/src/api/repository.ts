@@ -144,10 +144,13 @@ export interface CreateDebtPayload {
 }
 
 export interface DebtSummary {
+  creditor_id: string;
+  debtor_id: string;
   creditor_name: string;
   debtor_name: string;
   count: number;
   total_amount: number;
+  types: string[];
 }
 
 export interface Person {
@@ -193,6 +196,14 @@ export interface MonthlySummary {
   closing_balance: number;
 }
 
+export interface GroupedDebts {
+  delayed_payments: Debt[];
+  loans: Debt[];
+  passive_debts: Debt[];
+  others: Debt[];
+  settled: Debt[];
+}
+
 export interface ApiRepository {
   getTransactions(
     params?: TransactionQueryParams,
@@ -222,6 +233,7 @@ export interface ApiRepository {
 
   createDebt(data: CreateDebtPayload): Promise<Debt>;
   getDebts(): Promise<Debt[]>;
+  getGroupedDebts(): Promise<GroupedDebts>;
   getDebtsSummary(): Promise<DebtSummary[]>;
   updateDebt(
     id: string,

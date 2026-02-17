@@ -20,7 +20,7 @@ import {
   TransferPayload,
   User,
   CreateUserPayload,
-  DebtType,
+  GroupedDebts,
 } from "./repository";
 import { MascotMessage, FALLBACK_MESSAGES } from "./mascotMessages";
 import {
@@ -851,7 +851,7 @@ export class IndexedDbRepository implements ApiRepository {
     if (data.type === "DELAYED_PAYMENT") {
       // 1. Create/Find Asset Account for Person (User is Creditor, Person is Debtor)
       // ID: user_id + person_id + debt_id
-      const accountId = `${newDebt.user_id}-${newDebt.debtor_id}-${newDebt.id}`;
+      const accountId = `${newDebt.user_id}-${newDebt.debtor_id}-DELAYED_PAYMENT`;
       let account = await db.get("accounts", accountId);
 
       if (!account) {
@@ -887,7 +887,7 @@ export class IndexedDbRepository implements ApiRepository {
     } else if (data.type === "PASSIVE_DEBT") {
       // User owes Person (Liability)
       // ID: user_id + creditor_id + debt_id
-      const accountId = `${newDebt.user_id}-${newDebt.creditor_id}-${newDebt.id}`;
+      const accountId = `${newDebt.user_id}-${newDebt.creditor_id}-PASSIVE_DEBT`;
       let account = await db.get("accounts", accountId);
 
       if (!account) {
@@ -930,7 +930,7 @@ export class IndexedDbRepository implements ApiRepository {
       if (!data.account_id)
         throw new Error("Source Account is required for Loan");
 
-      const targetAccountId = `${newDebt.user_id}-${newDebt.debtor_id}-${newDebt.id}`;
+      const targetAccountId = `${newDebt.user_id}-${newDebt.debtor_id}-LOAN`;
       let targetAccount = await db.get("accounts", targetAccountId);
 
       if (!targetAccount) {
@@ -1012,6 +1012,36 @@ export class IndexedDbRepository implements ApiRepository {
     await db.delete("debts", id);
   }
 
+  async getGroupedDebts(): Promise<GroupedDebts> {
+    const db = await this.dbPromise;
+    const debts = await db.getAll("debts");
+
+    const delayed_payments = debts.filter(
+      (d) => !d.is_settled && !d.deleted_at && d.type === "DELAYED_PAYMENT",
+    );
+    const loans = debts.filter(
+      (d) => !d.is_settled && !d.deleted_at && d.type === "LOAN",
+    );
+    const passive_debts = debts.filter(
+      (d) => !d.is_settled && !d.deleted_at && d.type === "PASSIVE_DEBT",
+    );
+    const others = debts.filter(
+      (d) =>
+        !d.is_settled &&
+        !d.deleted_at &&
+        !["DELAYED_PAYMENT", "LOAN", "PASSIVE_DEBT"].includes(d.type as string),
+    );
+    const settled = debts.filter((d) => d.is_settled && !d.deleted_at);
+
+    return {
+      delayed_payments,
+      loans,
+      passive_debts,
+      others,
+      settled,
+    };
+  }
+
   async getDebtsSummary(): Promise<DebtSummary[]> {
     const db = await this.dbPromise;
     const debts = await db.getAll("debts");
@@ -1028,6 +1058,8 @@ export class IndexedDbRepository implements ApiRepository {
         const creditor = persons.find((p) => p.id === debt.creditor_id);
         const debtor = persons.find((p) => p.id === debt.debtor_id);
         summaryMap.set(key, {
+          creditor_id: debt.creditor_id,
+          debtor_id: debt.debtor_id,
           creditor_name: creditor
             ? creditor.name
             : debt.creditor_id.substring(0, 8) + "...",
@@ -1036,12 +1068,16 @@ export class IndexedDbRepository implements ApiRepository {
             : debt.debtor_id.substring(0, 8) + "...",
           count: 0,
           total_amount: 0,
+          types: [],
         });
       }
 
       const item = summaryMap.get(key)!;
       item.count += 1;
-      item.total_amount += debt.total_amount;
+      item.total_amount += debt.remaining_amount;
+      if (debt.type && !item.types.includes(debt.type)) {
+        item.types.push(debt.type);
+      }
     });
 
     return Array.from(summaryMap.values());
