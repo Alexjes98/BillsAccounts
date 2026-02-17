@@ -876,6 +876,7 @@ export class IndexedDbRepository implements ApiRepository {
         account_id: accountId,
         debt_id: newDebt.id,
         person_id: newDebt.debtor_id,
+        is_system_generated: true,
       };
       await this.createTransaction(txData);
     } else if (data.type === "PASSIVE_DEBT") {
@@ -910,6 +911,7 @@ export class IndexedDbRepository implements ApiRepository {
           account_id: accountId,
           debt_id: newDebt.id,
           person_id: newDebt.creditor_id,
+          is_system_generated: true,
         };
         await this.createTransaction(txData);
       } else {
@@ -952,6 +954,7 @@ export class IndexedDbRepository implements ApiRepository {
         to_account_id: targetAccountId,
         amount: data.total_amount,
         category_id: transferCat.id,
+        debt_id: newDebt.id,
         transaction_date: new Date().toISOString(),
         description: `Loan to ${data.description || "Person"}`,
       };

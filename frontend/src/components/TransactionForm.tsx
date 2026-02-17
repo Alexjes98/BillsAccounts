@@ -5,7 +5,6 @@ import {
   Category,
   CreateTransactionPayload,
   Account,
-  Debt,
   SavingsGoal,
   Transaction,
 } from "@/api/repository";
@@ -30,8 +29,7 @@ export function TransactionForm({
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
-  const [debts, setDebts] = useState<Debt[]>([]);
-  const [isLoadingDebts, setIsLoadingDebts] = useState(false);
+
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [isLoadingSavingsGoals, setIsLoadingSavingsGoals] = useState(false);
 
@@ -45,7 +43,7 @@ export function TransactionForm({
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [categoryId, setCategoryId] = useState("");
   const [accountId, setAccountId] = useState("default-account-id"); // Placeholder
-  const [debtId, setDebtId] = useState("");
+
   const [savingsGoalId, setSavingsGoalId] = useState("");
 
   useEffect(() => {
@@ -79,18 +77,7 @@ export function TransactionForm({
         setIsLoadingAccounts(false);
       }
     };
-    const fetchDebts = async () => {
-      setIsLoadingDebts(true);
-      try {
-        const data = await api.getDebts();
-        setDebts(data);
-      } catch (err) {
-        console.error("Failed to load debts", err);
-        setError("Failed to load debts. Please try again.");
-      } finally {
-        setIsLoadingDebts(false);
-      }
-    };
+
     const fetchSavingsGoals = async () => {
       setIsLoadingSavingsGoals(true);
       try {
@@ -105,7 +92,7 @@ export function TransactionForm({
     };
     fetchCategories();
     fetchAccounts();
-    fetchDebts();
+
     fetchSavingsGoals();
   }, []);
 
@@ -113,25 +100,7 @@ export function TransactionForm({
   useEffect(() => {
     if (initialData) {
       setName(initialData.name);
-      setDescription(""); // Transaction interface in api.ts doesn't seem to have description? Let's check.
-      // Wait, api.ts Transaction interface doesn't show description on line 6-22, but backend has it.
-      // If api.ts maps to backend, it should have description.
-      // Let's assume description might be missing in type but present in data, or I need to add it to type.
-      // For now, I'll skip description if not unavailable or casting.
-      // Actually Transaction interface has: name, amount, category_id, ...
-      // I should update Transaction interface in api.ts later if description is missing.
-      // Check api.ts again via memory:
-      // export interface Transaction {
-      //   id: string;
-      //   transaction_date: string;
-      //   name: string;
-      //   amount: number;
-      //   category_id: string; ...
-      // }
-      // It seems it is missing description. I will cast or ignore for now,
-      // but ideally I should fix api.ts. But the task is about logic.
-      // Actually, let's assume `initialData` has it casted as any or I'll fix api.ts.
-      // I will assume it's there for now as (initialData as any).description.
+      setDescription("");
 
       const desc = (initialData as any).description || "";
       setDescription(desc);
@@ -142,7 +111,7 @@ export function TransactionForm({
       );
       setCategoryId(initialData.category_id);
       setAccountId(initialData.account_id || "default-account-id");
-      setDebtId(initialData.debt_id || "");
+
       setSavingsGoalId(initialData.savings_goal_id || "");
     }
   }, [initialData]);
@@ -186,47 +155,6 @@ export function TransactionForm({
     }
 
     // Debt Validation Logic
-    if (debtId) {
-      const selectedDebt = debts.find((d) => d.id === debtId);
-      const selectedCategory = categories.find((c) => c.id === categoryId);
-      const transactionAmount = parseFloat(amount);
-
-      if (selectedDebt) {
-        // Validation 1: Overpayment
-        if (transactionAmount > selectedDebt.remaining_amount) {
-          setError(
-            `Transaction amount (${transactionAmount}) cannot exceed the remaining debt amount (${selectedDebt.remaining_amount}).`,
-          );
-          setIsSubmitting(false);
-          return;
-        }
-
-        // Validation 2: Debt Type Mismatch
-        // Case A: I am the Creditor (Someone owes me)
-        if (
-          user.person_id === selectedDebt.creditor_id &&
-          selectedCategory?.type === "INCOME"
-        ) {
-          setError(
-            "When someone pays you back, it cannot be categorized as INCOME. Please select a different category (e.g., Transfer or specific repayment category).",
-          );
-          setIsSubmitting(false);
-          return;
-        }
-
-        // Case B: I am the Debtor (I owe someone)
-        if (
-          user.person_id === selectedDebt.debtor_id &&
-          selectedCategory?.type !== "EXPENSE"
-        ) {
-          setError(
-            "Repayment of a debt you owe must be categorized as an EXPENSE.",
-          );
-          setIsSubmitting(false);
-          return;
-        }
-      }
-    }
 
     try {
       const payload: CreateTransactionPayload = {
@@ -236,7 +164,7 @@ export function TransactionForm({
         transaction_date: new Date(date).toISOString(),
         category_id: categoryId,
         account_id: accountId === "default-account-id" ? null : accountId, // Handle placeholder logic
-        debt_id: debtId || null,
+
         savings_goal_id: savingsGoalId || null,
         person_id: user?.person_id || "",
       };
@@ -365,35 +293,7 @@ export function TransactionForm({
             )}
           </select>
         </div>
-        <div className="space-y-2">
-          <label
-            htmlFor="debt"
-            className="text-sm font-medium text-muted-foreground"
-          >
-            Link to Debt (Optional)
-          </label>
-          <select
-            autoComplete="off"
-            id="debt"
-            value={debtId}
-            onChange={(e) => setDebtId(e.target.value)}
-            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
-          >
-            <option value="">None</option>
-            {isLoadingDebts ? (
-              <option>Loading debts...</option>
-            ) : (
-              debts.map(
-                (deb) =>
-                  !deb.is_settled && (
-                    <option key={deb.id} value={deb.id}>
-                      {deb.description}
-                    </option>
-                  ),
-              )
-            )}
-          </select>
-        </div>
+
         <div className="space-y-2">
           <label
             htmlFor="savings"

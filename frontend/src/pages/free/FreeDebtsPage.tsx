@@ -8,6 +8,8 @@ import {
   Check,
   Trash2,
   DollarSign,
+  Handshake,
+  AlertTriangle,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { DebtForm } from "@/components/DebtForm";
@@ -34,6 +36,7 @@ function DebtRow({
   api,
   onRefresh,
   onPay,
+  onSettle,
   onDelete,
 }: {
   debt: Debt;
@@ -41,6 +44,7 @@ function DebtRow({
   api: ApiRepository;
   onRefresh: () => void;
   onPay: (debt: Debt) => void;
+  onSettle: (debt: Debt) => void;
   onDelete: (debt: Debt) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -118,6 +122,20 @@ function DebtRow({
                 title="Record Payment"
               >
                 <DollarSign className="h-4 w-4" />
+              </Button>
+            )}
+            {!debt.is_settled && debt.type && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSettle(debt);
+                }}
+                title="Settle Debt (Write Off)"
+              >
+                <Handshake className="h-4 w-4" />
               </Button>
             )}
             <Button
@@ -206,6 +224,13 @@ export function FreeDebtsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [debtToDelete, setDebtToDelete] = useState<Debt | null>(null);
 
+  // Settle Modal State
+  const [settleModalOpen, setSettleModalOpen] = useState(false);
+  const [debtToSettle, setDebtToSettle] = useState<Debt | null>(null);
+  const [settleCategoryId, setSettleCategoryId] = useState("");
+  const [settleAccountId, setSettleAccountId] = useState("");
+  const [isSettling, setIsSettling] = useState(false);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -243,6 +268,72 @@ export function FreeDebtsPage() {
   const getPersonName = (id: string) => {
     const person = persons.find((p) => p.id === id);
     return person ? person.name : "Me";
+  };
+
+  const handleSettleClick = (debt: Debt) => {
+    setDebtToSettle(debt);
+    setSettleCategoryId("");
+    setSettleAccountId("");
+    setSettleModalOpen(true);
+  };
+
+  const handleSettleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!debtToSettle || !debtToSettle.type || !settleCategoryId) return;
+
+    // For LOAN, we also need an account ID
+    if (debtToSettle.type === "LOAN" && !settleAccountId) return;
+
+    setIsSettling(true);
+    try {
+      const amountVal = debtToSettle.remaining_amount;
+
+      let accountId = "";
+      let personId = "";
+
+      // Determine Account ID and Person ID based on debt type
+      if (debtToSettle.type === "DELAYED_PAYMENT") {
+        // Expense on Debt Asset Account
+        // Account: user_id - debtor_id - debt_id
+        accountId = `${debtToSettle.user_id}-${debtToSettle.debtor_id}-${debtToSettle.id}`;
+        personId = debtToSettle.debtor_id;
+      } else if (debtToSettle.type === "PASSIVE_DEBT") {
+        // Income on Debt Liability Account
+        // Account: user_id - creditor_id - debt_id
+        accountId = `${debtToSettle.user_id}-${debtToSettle.creditor_id}-${debtToSettle.id}`;
+        personId = debtToSettle.creditor_id;
+      } else if (debtToSettle.type === "LOAN") {
+        // Expense on Selected Equity Account
+        accountId = settleAccountId;
+        personId = debtToSettle.debtor_id;
+      }
+
+      if (accountId && personId) {
+        const payload: CreateTransactionPayload = {
+          name: "Debt Settlement",
+          description: `Settlement/Write-off for ${debtToSettle.description}`,
+          amount: amountVal,
+          transaction_date: new Date().toISOString(),
+          category_id: settleCategoryId,
+          account_id: accountId,
+          debt_id: debtToSettle.id,
+          person_id: personId,
+        };
+
+        await api.createTransaction(payload);
+
+        // Ensure debt is marked as settled
+        await api.updateDebt(debtToSettle.id, { is_settled: true });
+      }
+
+      setSettleModalOpen(false);
+      fetchData();
+    } catch (err: any) {
+      console.error("Settlement failed", err);
+      alert("Settlement failed: " + err.message);
+    } finally {
+      setIsSettling(false);
+    }
   };
 
   const handlePayClick = (debt: Debt) => {
@@ -466,6 +557,94 @@ export function FreeDebtsPage() {
         </div>
       </Modal>
 
+      <Modal
+        isOpen={settleModalOpen}
+        onClose={() => setSettleModalOpen(false)}
+        title="Settle Debt"
+      >
+        <form onSubmit={handleSettleSubmit} className="space-y-4">
+          <div className="bg-amber-50 border-l-4 border-amber-500 p-4 mb-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <AlertTriangle className="h-5 w-5 text-amber-500" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-amber-700">
+                  You are about to write off the remaining amount of{" "}
+                  <strong>
+                    ${debtToSettle?.remaining_amount.toLocaleString()}
+                  </strong>
+                  . This action cannot be undone.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              {debtToSettle?.type === "PASSIVE_DEBT"
+                ? "Income Category (e.g., Forgiven Debt)"
+                : "Expense Category (e.g., Bad Debt / Write-off)"}
+            </label>
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={settleCategoryId}
+              onChange={(e) => setSettleCategoryId(e.target.value)}
+              required
+            >
+              <option value="">Select Category</option>
+              {categories
+                .filter((c) => {
+                  if (debtToSettle?.type === "PASSIVE_DEBT")
+                    return c.type === "INCOME";
+                  return c.type === "EXPENSE";
+                })
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.icon} {c.name}
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {debtToSettle?.type === "LOAN" && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Equity Account (Source of Loss)
+              </label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={settleAccountId}
+                onChange={(e) => setSettleAccountId(e.target.value)}
+                required
+              >
+                <option value="">Select Equity Account</option>
+                {accounts
+                  .filter((a) => a.classification === "EQUITY")
+                  .map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} (${a.current_balance})
+                    </option>
+                  ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSettleModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSettling} variant="destructive">
+              Confirm Settlement
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
       {/* Active Debts Section */}
       <div>
         <h2 className="text-xl font-semibold mb-4">Active Debts</h2>
@@ -494,6 +673,7 @@ export function FreeDebtsPage() {
                     api={api}
                     onRefresh={fetchData}
                     onPay={handlePayClick}
+                    onSettle={handleSettleClick}
                     onDelete={handleDeleteClick}
                   />
                 ))}
@@ -533,6 +713,7 @@ export function FreeDebtsPage() {
                     api={api}
                     onRefresh={fetchData}
                     onPay={handlePayClick}
+                    onSettle={handleSettleClick}
                     onDelete={handleDeleteClick}
                   />
                 ))}
