@@ -769,6 +769,7 @@ export class IndexedDbRepository implements ApiRepository {
       name: data.name,
       type: data.type,
       classification: data.classification,
+      tags: data.tags || [],
       current_balance: data.current_balance || 0,
       currency: data.currency || "USD",
       updated_at: new Date().toISOString(),
@@ -793,6 +794,10 @@ export class IndexedDbRepository implements ApiRepository {
     if (data.name !== undefined) {
       validateInput(updated.name, MAX_NAME_LENGTH, "Account Name");
       updated.name = sanitizeInput(updated.name);
+    }
+
+    if (data.tags !== undefined) {
+      updated.tags = data.tags;
     }
 
     if (data.classification !== undefined) {

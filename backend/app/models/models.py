@@ -110,6 +110,7 @@ class Account(Base):
     name = Column(String, nullable=False)
     classification = Column(String, nullable=False) # asset, liability, equity
     type = Column(String, nullable=False) # cash, bank, receivable, payable, credit_card
+    tags = Column(ARRAY(String))
     current_balance = Column(Numeric(15, 2), default=0)
     currency = Column(String(3), default='USD')
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -173,6 +174,7 @@ class Transaction(Base):
     account = relationship("Account", back_populates="transactions")
     debt = relationship("Debt", back_populates="transactions")
     savings_goal = relationship("SavingsGoal", back_populates="transactions")
+    is_system_generated = Column(Boolean, default=False)
     category = relationship("Category", back_populates="transactions")
 
     __table_args__ = (

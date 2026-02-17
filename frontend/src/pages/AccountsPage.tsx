@@ -24,6 +24,7 @@ import {
   AlertTriangle,
   ArrowRightLeft,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -41,6 +42,7 @@ export function AccountsPage() {
     name: "",
     type: "",
     classification: "ASSET",
+    tags: [],
     current_balance: 0,
     currency: "USD",
   });
@@ -77,6 +79,7 @@ export function AccountsPage() {
       name: "",
       type: "",
       classification: "ASSET",
+      tags: [],
       current_balance: 0,
       currency: "USD",
     });
@@ -102,6 +105,7 @@ export function AccountsPage() {
         name: formData.name,
         type: formData.type,
         classification: formData.classification,
+        tags: formData.tags,
       });
       setIsEditOpen(false);
       resetForm();
@@ -163,6 +167,7 @@ export function AccountsPage() {
       name: account.name,
       type: account.type,
       classification: account.classification || "ASSET",
+      tags: account.tags || [],
       current_balance: account.current_balance,
       currency: account.currency,
     });
@@ -250,6 +255,19 @@ export function AccountsPage() {
                           {account.type}
                         </div>
                       </div>
+                      {account.tags && account.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {account.tags.map((tag, i) => (
+                            <Badge
+                              key={i}
+                              variant="secondary"
+                              className="text-[10px] px-1 py-0 h-5"
+                            >
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -310,6 +328,24 @@ export function AccountsPage() {
                 setFormData({ ...formData, type: e.target.value })
               }
               placeholder="E.g. Checking, Savings, Credit Card"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Tags (comma separated)
+            </label>
+            <Input
+              value={formData.tags?.join(", ") || ""}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  tags: e.target.value
+                    .split(",")
+                    .map((t) => t.trim())
+                    .filter(Boolean),
+                })
+              }
+              placeholder="e.g. business, personal, savings"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -391,6 +427,24 @@ export function AccountsPage() {
               onChange={(e) =>
                 setFormData({ ...formData, type: e.target.value })
               }
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">
+              Tags (comma separated)
+            </label>
+            <Input
+              value={formData.tags?.join(", ") || ""}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  tags: e.target.value
+                    .split(",")
+                    .map((t) => t.trim())
+                    .filter(Boolean),
+                })
+              }
+              placeholder="e.g. business, personal, savings"
             />
           </div>
           <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground flex gap-2 items-start">

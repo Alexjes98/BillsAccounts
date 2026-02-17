@@ -73,6 +73,7 @@ Table accounts {
   name varchar [not null]
   classification varchar [not null] // asset, liability, equity
   type varchar [not null] // cash, bank, receivable, payable, credit_card
+  tags varchar[]
   current_balance numeric(15,2) [default: 0]
   currency varchar(3) [default: 'USD']
 }
