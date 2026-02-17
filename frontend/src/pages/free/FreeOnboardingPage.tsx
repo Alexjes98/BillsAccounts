@@ -152,6 +152,7 @@ export function FreeOnboardingPage() {
 
           await api.createAccount({
             name: accType,
+            classification: "EQUITY",
             type: type,
             current_balance: 0,
             currency: userData.currency,
@@ -172,6 +173,14 @@ export function FreeOnboardingPage() {
             color: cat.color,
           });
         }
+
+        // 4.1 Create internal categories
+        await api.createCategory({
+          name: "Transfer",
+          type: "TRANSFER",
+          icon: "🔄",
+          color: "#808080",
+        });
 
         // 5. Finalize
         await refreshUser();

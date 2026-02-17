@@ -24,6 +24,7 @@ export interface Transaction {
   savings_goal?: {
     name: string;
   };
+  is_system_generated?: boolean;
 }
 
 export interface Category {
@@ -82,6 +83,7 @@ export interface CreateTransactionPayload {
   debt_id?: string | null;
   savings_goal_id?: string | null;
   person_id: string;
+  is_system_generated?: boolean;
 }
 
 export interface TransferPayload {

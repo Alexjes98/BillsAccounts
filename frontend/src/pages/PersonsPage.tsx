@@ -64,6 +64,27 @@ export function PersonsPage() {
   const confirmDelete = async () => {
     if (!personToDelete) return;
     try {
+      // 1. Check for active Debts
+      const allDebts = await api.getDebts();
+      const activeDebts = allDebts.filter(
+        (d) =>
+          (d.creditor_id === personToDelete.id ||
+            d.debtor_id === personToDelete.id) &&
+          !d.is_settled &&
+          !d.deleted_at,
+      );
+
+      if (activeDebts.length > 0) {
+        // Prevent deletion
+        setIsDeleteModalOpen(false);
+        setError(
+          `Cannot delete ${personToDelete.name}. They have active debts or liability/asset accounts. Please settle them first.`,
+        );
+        // Clear error after 5 seconds
+        setTimeout(() => setError(null), 5000);
+        return;
+      }
+
       await api.deletePerson(personToDelete.id);
       setIsDeleteModalOpen(false);
       setPersonToDelete(null);

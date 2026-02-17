@@ -66,28 +66,36 @@ function ActionMenu({
               <Eye className="mr-2 h-4 w-4" />
               View
             </button>
-            <button
-              id={`edit-transaction-${transaction.id}`}
-              onClick={() => {
-                onEdit(transaction);
-                setIsOpen(false);
-              }}
-              className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
-            >
-              <Edit className="mr-2 h-4 w-4" />
-              Edit
-            </button>
-            <button
-              id={`delete-transaction-${transaction.id}`}
-              onClick={() => {
-                onDelete(transaction);
-                setIsOpen(false);
-              }}
-              className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none text-red-600 hover:bg-red-50 hover:text-red-700"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </button>
+            {transaction.is_system_generated ? (
+              <div className="px-2 py-1.5 text-xs text-muted-foreground italic text-center">
+                System Generated
+              </div>
+            ) : (
+              <>
+                <button
+                  id={`edit-transaction-${transaction.id}`}
+                  onClick={() => {
+                    onEdit(transaction);
+                    setIsOpen(false);
+                  }}
+                  className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </button>
+                <button
+                  id={`delete-transaction-${transaction.id}`}
+                  onClick={() => {
+                    onDelete(transaction);
+                    setIsOpen(false);
+                  }}
+                  className="relative flex w-full cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none text-red-600 hover:bg-red-50 hover:text-red-700"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

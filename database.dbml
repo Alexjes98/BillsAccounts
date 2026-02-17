@@ -120,6 +120,7 @@ Table transactions {
   description text
   
   deleted_at timestamptz [note: 'If not null, exclude from calculations']
+  is_system_generated boolean [default: false]
   created_at timestamptz [default: `now()`]
 
   indexes {

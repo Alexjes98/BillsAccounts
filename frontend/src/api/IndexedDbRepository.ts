@@ -396,6 +396,7 @@ export class IndexedDbRepository implements ApiRepository {
       account_id: data.account_id ?? undefined,
       debt_id: data.debt_id ?? undefined,
       savings_goal_id: data.savings_goal_id ?? undefined,
+      is_system_generated: data.is_system_generated,
       // explicitly omit category, account, debt, savings_goal objects
     };
 
@@ -496,6 +497,9 @@ export class IndexedDbRepository implements ApiRepository {
         "Transaction Description",
       );
       updatedTx.description = sanitizeInput(data.description);
+    }
+    if (data.is_system_generated !== undefined) {
+      updatedTx.is_system_generated = data.is_system_generated;
     }
 
     // 3. Apply New Balance Effect
@@ -662,11 +666,10 @@ export class IndexedDbRepository implements ApiRepository {
       description: data.description,
       amount: -Math.abs(data.amount),
       transaction_date: data.transaction_date,
+      is_system_generated: true,
       category_id: category.id,
       account_id: fromAccount.id,
       debt_id: data.debt_id,
-      // category: { name: category.name, icon: category.icon },
-      // account: { name: fromAccount.name },
     };
 
     // Create Incoming Transaction
@@ -676,11 +679,10 @@ export class IndexedDbRepository implements ApiRepository {
       description: data.description,
       amount: Math.abs(data.amount),
       transaction_date: data.transaction_date,
+      is_system_generated: true,
       category_id: category.id,
       account_id: toAccount.id,
       debt_id: data.debt_id,
-      // category: { name: category.name, icon: category.icon },
-      // account: { name: toAccount.name },
     };
 
     await db.put("transactions", txOut);
