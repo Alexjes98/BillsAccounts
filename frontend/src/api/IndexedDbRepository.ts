@@ -1009,6 +1009,21 @@ export class IndexedDbRepository implements ApiRepository {
 
   async deleteDebt(id: string): Promise<void> {
     const db = await this.dbPromise;
+
+    // 1. Get all transactions linked to this debt
+    // We scan all transactions because there is no index on debt_id.
+    // Given client-side usage, this is generally acceptable.
+    const allTransactions = await db.getAll("transactions");
+    const debtTransactions = allTransactions.filter((tx) => tx.debt_id === id);
+
+    // 2. Delete each transaction
+    // We use the existing deleteTransaction method to ensure proper balance reversion.
+    // We MUST await sequentially to avoid race conditions on account balance updates.
+    for (const tx of debtTransactions) {
+      await this.deleteTransaction(tx.id);
+    }
+
+    // 3. Delete the debt
     await db.delete("debts", id);
   }
 
