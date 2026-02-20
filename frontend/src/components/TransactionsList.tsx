@@ -110,11 +110,11 @@ export function TransactionsList({
   onDelete,
   onView,
 }: TransactionsListProps) {
-  if (isLoading) {
+  if (isLoading && transactions.length === 0) {
     return <div className="text-center py-4">Loading transactions...</div>;
   }
 
-  if (transactions.length === 0) {
+  if (!isLoading && transactions.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground border rounded-md">
         No transactions found.
@@ -123,7 +123,14 @@ export function TransactionsList({
   }
 
   return (
-    <div className="border rounded-md">
+    <div className="border rounded-md relative">
+      {isLoading && transactions.length > 0 && (
+        <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
+          <div className="bg-background border rounded-md px-4 py-2 text-sm font-medium shadow-sm">
+            Loading...
+          </div>
+        </div>
+      )}
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-left">
           <tr>
