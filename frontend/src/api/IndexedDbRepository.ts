@@ -1294,7 +1294,10 @@ export class IndexedDbRepository implements ApiRepository {
     return {
       current_date: {
         year: currentYear,
-        month: now.toLocaleString("default", { month: "long" }),
+        month: new Date(Date.UTC(currentYear, currentMonth, 2)).toLocaleString(
+          "default",
+          { month: "long", timeZone: "UTC" },
+        ),
         month_int: currentMonth + 1,
       },
       cards: {
@@ -1378,20 +1381,26 @@ export class IndexedDbRepository implements ApiRepository {
 
       monthTransactions.forEach((t) => {
         const type = catMap.get(t.category_id)?.type;
-        if (type === "INCOME") total_income += Math.abs(t.amount);
-        if (type === "EXPENSE") total_expense += Math.abs(t.amount);
+        if (type === "INCOME")
+          total_income = roundAmount(total_income + Math.abs(t.amount));
+        if (type === "EXPENSE")
+          total_expense = roundAmount(total_expense + Math.abs(t.amount));
       });
 
       // Calculate Net Flow for this specific month (Income - Expense)
-      const closing_balance = total_income - total_expense;
+      const closing_balance = roundAmount(total_income - total_expense);
 
       const summary: MonthlySummary = {
         id: `${year}-${month}`,
         year,
         month,
-        month_name: new Date(year, monthIndex).toLocaleString("default", {
-          month: "long",
-        }),
+        month_name: new Date(Date.UTC(year, monthIndex, 2)).toLocaleString(
+          "default",
+          {
+            month: "long",
+            timeZone: "UTC",
+          },
+        ),
         total_income,
         total_expense,
         closing_balance,
@@ -1432,20 +1441,26 @@ export class IndexedDbRepository implements ApiRepository {
 
     monthTransactions.forEach((t) => {
       const type = catMap.get(t.category_id)?.type;
-      if (type === "INCOME") total_income += Math.abs(t.amount);
-      if (type === "EXPENSE") total_expense += Math.abs(t.amount);
+      if (type === "INCOME")
+        total_income = roundAmount(total_income + Math.abs(t.amount));
+      if (type === "EXPENSE")
+        total_expense = roundAmount(total_expense + Math.abs(t.amount));
     });
 
     // 3. Calculate Net Flow for this specific month (Income - Expense)
-    const closing_balance = total_income - total_expense;
+    const closing_balance = roundAmount(total_income - total_expense);
 
     const summary: MonthlySummary = {
       id: `${year}-${month}`,
       year,
       month,
-      month_name: new Date(year, monthIndex).toLocaleString("default", {
-        month: "long",
-      }),
+      month_name: new Date(Date.UTC(year, monthIndex, 2)).toLocaleString(
+        "default",
+        {
+          month: "long",
+          timeZone: "UTC",
+        },
+      ),
       total_income,
       total_expense,
       closing_balance,
