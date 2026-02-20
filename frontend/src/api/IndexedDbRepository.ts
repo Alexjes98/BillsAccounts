@@ -33,13 +33,10 @@ import {
 
 // TODO: Refine all behaviours with data relations to ensure data consistency with basic functions
 
-/*function generateSimpleUUID() {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-    const r = (Math.random() * 16) | 0,
-      v = c == "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}*/
+// Fix for floating point precision: round down to 2 decimal places to avoid e.g. .99999955
+function roundAmount(value: number): number {
+  return Math.round(value * 100) / 100;
+}
 
 // Internal type for what we actually store in IndexedDB
 // We make relational fields optional because we want to hydrate them at runtime
@@ -378,7 +375,9 @@ export class IndexedDbRepository implements ApiRepository {
 
       if (shouldPermitReduction) {
         const paymentAmount = Math.abs(data.amount);
-        debt.remaining_amount -= paymentAmount;
+        debt.remaining_amount = roundAmount(
+          debt.remaining_amount - paymentAmount,
+        );
         if (debt.remaining_amount <= 0) {
           debt.remaining_amount = 0;
           debt.is_settled = true;
@@ -404,7 +403,9 @@ export class IndexedDbRepository implements ApiRepository {
 
     // 3. Update Account Balance
     if (data.account_id && account) {
-      account.current_balance += data.amount;
+      account.current_balance = roundAmount(
+        account.current_balance + data.amount,
+      );
       await db.put("accounts", account);
     }
 
@@ -441,7 +442,9 @@ export class IndexedDbRepository implements ApiRepository {
     if (oldAccountId) {
       const oldAccount = await db.get("accounts", oldAccountId);
       if (oldAccount) {
-        oldAccount.current_balance -= oldAmount;
+        oldAccount.current_balance = roundAmount(
+          oldAccount.current_balance - oldAmount,
+        );
         await db.put("accounts", oldAccount);
       }
     }
@@ -506,7 +509,9 @@ export class IndexedDbRepository implements ApiRepository {
     if (updatedTx.account_id) {
       const newAccount = await db.get("accounts", updatedTx.account_id);
       if (newAccount) {
-        newAccount.current_balance += updatedTx.amount;
+        newAccount.current_balance = roundAmount(
+          newAccount.current_balance + updatedTx.amount,
+        );
         await db.put("accounts", newAccount);
       }
     }
@@ -521,7 +526,9 @@ export class IndexedDbRepository implements ApiRepository {
     if (oldDebtId && oldDebtId !== newDebtId) {
       const oldDebt = await db.get("debts", oldDebtId);
       if (oldDebt) {
-        oldDebt.remaining_amount += oldAmountAbs;
+        oldDebt.remaining_amount = roundAmount(
+          oldDebt.remaining_amount + oldAmountAbs,
+        );
         oldDebt.is_settled = false;
         await db.put("debts", oldDebt);
       }
@@ -532,7 +539,9 @@ export class IndexedDbRepository implements ApiRepository {
     if (newDebtId && newDebtId !== oldDebtId) {
       const newDebt = await db.get("debts", newDebtId);
       if (newDebt) {
-        newDebt.remaining_amount -= newAmountAbs;
+        newDebt.remaining_amount = roundAmount(
+          newDebt.remaining_amount - newAmountAbs,
+        );
         if (newDebt.remaining_amount <= 0) {
           newDebt.remaining_amount = 0;
           newDebt.is_settled = true;
@@ -549,7 +558,7 @@ export class IndexedDbRepository implements ApiRepository {
       const debt = await db.get("debts", newDebtId);
       if (debt) {
         const diff = oldAmountAbs - newAmountAbs;
-        debt.remaining_amount += diff;
+        debt.remaining_amount = roundAmount(debt.remaining_amount + diff);
 
         if (debt.remaining_amount <= 0) {
           debt.remaining_amount = 0;
@@ -604,7 +613,9 @@ export class IndexedDbRepository implements ApiRepository {
     if (tx.account_id) {
       const account = await db.get("accounts", tx.account_id);
       if (account) {
-        account.current_balance -= tx.amount;
+        account.current_balance = roundAmount(
+          account.current_balance - tx.amount,
+        );
         await db.put("accounts", account);
       }
     }
@@ -614,7 +625,9 @@ export class IndexedDbRepository implements ApiRepository {
       const debt = await db.get("debts", tx.debt_id);
       if (debt) {
         // Revert the payment: Add back the absolute transaction amount
-        debt.remaining_amount += Math.abs(tx.amount);
+        debt.remaining_amount = roundAmount(
+          debt.remaining_amount + Math.abs(tx.amount),
+        );
 
         // If the debt was settled, mark it as pending (not settled)
         if (debt.is_settled) {
@@ -640,7 +653,11 @@ export class IndexedDbRepository implements ApiRepository {
     if (category.type !== "TRANSFER")
       throw new Error("Category must be of type TRANSFER");
 
-    if (fromAccount.current_balance < data.amount) {
+    // Fix for floating point precision: compare amounts in cents (integers)
+    const balanceCents = Math.round(fromAccount.current_balance * 100);
+    const amountCents = Math.round(data.amount * 100);
+
+    if (balanceCents < amountCents) {
       throw new Error("Insufficient funds in source account");
     }
 
@@ -648,7 +665,9 @@ export class IndexedDbRepository implements ApiRepository {
     if (data.debt_id) {
       const debt = await db.get("debts", data.debt_id);
       if (debt) {
-        debt.remaining_amount -= Math.abs(data.amount);
+        debt.remaining_amount = roundAmount(
+          debt.remaining_amount - Math.abs(data.amount),
+        );
         if (debt.remaining_amount <= 0) {
           debt.remaining_amount = 0;
           debt.is_settled = true;
@@ -689,8 +708,12 @@ export class IndexedDbRepository implements ApiRepository {
     await db.put("transactions", txIn);
 
     // Update balances
-    fromAccount.current_balance -= data.amount;
-    toAccount.current_balance += data.amount;
+    fromAccount.current_balance = roundAmount(
+      fromAccount.current_balance - data.amount,
+    );
+    toAccount.current_balance = roundAmount(
+      toAccount.current_balance + data.amount,
+    );
 
     await db.put("accounts", fromAccount);
     await db.put("accounts", toAccount);
@@ -921,7 +944,9 @@ export class IndexedDbRepository implements ApiRepository {
         await this.createTransaction(txData);
       } else {
         // Fallback: Just update balance if no category provided (though UI should enforce)
-        account.current_balance -= data.total_amount; // Debt = Negative balance
+        account.current_balance = roundAmount(
+          account.current_balance - data.total_amount,
+        ); // Debt = Negative balance
         await db.put("accounts", account);
       }
     } else if (data.type === "LOAN") {
@@ -1030,6 +1055,12 @@ export class IndexedDbRepository implements ApiRepository {
   async getGroupedDebts(): Promise<GroupedDebts> {
     const db = await this.dbPromise;
     const debts = await db.getAll("debts");
+
+    debts.sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    });
 
     const delayed_payments = debts.filter(
       (d) => !d.is_settled && !d.deleted_at && d.type === "DELAYED_PAYMENT",

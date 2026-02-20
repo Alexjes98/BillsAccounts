@@ -103,6 +103,7 @@ export function OnboardingPage() {
         await api.createAccount({
           name: accType,
           type: type,
+          classification: "EQUITY",
           current_balance: 0,
           currency: userData.currency,
         });

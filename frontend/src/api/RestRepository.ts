@@ -19,6 +19,7 @@ import {
   TransactionQueryParams,
   TransferPayload,
   User,
+  GroupedDebts,
 } from "./repository";
 import { MascotMessage } from "./mascotMessages";
 import {
@@ -161,6 +162,38 @@ export class RestApiRepository implements ApiRepository {
   async getDebts(): Promise<Debt[]> {
     const response = await api.get("/api/debts");
     return response.data;
+  }
+
+  async getGroupedDebts(): Promise<GroupedDebts> {
+    const rawDebts = await this.getDebts();
+    const debts = [...rawDebts];
+
+    debts.sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    return {
+      delayed_payments: debts.filter(
+        (d) => !d.is_settled && !d.deleted_at && d.type === "DELAYED_PAYMENT",
+      ),
+      loans: debts.filter(
+        (d) => !d.is_settled && !d.deleted_at && d.type === "LOAN",
+      ),
+      passive_debts: debts.filter(
+        (d) => !d.is_settled && !d.deleted_at && d.type === "PASSIVE_DEBT",
+      ),
+      others: debts.filter(
+        (d) =>
+          !d.is_settled &&
+          !d.deleted_at &&
+          !["DELAYED_PAYMENT", "LOAN", "PASSIVE_DEBT"].includes(
+            d.type as string,
+          ),
+      ),
+      settled: debts.filter((d) => d.is_settled && !d.deleted_at),
+    };
   }
 
   async updateDebt(

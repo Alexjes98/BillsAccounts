@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Person, CreateDebtPayload, Category, Account } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
 import { useUser } from "@/context/UserContext";
-import { Plus, X } from "lucide-react";
 
 interface DebtFormProps {
   onSuccess: () => void;

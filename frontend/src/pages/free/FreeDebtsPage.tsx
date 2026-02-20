@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, use, Suspense } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,8 +7,6 @@ import {
   ChevronRight,
   Trash2,
   DollarSign,
-  Handshake,
-  AlertTriangle,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { DebtForm } from "@/components/DebtForm";
@@ -23,7 +21,6 @@ import {
   ApiRepository,
   Category,
   Account,
-  CreateTransactionPayload,
   TransferPayload,
 } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
@@ -34,14 +31,12 @@ function DebtRow({
   debt,
   getPersonName,
   api,
-  onRefresh,
   onPay,
   onDelete,
 }: {
   debt: Debt;
   getPersonName: (id: string) => string;
   api: ApiRepository;
-  onRefresh: () => void;
   onPay: (debt: Debt) => void;
   onDelete: (debt: Debt) => void;
 }) {
@@ -185,22 +180,48 @@ function DebtRow({
 }
 
 export function FreeDebtsPage() {
-  const [debts, setDebts] = useState<GroupedDebts>({
-    delayed_payments: [],
-    loans: [],
-    passive_debts: [],
-    others: [],
-    settled: [],
-  });
-  const [summary, setSummary] = useState<DebtSummary[]>([]);
-  const [persons, setPersons] = useState<Person[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const api = useApi();
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [dataPromise, setDataPromise] = useState<Promise<
+    [GroupedDebts, DebtSummary[], Person[], Category[], Account[]]
+  > | null>(null);
 
+  useEffect(() => {
+    setDataPromise(
+      Promise.all([
+        api.getGroupedDebts(),
+        api.getDebtsSummary(),
+        api.getPersons(),
+        api.getCategories(),
+        api.getAccounts(),
+      ]),
+    );
+  }, [api, refreshKey]);
+
+  if (!dataPromise) return null;
+
+  return (
+    <Suspense fallback={<div>Loading debts dashboard...</div>}>
+      <DebtsDashboardContent
+        dataPromise={dataPromise}
+        onRefresh={() => setRefreshKey((prev) => prev + 1)}
+      />
+    </Suspense>
+  );
+}
+
+function DebtsDashboardContent({
+  dataPromise,
+  onRefresh,
+}: {
+  dataPromise: Promise<
+    [GroupedDebts, DebtSummary[], Person[], Category[], Account[]]
+  >;
+  onRefresh: () => void;
+}) {
+  const [debts, summary, persons, categories, accounts] = use(dataPromise);
   const api = useApi();
   const { user } = useUser();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Pay Modal State
@@ -215,38 +236,9 @@ export function FreeDebtsPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [debtToDelete, setDebtToDelete] = useState<Debt | null>(null);
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const [debtsRes, summaryRes, personsRes, catsRes, accsRes] =
-        await Promise.all([
-          api.getGroupedDebts(),
-          api.getDebtsSummary(),
-          api.getPersons(),
-          api.getCategories(),
-          api.getAccounts(),
-        ]);
-
-      setDebts(debtsRes);
-      setSummary(summaryRes);
-      setPersons(personsRes);
-      setCategories(catsRes);
-      setAccounts(accsRes);
-    } catch (err) {
-      console.error("Failed to fetch debts data", err);
-      setError("Failed to load debts data.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const handleDebtCreated = () => {
     setIsModalOpen(false);
-    fetchData();
+    onRefresh();
   };
 
   const getPersonName = (id: string) => {
@@ -308,7 +300,7 @@ export function FreeDebtsPage() {
       }
 
       setPayModalOpen(false);
-      fetchData();
+      onRefresh();
     } catch (err: any) {
       console.error("Payment failed", err);
       alert("Payment failed: " + err.message);
@@ -327,19 +319,11 @@ export function FreeDebtsPage() {
     try {
       await api.deleteDebt(debtToDelete.id);
       setDeleteModalOpen(false);
-      fetchData();
+      onRefresh();
     } catch (err) {
       console.error("Delete failed", err);
     }
   };
-
-  if (isLoading) {
-    return <div>Loading debts dashboard...</div>;
-  }
-
-  if (error) {
-    return <div className="text-destructive">{error}</div>;
-  }
 
   const {
     delayed_payments,
@@ -376,7 +360,6 @@ export function FreeDebtsPage() {
               debt={debt}
               getPersonName={getPersonName}
               api={api}
-              onRefresh={fetchData}
               onPay={handlePayClick}
               onDelete={handleDeleteClick}
             />
@@ -630,7 +613,6 @@ export function FreeDebtsPage() {
                     debt={debt}
                     getPersonName={getPersonName}
                     api={api}
-                    onRefresh={fetchData}
                     onPay={handlePayClick}
                     onDelete={handleDeleteClick}
                   />

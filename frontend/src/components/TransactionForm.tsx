@@ -65,10 +65,14 @@ export function TransactionForm({
     const fetchAccounts = async () => {
       setIsLoadingAccounts(true);
       try {
+        //TODO: Modify this to filter in the function not the frontend
         const data = await api.getAccounts();
-        setAccounts(data);
-        if (data.length > 0 && !initialData) {
-          setAccountId(data[0].id);
+        const equityAccounts = data.filter(
+          (acc) => acc.classification === "EQUITY",
+        );
+        setAccounts(equityAccounts);
+        if (equityAccounts.length > 0 && !initialData) {
+          setAccountId(equityAccounts[0].id);
         }
       } catch (err) {
         console.error("Failed to load accounts", err);
