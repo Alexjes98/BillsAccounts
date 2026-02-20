@@ -52,7 +52,7 @@ export function AccountsPage() {
     to_account_id: "",
     amount: 0,
     category_id: "",
-    transaction_date: new Date().toISOString().split("T")[0],
+    transaction_date: new Date().toLocaleDateString("en-CA"),
     description: "",
   });
 
@@ -146,7 +146,7 @@ export function AccountsPage() {
         to_account_id: "",
         amount: 0,
         category_id: "",
-        transaction_date: new Date().toISOString().split("T")[0],
+        transaction_date: new Date().toLocaleDateString("en-CA"),
         description: "",
       });
       fetchData();

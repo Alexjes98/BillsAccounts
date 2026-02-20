@@ -145,7 +145,7 @@ export function TransactionsList({
               className="border-t hover:bg-muted/10 transition-colors"
             >
               <td className="p-3">
-                {new Date(t.transaction_date).toLocaleDateString(undefined, {
+                {new Date(t.transaction_date).toLocaleDateString("en-GB", {
                   timeZone: "UTC",
                 })}
               </td>

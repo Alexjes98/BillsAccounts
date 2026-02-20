@@ -38,6 +38,18 @@ function roundAmount(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+// Fix Date parsing for YYYY-MM-DD and UTC midnight that shift days in local timezone
+export function parseLocalDate(dateStr: string): Date {
+  if (!dateStr) return new Date();
+  if (dateStr.length === 10) {
+    return new Date(`${dateStr}T12:00:00`);
+  }
+  if (dateStr.endsWith("T00:00:00.000Z")) {
+    return new Date(`${dateStr.split("T")[0]}T12:00:00`);
+  }
+  return new Date(dateStr);
+}
+
 // Internal type for what we actually store in IndexedDB
 // We make relational fields optional because we want to hydrate them at runtime
 type StoredTransaction = Omit<
@@ -1217,7 +1229,7 @@ export class IndexedDbRepository implements ApiRepository {
     const currentMonth = now.getMonth();
 
     const currentMonthTx = transactions.filter((t) => {
-      const d = new Date(t.transaction_date);
+      const d = parseLocalDate(t.transaction_date);
       return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
     });
 
@@ -1236,8 +1248,9 @@ export class IndexedDbRepository implements ApiRepository {
 
     currentMonthTx.forEach((t) => {
       const type = catMap.get(t.category_id)?.type;
+      if (type === "TRANSFER") return;
       const val = Math.abs(t.amount);
-      const day = new Date(t.transaction_date).getDate();
+      const day = parseLocalDate(t.transaction_date).getDate();
 
       if (type === "INCOME") {
         income += t.amount;
@@ -1327,7 +1340,7 @@ export class IndexedDbRepository implements ApiRepository {
     // 1. Identify all months from transactions
     const monthsSet = new Set<string>();
     transactions.forEach((t) => {
-      const d = new Date(t.transaction_date);
+      const d = parseLocalDate(t.transaction_date);
       const year = d.getFullYear();
       if (year >= currentYear) {
         const key = `${year}-${d.getMonth() + 1}`;
@@ -1355,7 +1368,7 @@ export class IndexedDbRepository implements ApiRepository {
 
       // Filter transactions for this specific month
       const monthTransactions = transactions.filter((t) => {
-        const d = new Date(t.transaction_date);
+        const d = parseLocalDate(t.transaction_date);
         return d.getFullYear() === year && d.getMonth() === monthIndex;
       });
 
@@ -1406,7 +1419,7 @@ export class IndexedDbRepository implements ApiRepository {
     // 1. Fetch transactions for the month
     const allTransactions = await db.getAll("transactions");
     const monthTransactions = allTransactions.filter((t) => {
-      const d = new Date(t.transaction_date);
+      const d = parseLocalDate(t.transaction_date);
       return d.getFullYear() === year && d.getMonth() === monthIndex;
     });
 

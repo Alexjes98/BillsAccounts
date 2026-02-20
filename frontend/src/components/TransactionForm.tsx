@@ -40,7 +40,7 @@ export function TransactionForm({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState(""); // keeping as string for input
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState(new Date().toLocaleDateString("en-CA"));
   const [categoryId, setCategoryId] = useState("");
   const [accountId, setAccountId] = useState("default-account-id"); // Placeholder
 
@@ -165,7 +165,7 @@ export function TransactionForm({
         name,
         description: description || undefined,
         amount: parseFloat(amount),
-        transaction_date: new Date(date).toISOString(),
+        transaction_date: new Date(`${date}T12:00:00`).toISOString(),
         category_id: categoryId,
         account_id: accountId === "default-account-id" ? null : accountId, // Handle placeholder logic
 

@@ -318,7 +318,7 @@ export function FreeTransactionsPage() {
               <div>
                 {new Date(
                   viewingTransaction.transaction_date,
-                ).toLocaleDateString(undefined, { timeZone: "UTC" })}
+                ).toLocaleDateString("en-GB", { timeZone: "UTC" })}
               </div>
 
               <div className="font-medium text-muted-foreground">Name</div>
