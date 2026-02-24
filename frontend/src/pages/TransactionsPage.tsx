@@ -32,7 +32,8 @@ export function TransactionsPage() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [accountFilter, setAccountFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [startDateFilter, setStartDateFilter] = useState("");
+  const [endDateFilter, setEndDateFilter] = useState("");
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -44,7 +45,8 @@ export function TransactionsPage() {
         category_id: categoryFilter || undefined,
         type: typeFilter || undefined,
         account_id: accountFilter || undefined,
-        date: dateFilter || undefined,
+        start_date: startDateFilter || undefined,
+        end_date: endDateFilter || undefined,
       });
       setTransactions(response.items);
       setTotalPages(response.pages);
@@ -62,7 +64,8 @@ export function TransactionsPage() {
     categoryFilter,
     typeFilter,
     accountFilter,
-    dateFilter,
+    startDateFilter,
+    endDateFilter,
   ]);
 
   const loadMetadata = async () => {
@@ -105,7 +108,8 @@ export function TransactionsPage() {
     setCategoryFilter("");
     setTypeFilter("");
     setAccountFilter("");
-    setDateFilter("");
+    setStartDateFilter("");
+    setEndDateFilter("");
     setCurrentPage(1);
   };
 
@@ -185,7 +189,7 @@ export function TransactionsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {/* Type Filter */}
           <select
             autoComplete="off"
@@ -228,11 +232,20 @@ export function TransactionsPage() {
             ))}
           </select>
 
-          {/* Date Filter */}
+          {/* Start Date Filter */}
           <Input
             type="date"
-            value={dateFilter}
-            onChange={handleFilterChange(setDateFilter)}
+            value={startDateFilter}
+            onChange={handleFilterChange(setStartDateFilter)}
+            title="Start Date"
+          />
+
+          {/* End Date Filter */}
+          <Input
+            type="date"
+            value={endDateFilter}
+            onChange={handleFilterChange(setEndDateFilter)}
+            title="End Date"
           />
         </div>
       </div>

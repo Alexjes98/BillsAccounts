@@ -236,9 +236,19 @@ export class IndexedDbRepository implements ApiRepository {
     const accountId = params?.account_id;
     const debtId = params?.debt_id;
     const type = params?.type;
+    const startDate = params?.start_date;
+    const endDate = params?.end_date;
 
     // Optimization: If no filters, we can just count total and then advance cursor
-    const hasFilters = !!(search || categoryId || accountId || debtId || type);
+    const hasFilters = !!(
+      search ||
+      categoryId ||
+      accountId ||
+      debtId ||
+      type ||
+      startDate ||
+      endDate
+    );
 
     if (!hasFilters) {
       const total = await txStore.count();
@@ -283,6 +293,16 @@ export class IndexedDbRepository implements ApiRepository {
           const nameMatch = tx.name.toLowerCase().includes(search);
           const descMatch = tx.description?.toLowerCase().includes(search);
           if (!nameMatch && !descMatch) isMatch = false;
+        }
+
+        if (isMatch && startDate) {
+          if ((tx.transaction_date || "").substring(0, 10) < startDate)
+            isMatch = false;
+        }
+
+        if (isMatch && endDate) {
+          if ((tx.transaction_date || "").substring(0, 10) > endDate)
+            isMatch = false;
         }
 
         if (isMatch && type) {

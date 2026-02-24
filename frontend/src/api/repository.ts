@@ -104,7 +104,8 @@ export interface TransactionQueryParams {
   category_id?: string;
   account_id?: string;
   debt_id?: string;
-  date?: string;
+  start_date?: string;
+  end_date?: string;
   type?: string;
 }
 
