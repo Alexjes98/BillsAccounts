@@ -1,115 +1,85 @@
-from flask import Blueprint, request, jsonify, g
-from app.core.database import SessionLocal
-from app.models.models import Category, User
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+from uuid import UUID
+
+from app.core.database import get_db
+# from app.core.context import get_current_user
+from app.models.models import Category, User, Transaction
 from app.schemas.category import CategoryCreate, CategoryOut
+from pydantic import BaseModel
 
-categories_bp = Blueprint('categories', __name__)
+router = APIRouter()
 
-@categories_bp.route('/', methods=['GET'], strict_slashes=False)
-def get_categories():
-    session = SessionLocal()
-    try:
-        user = g.user
-        if not user:
-            return jsonify({"error": "No user found in context."}), 500
-        categories = session.query(Category).filter_by(user_id=user.id).all()
-        return jsonify([CategoryOut.model_validate(c).model_dump(mode='json') for c in categories])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+# Temporary mock dependency until context is refactored
+def get_current_user(db: Session = Depends(get_db)):
+    target_user_id = "5048520a-da77-4a94-b5e8-0376829ae095"
+    user = db.query(User).filter(User.id == target_user_id).first()
+    if not user:
+        raise HTTPException(status_code=500, detail="No user found in context.")
+    return user
 
-@categories_bp.route('/', methods=['POST'], strict_slashes=False)
-def create_category():
-    session = SessionLocal()
-    try:
-        data = request.json
-        try:
-            cat_data = CategoryCreate(**data)
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {e}"}), 400
 
-        user = g.user
-        if not user:
-            return jsonify({"error": "No user found in context."}), 500
+class CategoryUpdate(BaseModel):
+    name: str | None = None
+    icon: str | None = None
+    color: str | None = None
+
+@router.get("/", response_model=List[CategoryOut])
+def get_categories(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    categories = db.query(Category).filter_by(user_id=current_user.id).all()
+    return categories
+
+@router.post("/", response_model=CategoryOut, status_code=status.HTTP_201_CREATED)
+def create_category(category_in: CategoryCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    existing = db.query(Category).filter_by(
+        user_id=current_user.id, 
+        name=category_in.name, 
+        type=category_in.type
+    ).first()
+    
+    if existing:
+        raise HTTPException(status_code=409, detail="Category already exists.")
+
+    new_category = Category(
+        user_id=current_user.id,
+        name=category_in.name,
+        icon=category_in.icon,
+        color=category_in.color,
+        type=category_in.type
+    )
+    db.add(new_category)
+    db.commit()
+    db.refresh(new_category)
+    return new_category
+
+@router.put("/{category_id}", response_model=CategoryOut)
+def update_category(category_id: UUID, category_in: CategoryUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    category = db.query(Category).filter_by(id=str(category_id), user_id=current_user.id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found.")
+
+    if category_in.name is not None:
+        category.name = category_in.name
+    if category_in.icon is not None:
+        category.icon = category_in.icon
+    if category_in.color is not None:
+        category.color = category_in.color
         
-        existing = session.query(Category).filter_by(user_id=user.id, name=cat_data.name, type=cat_data.type).first()
-        if existing:
-             return jsonify({"error": "Category already exists."}), 409
+    db.commit()
+    db.refresh(category)
+    return category
 
-        new_category = Category(
-            user_id=user.id,
-            name=cat_data.name,
-            icon=cat_data.icon,
-            color=cat_data.color,
-            type=cat_data.type
-        )
-        session.add(new_category)
-        session.commit()
-        session.refresh(new_category)
-        
-        return jsonify(CategoryOut.model_validate(new_category).model_dump(mode='json')), 201
+@router.delete("/{category_id}")
+def delete_category(category_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    category = db.query(Category).filter_by(id=str(category_id), user_id=current_user.id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found.")
 
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+    tx_count = db.query(Transaction).filter_by(category_id=str(category_id)).count()
+    if tx_count > 0:
+        raise HTTPException(status_code=409, detail="Cannot delete category because it is used in transactions.")
 
-@categories_bp.route('/<uuid:category_id>', methods=['PUT'], strict_slashes=False)
-def update_category(category_id):
-    session = SessionLocal()
-    try:
-        user = g.user
-        if not user:
-            return jsonify({"error": "No user found in context."}), 500
-            
-        category = session.query(Category).filter_by(id=category_id, user_id=user.id).first()
-        if not category:
-            return jsonify({"error": "Category not found."}), 404
-
-        data = request.json
-        if 'name' in data:
-            category.name = data['name']
-        if 'icon' in data:
-            category.icon = data['icon']
-        if 'color' in data:
-            category.color = data['color']
-            
-        session.commit()
-        session.refresh(category)
-        return jsonify(CategoryOut.model_validate(category).model_dump(mode='json'))
-
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-
-@categories_bp.route('/<uuid:category_id>', methods=['DELETE'], strict_slashes=False)
-def delete_category(category_id):
-    session = SessionLocal()
-    try:
-        user = g.user
-        if not user:
-            return jsonify({"error": "No user found in context."}), 500
-
-        category = session.query(Category).filter_by(id=category_id, user_id=user.id).first()
-        if not category:
-            return jsonify({"error": "Category not found."}), 404
-
-        from app.models.models import Transaction
-        tx_count = session.query(Transaction).filter_by(category_id=category_id).count()
-        
-        if tx_count > 0:
-            return jsonify({"error": "Cannot delete category because it is used in transactions."}), 409
-
-        session.delete(category)
-        session.commit()
-        return jsonify({"message": "Category deleted successfully."})
-
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+    db.delete(category)
+    db.commit()
+    return {"message": "Category deleted successfully."}

@@ -1,136 +1,112 @@
-from flask import Blueprint, jsonify, request, g
-from app.core.database import SessionLocal
-from app.models.models import Debt
-from app.schemas.transaction import DebtOut
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 from sqlalchemy import func
+from typing import List, Dict, Any
+from uuid import UUID
+from datetime import datetime
+from pydantic import BaseModel
 
-debts_bp = Blueprint('debts', __name__)
+from app.core.database import get_db
+# from app.core.context import get_current_user
+from app.models.models import Debt, User, Person
+from app.schemas.transaction import DebtOut, DebtCreate
 
-@debts_bp.route('/', methods=['GET', 'POST'], strict_slashes=False)
-def handle_debts():
-    session = SessionLocal()
-    try:
-        if request.method == 'GET':
-            debts = session.query(Debt).filter(Debt.deleted_at.is_(None)).all()
-            return jsonify([DebtOut.model_validate(d).model_dump(mode='json') for d in debts])
+router = APIRouter()
+
+# Temporary mock dependency until context is refactored
+def get_current_user(db: Session = Depends(get_db)):
+    target_user_id = "5048520a-da77-4a94-b5e8-0376829ae095"
+    user = db.query(User).filter(User.id == target_user_id).first()
+    if not user:
+        raise HTTPException(status_code=500, detail="No user found in context.")
+    return user
+
+
+class DebtUpdate(BaseModel):
+    description: str | None = None
+    due_date: datetime | str | None = None
+    is_settled: bool | None = None
+
+
+@router.get("/", response_model=List[DebtOut])
+def get_debts(db: Session = Depends(get_db)):
+    debts = db.query(Debt).filter(Debt.deleted_at.is_(None)).all()
+    return debts
+
+@router.post("/", response_model=DebtOut, status_code=status.HTTP_201_CREATED)
+def create_debt(debt_in: DebtCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    new_debt = Debt(
+        user_id=current_user.id,
+        creditor_id=debt_in.creditor_id,
+        debtor_id=debt_in.debtor_id,
+        total_amount=debt_in.total_amount,
+        remaining_amount=debt_in.total_amount, # Initially same as total
+        description=debt_in.description,
+        due_date=debt_in.due_date
+    )
+    
+    db.add(new_debt)
+    db.commit()
+    db.refresh(new_debt)
+    return new_debt
+
+@router.get("/summary", response_model=List[Dict[str, Any]])
+def get_debts_summary(db: Session = Depends(get_db)):
+    from sqlalchemy.orm import aliased
+    
+    Creditor = aliased(Person)
+    Debtor = aliased(Person)
+    
+    results = db.query(
+        Creditor.name.label('creditor_name'),
+        Debtor.name.label('debtor_name'),
+        func.count(Debt.id).label('count'),
+        func.sum(Debt.total_amount).label('total_amount'),
+        Debt.creditor_id,
+        Debt.debtor_id
+    ).join(Creditor, Debt.creditor_id == Creditor.id)\
+     .join(Debtor, Debt.debtor_id == Debtor.id)\
+     .filter(Debt.deleted_at.is_(None))\
+     .filter(Debt.is_settled == False)\
+     .group_by(Debt.creditor_id, Debt.debtor_id, Creditor.name, Debtor.name).all()
+
+    summary_data = []
+    for row in results:
+        summary_data.append({
+            "creditor_name": row.creditor_name,
+            "debtor_name": row.debtor_name,
+            "count": row.count,
+            "total_amount": float(row.total_amount) if row.total_amount else 0
+        })
         
-        elif request.method == 'POST':
-            data = request.json
-            try:
-                from app.schemas.transaction import DebtCreate
-                debt_data = DebtCreate(**data)
-            except Exception as e:
-                return jsonify({"error": f"Validation error: {e}"}), 400
+    return summary_data
 
-            # Find default user
-            # Get user from AppContext
-            from app.models.models import User
-            user = g.user
-            if not user:
-                 return jsonify({"error": "No user found in context."}), 500
 
-            new_debt = Debt(
-                user_id=user.id,
-                creditor_id=debt_data.creditor_id,
-                debtor_id=debt_data.debtor_id,
-                total_amount=debt_data.total_amount,
-                remaining_amount=debt_data.total_amount, # Initially same as total
-                description=debt_data.description,
-                due_date=debt_data.due_date
-            )
+@router.put("/{debt_id}", response_model=DebtOut)
+def update_debt(debt_id: UUID, debt_in: DebtUpdate, db: Session = Depends(get_db)):
+    debt = db.query(Debt).filter(Debt.id == str(debt_id), Debt.deleted_at.is_(None)).first()
+    if not debt:
+        raise HTTPException(status_code=404, detail="Debt not found")
+
+    if debt_in.description is not None:
+        debt.description = debt_in.description
+    if debt_in.due_date is not None:
+        debt.due_date = debt_in.due_date
+    if debt_in.is_settled is not None:
+        debt.is_settled = debt_in.is_settled
+        if debt.is_settled:
+            debt.remaining_amount = 0
             
-            session.add(new_debt)
-            session.commit()
-            session.refresh(new_debt)
-            
-            return jsonify(DebtOut.model_validate(new_debt).model_dump(mode='json')), 201
-            
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+    db.commit()
+    db.refresh(debt)
+    return debt
 
-@debts_bp.route('/<uuid:debt_id>', methods=['PUT', 'DELETE'], strict_slashes=False)
-def handle_single_debt(debt_id):
-    session = SessionLocal()
-    try:
-        debt = session.query(Debt).filter(Debt.id == debt_id, Debt.deleted_at.is_(None)).first()
-        if not debt:
-            return jsonify({"error": "Debt not found"}), 404
+@router.delete("/{debt_id}")
+def delete_debt(debt_id: UUID, db: Session = Depends(get_db)):
+    debt = db.query(Debt).filter(Debt.id == str(debt_id), Debt.deleted_at.is_(None)).first()
+    if not debt:
+        raise HTTPException(status_code=404, detail="Debt not found")
 
-        if request.method == 'PUT':
-            data = request.json
-            
-            # Update fields if present
-            if 'description' in data:
-                debt.description = data['description']
-            if 'due_date' in data:
-                debt.due_date = data['due_date']
-            if 'is_settled' in data:
-                debt.is_settled = data['is_settled']
-                if debt.is_settled:
-                    debt.remaining_amount = 0
-                else:
-                    # If un-settling, what should be the remaining amount?
-                    # Ideally we should track payments, but for now we might reset to total or keep as is?
-                    # The requirement says "Mark debt as settled", implies one way mostly.
-                    # If un-settling, we probably shouldn't auto-reset unless we know the history.
-                    # For safety, let's only auto-zero if settling.
-                    pass
-
-            session.commit()
-            session.refresh(debt)
-            return jsonify(DebtOut.model_validate(debt).model_dump(mode='json'))
-
-        elif request.method == 'DELETE':
-            from datetime import datetime
-            debt.deleted_at = datetime.utcnow()
-            session.commit()
-            return jsonify({"message": "Debt deleted successfully"}), 200
-
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-
-@debts_bp.route('/summary', methods=['GET'])
-def get_debts_summary():
-    session = SessionLocal()
-    try:
-        from app.models.models import Person
-        from sqlalchemy.orm import aliased
-        
-        Creditor = aliased(Person)
-        Debtor = aliased(Person)
-        
-        results = session.query(
-            Creditor.name.label('creditor_name'),
-            Debtor.name.label('debtor_name'),
-            func.count(Debt.id).label('count'),
-            func.sum(Debt.total_amount).label('total_amount'),
-            # Include IDs in select or at least group by them to avoid ambiguity and GroupingError if strict
-            Debt.creditor_id,
-            Debt.debtor_id
-        ).join(Creditor, Debt.creditor_id == Creditor.id)\
-         .join(Debtor, Debt.debtor_id == Debtor.id)\
-         .filter(Debt.deleted_at.is_(None))\
-         .filter(Debt.is_settled == False)\
-         .group_by(Debt.creditor_id, Debt.debtor_id, Creditor.name, Debtor.name).all()
-
-        summary_data = []
-        for row in results:
-            summary_data.append({
-                "creditor_name": row.creditor_name,
-                "debtor_name": row.debtor_name,
-                "count": row.count,
-                "total_amount": float(row.total_amount) if row.total_amount else 0
-            })
-            
-        return jsonify(summary_data)
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+    debt.deleted_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Debt deleted successfully"}

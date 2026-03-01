@@ -1,3 +1,4 @@
-source backend/venv/bin/activate
-cd backend
-flask run --port 5001 --debug
+#!/bin/bash
+cd "$(dirname "$0")" || exit
+# source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 5001 --reload

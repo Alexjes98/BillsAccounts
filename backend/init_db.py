@@ -1,18 +1,20 @@
 from app.core.database import engine, Base
 from app.models.models import *
 from sqlalchemy import text
+from sqlalchemy.orm import sessionmaker
 
 def init_db():
     print("Initializing database...")
     
-    # Enable uuid-ossp extension
+    # Create all tables (drop first to ensure schema changes apply in dev)
+    print("Dropping existing tables to apply schema changes...")
     with engine.connect() as connection:
+        connection.execute(text('DROP SCHEMA public CASCADE; CREATE SCHEMA public;'))
+        
+        # Must recreate the extension after dropping the schema
         connection.execute(text('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'))
         connection.commit()
-        print("Enabled uuid-ossp extension.")
-
     
-    # Create all tables
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully.")
     
@@ -47,7 +49,7 @@ def init_db():
             session.flush()
 
             # Create Account
-            account = Account(user_id=user.id, name="Main Checking", type="CHECKING", current_balance=5000, currency="USD")
+            account = Account(user_id=user.id, name="Main Checking", classification="asset", type="CHECKING", current_balance=5000, currency="USD")
             session.add(account)
             session.flush()
 

@@ -3,31 +3,41 @@ from unittest.mock import MagicMock, patch
 from decimal import Decimal
 import sys
 import os
-from flask import Flask
+from fastapi.testclient import TestClient
 from uuid import UUID
 
 # Add backend to sys.path to allow imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from app.api.transactions import transactions
-from app.models.models import Debt, Category, User
-
-@pytest.fixture
-def mock_app():
-    return Flask(__name__)
+from app.main import app
+from app.core.database import get_db
+from app.models.models import Debt, Category, User, Account
 
 @pytest.fixture
 def mock_db_session():
-    session = MagicMock()
-    return session
+    return MagicMock()
 
 @pytest.fixture
-def mock_session_local(mock_db_session):
-    with patch('app.api.transactions.SessionLocal') as mock:
-        mock.return_value = mock_db_session
-        yield mock
+def test_client(mock_db_session):
+    def override_get_db():
+        yield mock_db_session
+        
+    app.dependency_overrides[get_db] = override_get_db
+    
+    mock_user = User(id=UUID("12345678-1234-5678-1234-567812345600"))
+    
+    from app.api.transactions import get_current_user
+    def override_current_user():
+        return mock_user
+        
+    app.dependency_overrides[get_current_user] = override_current_user
+    
+    client = TestClient(app)
+    yield client
+    
+    app.dependency_overrides.clear()
 
-def test_expense_reduces_debt(mock_app, mock_session_local, mock_db_session):
+def test_expense_reduces_debt(test_client, mock_db_session):
     # Setup Data
     creditor_id_str = "12345678-1234-5678-1234-567812345601"
     debtor_id_str = "12345678-1234-5678-1234-567812345602"
@@ -37,13 +47,11 @@ def test_expense_reduces_debt(mock_app, mock_session_local, mock_db_session):
     json_data = {
         "name": "Payment",
         "amount": 50.0,
+        "transaction_date": "2023-10-10",
         "category_id": cat_id_str,
         "debt_id": debt_id_str,
         "person_id": creditor_id_str
     }
-    
-    # Mock Default User
-    mock_user = User(id=UUID("12345678-1234-5678-1234-567812345600"))
     
     # Mock Category (Expense)
     mock_category = Category(id=UUID(cat_id_str), type="EXPENSE")
@@ -59,9 +67,7 @@ def test_expense_reduces_debt(mock_app, mock_session_local, mock_db_session):
     
     def query_side_effect(model):
         query_mock = MagicMock()
-        if model == User:
-            query_mock.first.return_value = mock_user
-        elif model == Category:
+        if model == Category:
             query_mock.filter_by.return_value.first.return_value = mock_category
         elif model == Debt:
             query_mock.filter_by.return_value.first.return_value = mock_debt
@@ -69,15 +75,24 @@ def test_expense_reduces_debt(mock_app, mock_session_local, mock_db_session):
         
     mock_db_session.query.side_effect = query_side_effect
     
+    # Simulate DB adding the ID
+    def add_side_effect(obj):
+        if hasattr(obj, 'id') and obj.id is None:
+             obj.id = UUID("12345678-1234-5678-1234-567812349999")
+            
+    mock_db_session.add.side_effect = add_side_effect
+    mock_db_session.refresh = MagicMock() # Just mock it to prevent errors
+
     # Execute within context
-    with mock_app.test_request_context(json=json_data, method='POST'):
-        transactions()
+    response = test_client.post("/api/transactions/", json=json_data)
+    
+    assert response.status_code == 201
     
     # Assert
     assert mock_debt.remaining_amount == Decimal('50.00')
     assert mock_debt.is_settled is False
 
-def test_income_creditor_reduces_debt(mock_app, mock_session_local, mock_db_session):
+def test_income_creditor_reduces_debt(test_client, mock_db_session):
     creditor_id_str = "12345678-1234-5678-1234-567812345601"
     debt_id_str = "12345678-1234-5678-1234-567812345603"
     cat_id_str = "12345678-1234-5678-1234-567812345604"
@@ -85,12 +100,12 @@ def test_income_creditor_reduces_debt(mock_app, mock_session_local, mock_db_sess
     json_data = {
         "name": "Repayment",
         "amount": 100.0, # Income positive
+        "transaction_date": "2023-10-10",
         "category_id": cat_id_str,
         "debt_id": debt_id_str,
         "person_id": creditor_id_str
     }
     
-    mock_user = User(id=UUID("12345678-1234-5678-1234-567812345600"))
     mock_category = Category(id=UUID(cat_id_str), type="INCOME")
     
     mock_debt = Debt(
@@ -103,23 +118,30 @@ def test_income_creditor_reduces_debt(mock_app, mock_session_local, mock_db_sess
     
     def query_side_effect(model):
         query_mock = MagicMock()
-        if model == User:
-            query_mock.first.return_value = mock_user
-        elif model == Category:
+        if model == Category:
             query_mock.filter_by.return_value.first.return_value = mock_category
         elif model == Debt:
             query_mock.filter_by.return_value.first.return_value = mock_debt
         return query_mock
     mock_db_session.query.side_effect = query_side_effect
     
-    with mock_app.test_request_context(json=json_data, method='POST'):
-        transactions()
+    # Simulate DB adding the ID
+    def add_side_effect(obj):
+        if hasattr(obj, 'id') and obj.id is None:
+             obj.id = UUID("12345678-1234-5678-1234-567812349999")
+            
+    mock_db_session.add.side_effect = add_side_effect
+    mock_db_session.refresh = MagicMock() 
+
+    response = test_client.post("/api/transactions/", json=json_data)
+    
+    assert response.status_code == 201
     
     # Income of 100 should reduce remaining from 100 to 0 and settle
     assert mock_debt.remaining_amount == Decimal('0.00')
     assert mock_debt.is_settled is True
 
-def test_income_debtor_no_change(mock_app, mock_session_local, mock_db_session):
+def test_income_debtor_no_change(test_client, mock_db_session):
     creditor_id_str = "12345678-1234-5678-1234-567812345601"
     debtor_id_str = "12345678-1234-5678-1234-567812345602"
     debt_id_str = "12345678-1234-5678-1234-567812345603"
@@ -128,12 +150,12 @@ def test_income_debtor_no_change(mock_app, mock_session_local, mock_db_session):
     json_data = {
         "name": "Loan Received",
         "amount": 50.0,
+        "transaction_date": "2023-10-10",
         "category_id": cat_id_str,
         "debt_id": debt_id_str,
         "person_id": debtor_id_str
     }
     
-    mock_user = User(id=UUID("12345678-1234-5678-1234-567812345600"))
     mock_category = Category(id=UUID(cat_id_str), type="INCOME")
     
     mock_debt = Debt(
@@ -146,17 +168,24 @@ def test_income_debtor_no_change(mock_app, mock_session_local, mock_db_session):
     
     def query_side_effect(model):
         query_mock = MagicMock()
-        if model == User:
-            query_mock.first.return_value = mock_user
-        elif model == Category:
+        if model == Category:
             query_mock.filter_by.return_value.first.return_value = mock_category
         elif model == Debt:
             query_mock.filter_by.return_value.first.return_value = mock_debt
         return query_mock
     mock_db_session.query.side_effect = query_side_effect
     
-    with mock_app.test_request_context(json=json_data, method='POST'):
-        transactions()
+    # Simulate DB adding the ID
+    def add_side_effect(obj):
+        if hasattr(obj, 'id') and obj.id is None:
+             obj.id = UUID("12345678-1234-5678-1234-567812349999")
+            
+    mock_db_session.add.side_effect = add_side_effect
+    mock_db_session.refresh = MagicMock() 
+
+    response = test_client.post("/api/transactions/", json=json_data)
+    
+    assert response.status_code == 201
     
     # Should NOT reduce
     assert mock_debt.remaining_amount == Decimal('100.00')

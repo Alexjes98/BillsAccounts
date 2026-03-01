@@ -1,91 +1,80 @@
-from flask import Blueprint, jsonify, request, g
-from app.core.database import SessionLocal
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+from uuid import UUID
+
+from app.core.database import get_db
+# TODO: implement get_current_user dependency 
+# from app.core.context import get_current_user
 from app.models.models import Account, Transaction, User
 from app.schemas.account import AccountOut
+from pydantic import BaseModel
 
-accounts_bp = Blueprint('accounts', __name__)
+router = APIRouter()
 
-@accounts_bp.route('/', methods=['GET'], strict_slashes=False)
-def get_accounts():
-    session = SessionLocal()
-    try:
-        user = g.user
-        if not user:
-            return jsonify({"error": "No user found in context."}), 500
-        accounts = session.query(Account).filter_by(user_id=user.id).all()
-        return jsonify([AccountOut.model_validate(a).model_dump(mode='json') for a in accounts])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+# Temporary mock dependency until context is refactored
+def get_current_user(db: Session = Depends(get_db)):
+    # Match the Flask logic: Hardcoded user
+    target_user_id = "5048520a-da77-4a94-b5e8-0376829ae095"
+    user = db.query(User).filter(User.id == target_user_id).first()
+    if not user:
+        raise HTTPException(status_code=500, detail="No user found in context.")
+    return user
 
-@accounts_bp.route('/', methods=['POST'], strict_slashes=False)
-def create_account():
-    session = SessionLocal()
-    try:
-        data = request.json
-        if not data.get('name') or not data.get('type'):
-            return jsonify({"error": "Name and type are required"}), 400
-            
-        user = g.user
-        if not user:
-             return jsonify({"error": "No user found in context"}), 500
 
-        new_account = Account(
-            user_id=user.id,
-            name=data['name'],
-            type=data['type'],
-            current_balance=data.get('current_balance', 0),
-            currency=data.get('currency', 'USD')
-        )
-        session.add(new_account)
-        session.commit()
-        session.refresh(new_account)
-        return jsonify(AccountOut.model_validate(new_account).model_dump(mode='json')), 201
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+class AccountCreate(BaseModel):
+    name: str
+    type: str
+    current_balance: float = 0
+    currency: str = 'USD'
 
-@accounts_bp.route('/<uuid:account_id>', methods=['PUT'], strict_slashes=False)
-def update_account(account_id):
-    session = SessionLocal()
-    try:
-        account = session.query(Account).filter(Account.id == account_id).first()
-        if not account:
-            return jsonify({"error": "Account not found"}), 404
-            
-        data = request.json
-        if 'name' in data:
-            account.name = data['name']
-        if 'type' in data:
-            account.type = data['type']
-            
-        session.commit()
-        session.refresh(account)
-        return jsonify(AccountOut.model_validate(account).model_dump(mode='json'))
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+class AccountUpdate(BaseModel):
+    name: str | None = None
+    type: str | None = None
 
-@accounts_bp.route('/<uuid:account_id>', methods=['DELETE'], strict_slashes=False)
-def delete_account(account_id):
-    session = SessionLocal()
-    try:
-        account = session.query(Account).filter(Account.id == account_id).first()
-        if not account:
-            return jsonify({"error": "Account not found"}), 404
-            
-        session.query(Transaction).filter(Transaction.account_id == account_id).delete()
-        session.delete(account)
+
+@router.get("/", response_model=List[AccountOut])
+def get_accounts(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    accounts = db.query(Account).filter_by(user_id=current_user.id).all()
+    return accounts
+
+@router.post("/", response_model=AccountOut, status_code=status.HTTP_201_CREATED)
+def create_account(account_in: AccountCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    new_account = Account(
+        user_id=current_user.id,
+        name=account_in.name,
+        type=account_in.type,
+        current_balance=account_in.current_balance,
+        currency=account_in.currency
+    )
+    db.add(new_account)
+    db.commit()
+    db.refresh(new_account)
+    return new_account
+
+@router.put("/{account_id}", response_model=AccountOut)
+def update_account(account_id: UUID, account_in: AccountUpdate, db: Session = Depends(get_db)):
+    account = db.query(Account).filter(Account.id == str(account_id)).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
         
-        session.commit()
-        return jsonify({"message": "Account and associated transactions deleted successfully"})
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+    if account_in.name is not None:
+        account.name = account_in.name
+    if account_in.type is not None:
+        account.type = account_in.type
+        
+    db.commit()
+    db.refresh(account)
+    return account
+
+@router.delete("/{account_id}")
+def delete_account(account_id: UUID, db: Session = Depends(get_db)):
+    account = db.query(Account).filter(Account.id == str(account_id)).first()
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+        
+    db.query(Transaction).filter(Transaction.account_id == str(account_id)).delete()
+    db.delete(account)
+    
+    db.commit()
+    return {"message": "Account and associated transactions deleted successfully"}

@@ -1,28 +1,39 @@
-from flask import Blueprint, request, jsonify, g
-from app.core.database import get_db
-from app.models.models import MonthlySummary, Transaction, Category
-from sqlalchemy import func, extract, and_
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func, extract
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 import calendar
 
-monthly_summaries_bp = Blueprint("monthly_summaries", __name__)
+from app.core.database import get_db
+# from app.core.context import get_current_user
+from app.models.models import MonthlySummary, Transaction, Category, User
 
-@monthly_summaries_bp.route("/", methods=["GET"])
-def get_monthly_summaries():
-    year = request.args.get("year", type=int)
+router = APIRouter()
+
+# Temporary mock dependency until context is refactored
+def get_current_user(db: Session = Depends(get_db)):
+    target_user_id = "5048520a-da77-4a94-b5e8-0376829ae095"
+    user = db.query(User).filter(User.id == target_user_id).first()
+    if not user:
+        raise HTTPException(status_code=500, detail="No user found in context.")
+    return user
+
+
+@router.get("/", response_model=List[Dict[str, Any]])
+def get_monthly_summaries(
+    year: Optional[int] = Query(None, description="Year to get summaries for"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     if not year:
         year = datetime.now().year
-    db: Session = next(get_db())
-    
-    user_id = g.user.id if g.user else None
-    if not user_id:
-        return jsonify({"error": "No user in context"}), 500
 
     summaries = db.query(MonthlySummary).filter(
-        MonthlySummary.user_id == user_id,
+        MonthlySummary.user_id == current_user.id,
         MonthlySummary.year == year
     ).order_by(MonthlySummary.month).all()
+    
     result = []
     for summary in summaries:
         result.append({
@@ -34,66 +45,11 @@ def get_monthly_summaries():
             "total_expense": float(summary.total_expense or 0),
             "closing_balance": float(summary.closing_balance or 0)
         })
-    return jsonify(result)
+    return result
 
-@monthly_summaries_bp.route("/recalculate", methods=["POST"])
-def recalculate_summaries():
-    db: Session = next(get_db())
-    user_id = g.user.id if g.user else None
-    if not user_id:
-        return jsonify({"error": "No user in context"}), 500
-    
-    # Group transactions by user, year, month - Restricted to Current User
-    
-    # Group transactions by user, year, month
-    
-    # Step 1: Query aggregated data
-    # We need: Year, Month, Sum(Income), Sum(Expense)
-    
-    aggregated_data = db.query(
-        extract('year', Transaction.transaction_date).label('year'),
-        extract('month', Transaction.transaction_date).label('month'),
-        Category.type,
-        func.sum(Transaction.amount).label('total')
-    ).join(Category, Transaction.category_id == Category.id)\
-     .filter(Transaction.deleted_at.is_(None))\
-     .group_by(
-         extract('year', Transaction.transaction_date),
-         extract('month', Transaction.transaction_date),
-         Category.type
-     ).all()
-    # Process data into a dictionary structure
-    # { (year, month): { 'income': 0, 'expense': 0 } }
-    summary_map = {}
-    
-    for year, month, cat_type, total in aggregated_data:
-        key = (int(year), int(month))
-        if key not in summary_map:
-            summary_map[key] = {'income': 0, 'expense': 0}
-        
-        if cat_type == 'INCOME':
-            summary_map[key]['income'] += float(total)
-        elif cat_type == 'EXPENSE':
-            summary_map[key]['expense'] += float(total)
-    # Now we need to calculate closing balances. 
-    # This requires ordering by time.
-    
-    sorted_keys = sorted(summary_map.keys())
-    
-    # We need to handle the running balance.
-    # Running balance = previous_balance + income - expense
-    # Note: This recalculation assumes we are rebuilding the history.
-    # Does the current balance start from 0? Or do we need an initial balance?
-    # Accounts have `current_balance`.
-    # `closing_balance` in `MonthlySummary` usually tracks the flow over time.
-    # I will assume it starts from 0 for the very first month found.
-    
-    running_balance = 0.0
-    
-    # We should delete existing summaries to avoid duplicates/stale data
-    # Or strict upsert. Deleting all for the user is cleaner for "recalculate"
-    # But wait, I need the user_id for the summaries.
-    # The aggregation didn't group by user_id. I should add user_id to aggregation.
+@router.post("/recalculate")
+def recalculate_summaries(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user_id = current_user.id
     
     # Refined Aggregation with User ID
     aggregated_data_users = db.query(
@@ -112,9 +68,7 @@ def recalculate_summaries():
      ).all()
      
     user_summary_map = {}
-    # { user_id: { (year, month): {'income': ..., 'expense': ... } } }
     for uid, year, month, cat_type, total in aggregated_data_users:
-        # uid should match user_id
         if uid not in user_summary_map:
             user_summary_map[uid] = {}
         
@@ -126,6 +80,7 @@ def recalculate_summaries():
             user_summary_map[uid][key]['income'] += float(total)
         elif cat_type == 'EXPENSE':
             user_summary_map[uid][key]['expense'] += float(total)
+            
     # Now update database
     try:
         # Clear summaries for this user
@@ -133,7 +88,7 @@ def recalculate_summaries():
         
         new_records = []
         
-        for user_id, data in user_summary_map.items():
+        for u_id, data in user_summary_map.items():
             running_balance = 0.0
             sorted_months = sorted(data.keys()) # sort by (year, month)
             
@@ -146,7 +101,7 @@ def recalculate_summaries():
                 running_balance += net
                 
                 summary = MonthlySummary(
-                    user_id=user_id,
+                    user_id=u_id,
                     year=year,
                     month=month,
                     total_income=income,
@@ -157,18 +112,15 @@ def recalculate_summaries():
         
         db.add_all(new_records)
         db.commit()
-        return jsonify({"message": "Recalculation complete", "count": len(new_records)})
+        return {"message": "Recalculation complete", "count": len(new_records)}
         
     except Exception as e:
         db.rollback()
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))
 
-@monthly_summaries_bp.route("/recalculate/<int:year>/<int:month>", methods=["POST"])
-def recalculate_single_month(year, month):
-    db: Session = next(get_db())
-    user_id = g.user.id if g.user else None
-    if not user_id:
-        return jsonify({"error": "No user in context"}), 500
+@router.post("/recalculate/{year}/{month}")
+def recalculate_single_month(year: int, month: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user_id = current_user.id
 
     try:
         # 1. Aggregate transactions for this specific month
@@ -183,8 +135,6 @@ def recalculate_single_month(year, month):
              extract('month', Transaction.transaction_date) == month
          ).group_by(Category.type).all()
          
-        print("aggregated", aggregated)
-
         income = 0.0
         expense = 0.0
         for cat_type, total in aggregated:
@@ -233,7 +183,7 @@ def recalculate_single_month(year, month):
             db.add(summary)
             
         db.commit()
-        return jsonify({
+        return {
             "message": f"Summary for {year}-{month} updated",
             "data": {
                 "year": year,
@@ -242,8 +192,8 @@ def recalculate_single_month(year, month):
                 "expense": expense,
                 "closing_balance": current_balance
             }
-        })
+        }
 
     except Exception as e:
         db.rollback()
-        return jsonify({"error": str(e)}), 500
+        raise HTTPException(status_code=500, detail=str(e))

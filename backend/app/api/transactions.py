@@ -1,414 +1,328 @@
-from flask import Blueprint, request, jsonify, g
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.orm import Session
 from decimal import Decimal
-from app.core.database import SessionLocal
+from typing import List, Optional
+from uuid import UUID
+from pydantic import BaseModel
+
+from app.core.database import get_db
+# from app.core.context import get_current_user
 from app.models.models import Transaction, Category, User, Account, Debt, SavingsGoal
 from app.schemas.transaction import TransactionOut, PaginationOut, TransactionCreate, CategoryOut, AccountOut, DebtOut, SavingsGoalOut
 from app.schemas.transfer import TransferCreate
 
-transactions_bp = Blueprint('transactions', __name__)
+router = APIRouter()
 
-@transactions_bp.route('/categories', methods=['GET'])
-def get_categories():
-    session = SessionLocal()
-    try:
-        categories = session.query(Category).all()
-        return jsonify([CategoryOut.model_validate(c).model_dump(mode='json') for c in categories])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+# Temporary mock dependency until context is refactored
+def get_current_user(db: Session = Depends(get_db)):
+    target_user_id = "5048520a-da77-4a94-b5e8-0376829ae095"
+    user = db.query(User).filter(User.id == target_user_id).first()
+    if not user:
+        raise HTTPException(status_code=500, detail="No user found in context.")
+    return user
 
-@transactions_bp.route('/accounts', methods=['GET'])
-def get_accounts():
-    session = SessionLocal()
-    try:
-        accounts = session.query(Account).all()
-        return jsonify([AccountOut.model_validate(a).model_dump(mode='json') for a in accounts])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+
+class TransactionUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    transaction_date: str | None = None
+    category_id: UUID | None = None
+    amount: float | None = None
+    account_id: UUID | None = None
+    debt_id: UUID | None = None
+    savings_goal_id: UUID | None = None
+
+
+@router.get("/categories", response_model=List[CategoryOut])
+def get_categories(db: Session = Depends(get_db)):
+    categories = db.query(Category).all()
+    return categories
+
+@router.get("/accounts", response_model=List[AccountOut])
+def get_accounts(db: Session = Depends(get_db)):
+    accounts = db.query(Account).all()
+    return accounts
         
-@transactions_bp.route('/savings-goals', methods=['GET'])
-def get_savings_goals():
-    session = SessionLocal()
-    try:
-        savings_goals = session.query(SavingsGoal).all()
-        return jsonify([SavingsGoalOut.model_validate(g).model_dump(mode='json') for g in savings_goals])
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+@router.get("/savings-goals", response_model=List[SavingsGoalOut])
+def get_savings_goals(db: Session = Depends(get_db)):
+    savings_goals = db.query(SavingsGoal).all()
+    return savings_goals
 
-@transactions_bp.route('/transfer', methods=['POST'])
-def transfer():
-    session = SessionLocal()
-    try:
-        data = request.json
-        try:
-             transfer_data = TransferCreate(**data)
-        except Exception as e:
-             return jsonify({"error": f"Validation error: {e}"}), 400
+@router.post("/transfer", status_code=status.HTTP_201_CREATED)
+def transfer(transfer_in: TransferCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user_id = current_user.id
 
-        user = g.user
-        if not user:
-             return jsonify({"error": "No user found."}), 500
+    # Validate accounts belong to user
+    from_account = db.query(Account).filter_by(id=str(transfer_in.from_account_id), user_id=user_id).first()
+    to_account = db.query(Account).filter_by(id=str(transfer_in.to_account_id), user_id=user_id).first()
 
-        # Validate accounts belong to user
-        from_account = session.query(Account).filter_by(id=transfer_data.from_account_id, user_id=user.id).first()
-        to_account = session.query(Account).filter_by(id=transfer_data.to_account_id, user_id=user.id).first()
+    if not from_account or not to_account:
+        raise HTTPException(status_code=404, detail="One or both accounts not found.")
+    
+    if from_account.id == to_account.id:
+        raise HTTPException(status_code=400, detail="Cannot transfer to the same account.")
 
-        if not from_account or not to_account:
-            return jsonify({"error": "One or both accounts not found."}), 404
+    if from_account.current_balance < Decimal(str(transfer_in.amount)):
+         raise HTTPException(status_code=400, detail="Insufficient funds in source account.")
+
+    # Validate Category
+    category = db.query(Category).filter_by(id=str(transfer_in.category_id)).first()
+    if not category:
+         raise HTTPException(status_code=400, detail="Category not found.")
+    
+    if category.type != "TRANSFER":
+         raise HTTPException(status_code=400, detail="Category must be of type TRANSFER.")
+
+    # Create Transactions
+    # 1. Outgoing from Source
+    tx_out = Transaction(
+        user_id=user_id,
+        name=f"Transfer to {to_account.name}",
+        description=transfer_in.description,
+        amount=-abs(Decimal(str(transfer_in.amount))),
+        transaction_date=transfer_in.transaction_date,
+        category_id=category.id,
+        account_id=from_account.id
+    )
+    
+    # 2. Incoming to Destination
+    tx_in = Transaction(
+        user_id=user_id,
+        name=f"Transfer from {from_account.name}",
+        description=transfer_in.description,
+        amount=abs(Decimal(str(transfer_in.amount))),
+        transaction_date=transfer_in.transaction_date,
+        category_id=category.id,
+        account_id=to_account.id
+    )
+
+    db.add(tx_out)
+    db.add(tx_in)
+    
+    # Update Balances
+    from_account.current_balance += tx_out.amount
+    to_account.current_balance += tx_in.amount
+
+    db.commit()
+    
+    return {"message": "Transfer successful"}
+
+
+@router.get("/", response_model=PaginationOut)
+def get_transactions(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(12, ge=1, le=100),
+    search: str = Query("", description="Search term for name or description"),
+    category_id: Optional[UUID] = None,
+    account_id: Optional[UUID] = None,
+    debt_id: Optional[UUID] = None,
+    date: Optional[str] = Query(None, description="Date filter YYYY-MM-DD"),
+    type: Optional[str] = Query(None, description="EXPENSE or INCOME"),
+    db: Session = Depends(get_db)
+):
+    query = db.query(Transaction)
+
+    # Join for Category Type filtering if needed
+    if type:
+         query = query.join(Category).filter(Category.type == type)
+
+    # Apply Filters
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter((Transaction.name.ilike(search_term)) | (Transaction.description.ilike(search_term)))
+    
+    if category_id:
+        query = query.filter(Transaction.category_id == str(category_id))
+    
+    if account_id:
+        query = query.filter(Transaction.account_id == str(account_id))
+
+    if debt_id:
+        query = query.filter(Transaction.debt_id == str(debt_id))
+
+    if date:
+        from sqlalchemy import cast, Date
+        query = query.filter(cast(Transaction.transaction_date, Date) == date)
+
+    # Sorting
+    query = query.order_by(Transaction.transaction_date.desc())
+
+    # Pagination
+    total_items = query.count()
+    total_pages = (total_items + per_page - 1) // per_page
+    
+    transactions_db = query.offset((page - 1) * per_page).limit(per_page).all()
+    
+    return {
+        "items": transactions_db,
+        "total": total_items,
+        "page": page,
+        "per_page": per_page,
+        "pages": total_pages
+    }
+
+
+@router.post("/", response_model=TransactionOut, status_code=status.HTTP_201_CREATED)
+def create_transaction(txn_in: TransactionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    user_id = current_user.id
+         
+    category = db.query(Category).filter_by(id=str(txn_in.category_id)).first()
+    if not category:
+        raise HTTPException(status_code=400, detail="Invalid category type.")
+    
+    if category.type == "EXPENSE":
+        is_expense = True
+        txn_in.amount = -abs(txn_in.amount)
+    else:
+        is_expense = False
+
+    # Handle Debt Update
+    if txn_in.debt_id:
+        if not txn_in.person_id:
+             raise HTTPException(status_code=400, detail="Person ID is required when linking a debt.")
+
+        debt = db.query(Debt).filter_by(id=str(txn_in.debt_id)).first()
+        if not debt:
+            raise HTTPException(status_code=400, detail="Invalid debt ID.")
         
-        if from_account.id == to_account.id:
-            return jsonify({"error": "Cannot transfer to the same account."}), 400
+        # Check if person is part of the debt
+        if str(txn_in.person_id) != str(debt.creditor_id) and str(txn_in.person_id) != str(debt.debtor_id):
+             raise HTTPException(status_code=400, detail="The person provided is not part of this debt.")
 
-        if from_account.current_balance < Decimal(str(transfer_data.amount)):
-             return jsonify({"error": "Insufficient funds in source account."}), 400
-
-        # Validate Category
-        category = session.query(Category).filter_by(id=transfer_data.category_id).first()
-        if not category:
-             return jsonify({"error": "Category not found."}), 400
+        # Logic to reduce debt
+        should_permit_reduction = False
         
-        if category.type != "TRANSFER":
-             return jsonify({"error": "Category must be of type TRANSFER."}), 400
-
-        # Create Transactions
-        # 1. Outgoing from Source
-        tx_out = Transaction(
-            user_id=user.id,
-            name=f"Transfer to {to_account.name}",
-            description=transfer_data.description,
-            amount=-abs(Decimal(str(transfer_data.amount))),
-            transaction_date=transfer_data.transaction_date,
-            category_id=category.id,
-            account_id=from_account.id
-        )
-        
-        # 2. Incoming to Destination
-        tx_in = Transaction(
-            user_id=user.id,
-            name=f"Transfer from {from_account.name}",
-            description=transfer_data.description,
-            amount=abs(Decimal(str(transfer_data.amount))),
-            transaction_date=transfer_data.transaction_date,
-            category_id=category.id,
-            account_id=to_account.id
-        )
-
-        session.add(tx_out)
-        session.add(tx_in)
-        
-        # Update Balances
-        from_account.current_balance += tx_out.amount
-        to_account.current_balance += tx_in.amount
-
-        session.commit()
-        
-        return jsonify({"message": "Transfer successful"}), 201
-
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-
-@transactions_bp.route('/', methods=['GET', 'POST'], strict_slashes=False)
-def transactions():
-    session = SessionLocal()
-    try:
-        if request.method == 'GET':
-            # Parameters
-            page = request.args.get('page', 1, type=int)
-            per_page = request.args.get('per_page', 12, type=int)
-            search = request.args.get('search', '', type=str)
-            category_id = request.args.get('category_id', type=str)
-            account_id = request.args.get('account_id', type=str)
-            date_filter = request.args.get('date', type=str)
-            txn_type = request.args.get('type', type=str) # EXPENSE / INCOME
-
-            # Base Query
-            query = session.query(Transaction)
-
-            # Join for Category Type filtering if needed
-            if txn_type:
-                 query = query.join(Category).filter(Category.type == txn_type)
-
-            # Apply Filters
-            if search:
-                search_term = f"%{search}%"
-                query = query.filter((Transaction.name.ilike(search_term)) | (Transaction.description.ilike(search_term)))
-            
-            if category_id:
-                query = query.filter(Transaction.category_id == category_id)
-            
-            if account_id:
-                query = query.filter(Transaction.account_id == account_id)
-
-            if request.args.get('debt_id'):
-                query = query.filter(Transaction.debt_id == request.args.get('debt_id'))
-
-                
-            if date_filter:
-                # Assuming date format YYYY-MM-DD
-                from sqlalchemy import cast, Date
-                query = query.filter(cast(Transaction.transaction_date, Date) == date_filter)
-
-            # Sorting
-            query = query.order_by(Transaction.transaction_date.desc())
-
-            # Pagination
-            total_items = query.count()
-            total_pages = (total_items + per_page - 1) // per_page
-            
-            transactions_db = query.offset((page - 1) * per_page).limit(per_page).all()
-            
-            results = [TransactionOut.model_validate(t).model_dump(mode='json') for t in transactions_db]
-            
-            return PaginationOut(
-                items=results,
-                total=total_items,
-                page=page,
-                per_page=per_page,
-                pages=total_pages
-            ).model_dump(mode='json')
-        
-        elif request.method == 'POST':
-            data = request.json
-            # Validate input using Pydantic
-            try:
-                txn_data = TransactionCreate(**data)
-            except Exception as e:
-                return jsonify({"error": f"Validation error: {e}"}), 400
-
-            # Get user from AppContext
-            if not g.user:
-                 return jsonify({"error": "No user found in context."}), 500
-            user = g.user
-             
-            category = session.query(Category).filter_by(id=txn_data.category_id).first()
-            if not category:
-                return jsonify({"error": "Invalid category type."}), 400
-            
-            #TODO: MODIFY THIS TO SUPPORT ALL POSIBLE COMBINATIONS
-            
-            if category.type == "EXPENSE":
-                is_expense = True
-                txn_data.amount = -abs(txn_data.amount)
-            else:
-                is_expense = False
-
-            # Handle Debt Update
-            if txn_data.debt_id:
-                if not txn_data.person_id:
-                     return jsonify({"error": "Person ID is required when linking a debt."}), 400
-
-                debt = session.query(Debt).filter_by(id=txn_data.debt_id).first()
-                if not debt:
-                    return jsonify({"error": "Invalid debt ID."}), 400
-                
-                # Check if person is part of the debt
-                if txn_data.person_id != debt.creditor_id and txn_data.person_id != debt.debtor_id:
-                     return jsonify({"error": "The person provided is not part of this debt."}), 400
-
-                # Logic to reduce debt
-                should_permit_reduction = False
-                
-                # Case 1: Expense (User paying)
-                if is_expense:
-                    # If we are the creditor or debtor making an expense for this debt, we assume it's a payment TOWARDS the debt.
-                    # Original logic from prompt: "If the transactions is an expense and the user is the creditor the user is paying the debt"
-                    should_permit_reduction = True
-                
-                # Case 2: Income (User receiving)
-                else:
-                    # "if the user is the creditor and the transaction is an income it means someone is paying the debt to the user"
-                    if txn_data.person_id == debt.creditor_id:
-                        should_permit_reduction = True
-                    # If debtor receives income, it doesn't necessarily mean the debt is being paid off (could be a loan received), 
-                    # so we do nothing unless specified otherwise.
-                
-                if should_permit_reduction:
-                    # Amount is just the magnitude here
-                    payment_amount = abs(txn_data.amount)
-                    debt.remaining_amount -= Decimal(str(payment_amount))
-                    
-                    if debt.remaining_amount <= 0:
-                        debt.remaining_amount = 0
-                        debt.is_settled = True
-                    else:
-                        debt.is_settled = False
-            
-            # Create transaction
-            new_txn = Transaction(
-                user_id=user.id,
-                name=txn_data.name,
-                description=txn_data.description,
-                amount=txn_data.amount,
-                transaction_date=txn_data.transaction_date,
-                category_id=txn_data.category_id,
-                account_id=txn_data.account_id,
-                debt_id=txn_data.debt_id,
-                savings_goal_id=txn_data.savings_goal_id
-            )
-            session.add(new_txn)
-            
-            if new_txn.account_id:
-                account = session.query(Account).filter_by(id=new_txn.account_id).first()
-                if account:
-                    account.current_balance += Decimal(str(new_txn.amount))
-            
-            session.commit()
-            session.refresh(new_txn)
-            
-            return jsonify(TransactionOut.model_validate(new_txn).model_dump(mode='json')), 201
-
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-
-@transactions_bp.route('/<uuid:transaction_id>', methods=['GET'])
-def get_transaction(transaction_id):
-    session = SessionLocal()
-    try:
-        transaction = session.query(Transaction).filter_by(id=transaction_id).first()
-        if not transaction:
-             return jsonify({"error": "Transaction not found"}), 404
-        
-        return jsonify(TransactionOut.model_validate(transaction).model_dump(mode='json'))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
-
-@transactions_bp.route('/<uuid:transaction_id>', methods=['PUT', 'PATCH'])
-def update_transaction(transaction_id):
-    session = SessionLocal()
-    try:
-        transaction = session.query(Transaction).filter_by(id=transaction_id).first()
-        if not transaction:
-             return jsonify({"error": "Transaction not found"}), 404
-             
-        data = request.json
-        # We use TransactionCreate for validation, but we handle the update manually
-        # to ensure we don't accidentally break relationships or complex logic unless intended.
-        # For now, we support updating basic fields.
-        
-        # If the user sends a full payload, we can use it.
-        # Using a partial approach is safer for now if we don't want to re-run complex debt logic
-        # strictly unless we are sure. But for "Edit", usually we want to update what's sent.
-        
-        # --- UPDATE ACCOUNT BALANCE (PART 1: Revert old) ---
-        old_account_id = transaction.account_id
-        old_amount = transaction.amount
-        
-        if old_account_id:
-             old_account = session.query(Account).filter_by(id=old_account_id).first()
-             if old_account:
-                 # Subtract the old amount to revert its effect
-                 old_account.current_balance -= old_amount
-
-        # --- APPLY UPDATES ---
-        if 'name' in data:
-            transaction.name = data['name']
-        if 'description' in data:
-            transaction.description = data['description']
-        if 'transaction_date' in data:
-            transaction.transaction_date = data['transaction_date']
-        
-        # Determine Category to check type
-        if 'category_id' in data:
-            transaction.category_id = data['category_id']
-            # Fetch new category to check type
-            category = session.query(Category).filter_by(id=transaction.category_id).first()
+        # Case 1: Expense (User paying)
+        if is_expense:
+            should_permit_reduction = True
+        # Case 2: Income (User receiving)
         else:
-            # Use existing category
-            category = transaction.category
+            if str(txn_in.person_id) == str(debt.creditor_id):
+                should_permit_reduction = True
+        
+        if should_permit_reduction:
+            payment_amount = abs(txn_in.amount)
+            debt.remaining_amount -= Decimal(str(payment_amount))
             
-        if not category:
-             return jsonify({"error": "Invalid category associated with transaction."}), 400
-
-        # Update Amount with correct sign based on Category Type
-        if 'amount' in data:
-            raw_amount = Decimal(str(data['amount']))
-            if category.type == "EXPENSE":
-                transaction.amount = -abs(raw_amount)
+            if debt.remaining_amount <= 0:
+                debt.remaining_amount = 0
+                debt.is_settled = True
             else:
-                transaction.amount = abs(raw_amount)
-        elif 'category_id' in data:
-            # If only category changed, we must re-evaluate sign of existing amount
-             if category.type == "EXPENSE":
-                transaction.amount = -abs(transaction.amount)
-             else:
-                transaction.amount = abs(transaction.amount)
+                debt.is_settled = False
+    
+    # Create transaction
+    new_txn = Transaction(
+        user_id=user_id,
+        name=txn_in.name,
+        description=txn_in.description,
+        amount=txn_in.amount,
+        transaction_date=txn_in.transaction_date,
+        category_id=str(txn_in.category_id) if txn_in.category_id else None,
+        account_id=str(txn_in.account_id) if txn_in.account_id else None,
+        debt_id=str(txn_in.debt_id) if txn_in.debt_id else None,
+        savings_goal_id=str(txn_in.savings_goal_id) if txn_in.savings_goal_id else None
+    )
+    db.add(new_txn)
+    
+    if new_txn.account_id:
+        account = db.query(Account).filter_by(id=new_txn.account_id).first()
+        if account:
+            account.current_balance += Decimal(str(new_txn.amount))
+    
+    db.commit()
+    db.refresh(new_txn)
+    
+    return new_txn
 
-        if 'account_id' in data:
-            transaction.account_id = data['account_id']
-        if 'debt_id' in data:
-            transaction.debt_id = data['debt_id']
-        if 'savings_goal_id' in data:
-            transaction.savings_goal_id = data['savings_goal_id']
 
-        # --- UPDATE ACCOUNT BALANCE (PART 2: Apply new) ---
-        if transaction.account_id:
-             new_account = session.query(Account).filter_by(id=transaction.account_id).first()
-             if new_account:
-                 new_account.current_balance += transaction.amount
-            
-        session.commit()
-        session.refresh(transaction)
-        
-        return jsonify(TransactionOut.model_validate(transaction).model_dump(mode='json'))
+@router.get("/{transaction_id}", response_model=TransactionOut)
+def get_transaction(transaction_id: UUID, db: Session = Depends(get_db)):
+    transaction = db.query(Transaction).filter_by(id=str(transaction_id)).first()
+    if not transaction:
+         raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    return transaction
 
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+@router.put("/{transaction_id}", response_model=TransactionOut)
+def update_transaction(transaction_id: UUID, txn_in: TransactionUpdate, db: Session = Depends(get_db)):
+    transaction = db.query(Transaction).filter_by(id=str(transaction_id)).first()
+    if not transaction:
+         raise HTTPException(status_code=404, detail="Transaction not found")
+         
+    # --- UPDATE ACCOUNT BALANCE (PART 1: Revert old) ---
+    old_account_id = transaction.account_id
+    old_amount = transaction.amount
+    
+    if old_account_id:
+         old_account = db.query(Account).filter_by(id=old_account_id).first()
+         if old_account:
+             old_account.current_balance -= old_amount
 
-@transactions_bp.route('/<uuid:transaction_id>', methods=['DELETE'])
-def delete_transaction(transaction_id):
-    session = SessionLocal()
-    try:
-        transaction = session.query(Transaction).filter_by(id=transaction_id).first()
-        if not transaction:
-             return jsonify({"error": "Transaction not found"}), 404
+    # --- APPLY UPDATES ---
+    if txn_in.name is not None:
+        transaction.name = txn_in.name
+    if txn_in.description is not None:
+        transaction.description = txn_in.description
+    if txn_in.transaction_date is not None:
+        transaction.transaction_date = txn_in.transaction_date
+    
+    # Determine Category to check type
+    if txn_in.category_id is not None:
+        transaction.category_id = str(txn_in.category_id)
+        category = db.query(Category).filter_by(id=transaction.category_id).first()
+    else:
+        category = transaction.category
+        
+    if not category:
+         raise HTTPException(status_code=400, detail="Invalid category associated with transaction.")
 
-        # Requirement: "If a transaction is removed and that transaction affected a debt the debt should be left as it was."
-        # We do NOT update the linked debt's remaining_amount.
-        
-        # We use strict delete (row removal) or soft delete?
-        # The model has deleted_at column. Let's use soft delete if possible, or just hard delete if that's the convention.
-        # Looking at other code, it seems we might just want to set deleted_at.
-        # However, line 166 says `deleted_at = Column(...)`.
-        
-        from datetime import datetime
-        transaction.deleted_at = datetime.now()
-        
-        # Alternatively, strict delete:
-        # session.delete(transaction)
-        
-        # I will stick to soft delete since the column exists.
-        
-        # --- UPDATE ACCOUNT BALANCE (Revert effect) ---
-        # If it wasn't already deleted, revert the balance change
-        if not transaction.deleted_at: 
-             if transaction.account_id:
-                 account = session.query(Account).filter_by(id=transaction.account_id).first()
-                 if account:
-                     # Subtract the amount to reverse the transaction effect
-                     account.current_balance -= Decimal(str(transaction.amount))
+    # Update Amount with correct sign based on Category Type
+    if txn_in.amount is not None:
+        raw_amount = Decimal(str(txn_in.amount))
+        if category.type == "EXPENSE":
+            transaction.amount = -abs(raw_amount)
+        else:
+            transaction.amount = abs(raw_amount)
+    elif txn_in.category_id is not None:
+         if category.type == "EXPENSE":
+            transaction.amount = -abs(transaction.amount)
+         else:
+            transaction.amount = abs(transaction.amount)
 
-        session.commit()
-        
-        return jsonify({"message": "Transaction deleted successfully"}), 200
+    if txn_in.account_id is not None:
+        transaction.account_id = str(txn_in.account_id)
+    if txn_in.debt_id is not None:
+        transaction.debt_id = str(txn_in.debt_id)
+    if txn_in.savings_goal_id is not None:
+        transaction.savings_goal_id = str(txn_in.savings_goal_id)
 
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+    # --- UPDATE ACCOUNT BALANCE (PART 2: Apply new) ---
+    if transaction.account_id:
+         new_account = db.query(Account).filter_by(id=transaction.account_id).first()
+         if new_account:
+             new_account.current_balance += transaction.amount
+        
+    db.commit()
+    db.refresh(transaction)
+    
+    return transaction
+
+@router.delete("/{transaction_id}")
+def delete_transaction(transaction_id: UUID, db: Session = Depends(get_db)):
+    transaction = db.query(Transaction).filter_by(id=str(transaction_id)).first()
+    if not transaction:
+         raise HTTPException(status_code=404, detail="Transaction not found")
+
+    from datetime import datetime
+    transaction.deleted_at = datetime.now()
+    
+    # --- UPDATE ACCOUNT BALANCE (Revert effect) ---
+    if not transaction.deleted_at: 
+         if transaction.account_id:
+             account = db.query(Account).filter_by(id=transaction.account_id).first()
+             if account:
+                 account.current_balance -= Decimal(str(transaction.amount))
+
+    db.commit()
+    
+    return {"message": "Transaction deleted successfully"}

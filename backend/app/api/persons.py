@@ -1,124 +1,83 @@
-from flask import Blueprint, request, jsonify, g
-from app.core.database import SessionLocal
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+from uuid import UUID
+
+from app.core.database import get_db
+# from app.core.context import get_current_user
 from app.models.models import Person, User
 from app.schemas.person import PersonOut, PersonCreate
 
-persons_bp = Blueprint('persons', __name__)
+router = APIRouter()
 
-@persons_bp.route('/', methods=['GET', 'POST'], strict_slashes=False)
-def handle_persons():
-    session = SessionLocal()
-    try:
-        if request.method == 'GET':
-            if not g.user:
-                 return jsonify({"error": "No user found in context."}), 500
-            user = g.user
-            
-            query = session.query(Person)
-            if user.person_id:
-                query = query.filter(Person.id != user.person_id)
-            
-            persons = query.all()
-            return jsonify([PersonOut.model_validate(p).model_dump(mode='json') for p in persons])
+# Temporary mock dependency until context is refactored
+def get_current_user(db: Session = Depends(get_db)):
+    target_user_id = "5048520a-da77-4a94-b5e8-0376829ae095"
+    user = db.query(User).filter(User.id == target_user_id).first()
+    if not user:
+        raise HTTPException(status_code=500, detail="No user found in context.")
+    return user
+
+
+@router.get("/", response_model=List[PersonOut])
+def get_persons(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    query = db.query(Person)
+    if current_user.person_id:
+        query = query.filter(Person.id != current_user.person_id)
         
-        elif request.method == 'POST':
-            data = request.json
-            try:
-                person_data = PersonCreate(**data)
-            except Exception as e:
-                return jsonify({"error": f"Validation error: {e}"}), 400
-            
-            # Find default user (Hardcoded context)
-            # Get user from AppContext
-            if not g.user:
-                 return jsonify({"error": "No user found in context."}), 500
-            user = g.user
-            
-            # Check for duplicates if needed (UniqueConstraint('user_id', 'name'))
-            existing = session.query(Person).filter_by(user_id=user.id, name=person_data.name).first()
-            if existing:
-                return jsonify({"error": "Person with this name already exists."}), 400
+    persons = query.all()
+    return persons
 
-            new_person = Person(
-                user_id=user.id,
-                name=person_data.name,
-                contact_info=person_data.contact_info
-            )
-            session.add(new_person)
-            session.commit()
-            session.refresh(new_person)
-            
-            return jsonify(PersonOut.model_validate(new_person).model_dump(mode='json')), 201
+@router.post("/", response_model=PersonOut, status_code=status.HTTP_201_CREATED)
+def create_person(person_in: PersonCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    # Check for duplicates if needed (UniqueConstraint('user_id', 'name'))
+    existing = db.query(Person).filter_by(user_id=current_user.id, name=person_in.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Person with this name already exists.")
 
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+    new_person = Person(
+        user_id=current_user.id,
+        name=person_in.name,
+        contact_info=person_in.contact_info
+    )
+    db.add(new_person)
+    db.commit()
+    db.refresh(new_person)
+    return new_person
 
-@persons_bp.route('/<uuid:person_id>', methods=['PUT'], strict_slashes=False)
-def update_person(person_id):
-    session = SessionLocal()
-    try:
-        data = request.json
-        try:
-            person_data = PersonCreate(**data)
-        except Exception as e:
-            return jsonify({"error": f"Validation error: {e}"}), 400
+@router.put("/{person_id}", response_model=PersonOut)
+def update_person(person_id: UUID, person_in: PersonCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    person = db.query(Person).filter_by(id=str(person_id), user_id=current_user.id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
 
-        if not g.user:
-            return jsonify({"error": "No user found in context."}), 500
-        user = g.user
+    # Check for name uniqueness if name is changed
+    if person.name != person_in.name:
+        existing = db.query(Person).filter_by(user_id=current_user.id, name=person_in.name).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Person with this name already exists.")
 
-        person = session.query(Person).filter_by(id=person_id, user_id=user.id).first()
-        if not person:
-            return jsonify({"error": "Person not found"}), 404
+    person.name = person_in.name
+    person.contact_info = person_in.contact_info
+    
+    db.commit()
+    db.refresh(person)
+    return person
 
-        # Check for name uniqueness if name is changed
-        if person.name != person_data.name:
-            existing = session.query(Person).filter_by(user_id=user.id, name=person_data.name).first()
-            if existing:
-                return jsonify({"error": "Person with this name already exists."}), 400
-
-        person.name = person_data.name
-        person.contact_info = person_data.contact_info
+@router.delete("/{person_id}")
+def delete_person(person_id: UUID, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    person = db.query(Person).filter_by(id=str(person_id), user_id=current_user.id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
         
-        session.commit()
-        session.refresh(person)
-        return jsonify(PersonOut.model_validate(person).model_dump(mode='json')), 200
+    # Check if trying to delete self
+    if current_user.person_id and str(person.id) == str(current_user.person_id):
+        raise HTTPException(status_code=400, detail="Cannot delete your own person entity.")
 
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+    # Check for existing debts
+    if person.debts_as_creditor or person.debts_as_debtor:
+         raise HTTPException(status_code=400, detail="Cannot delete person associated with existing debts.")
 
-@persons_bp.route('/<uuid:person_id>', methods=['DELETE'], strict_slashes=False)
-def delete_person(person_id):
-    session = SessionLocal()
-    try:
-        if not g.user:
-            return jsonify({"error": "No user found in context."}), 500
-        user = g.user
-
-        person = session.query(Person).filter_by(id=person_id, user_id=user.id).first()
-        if not person:
-            return jsonify({"error": "Person not found"}), 404
-        
-        # Check if trying to delete self
-        if user.person_id and str(person.id) == str(user.person_id):
-            return jsonify({"error": "Cannot delete your own person entity."}), 400
-
-        # Check for existing debts
-        if person.debts_as_creditor or person.debts_as_debtor:
-             return jsonify({"error": "Cannot delete person associated with existing debts."}), 400
-
-        session.delete(person)
-        session.commit()
-        return jsonify({"message": "Person deleted successfully"}), 200
-
-    except Exception as e:
-        session.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        session.close()
+    db.delete(person)
+    db.commit()
+    return {"message": "Person deleted successfully"}
