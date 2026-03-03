@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useApi } from "@/contexts/ApiContext";
 import { useUser } from "@/context/UserContext";
 import { Button } from "@/components/ui/button";
@@ -11,9 +11,10 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Check, Wallet, CreditCard, Building, Plus, X } from "lucide-react";
+import { Wallet, CreditCard, Building, Plus, X, Loader2 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { createPortal } from "react-dom";
+import { useMascot } from "@/context/MascotContext";
 
 interface Category {
   name: string;
@@ -37,6 +38,7 @@ export function OnboardingPage() {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>(["Cash"]);
   const [persons, setPersons] = useState<string[]>([]);
   const [newPerson, setNewPerson] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   const defaultCategories: Category[] = [
     { name: "Salary", type: "INCOME", icon: "💰", color: "#10B981" },
@@ -70,65 +72,33 @@ export function OnboardingPage() {
   const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
   const emojiButtonRef = useRef<HTMLButtonElement>(null);
 
-  const [loading, setLoading] = useState(false);
+  // Note: We use local state for "loading" the final submission because
+  // 'step' state transition serves as the immediate UI feedback.
+  const [submitting, setSubmitting] = useState(false);
 
-  // Initial User Creation (Step 0)
-  const handleCreateUser = async () => {
-    if (!userData.currency || !userData.name || !userData.email) return;
-    setLoading(true);
-    try {
-      await api.createUser({
-        name: userData.name,
-        email: userData.email || undefined,
-        base_currency: userData.currency,
-      });
-      await refreshUser();
-      setStep(1);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
+  // Initial User Creation (Step 0) - Just advance step
+  const handleStep0Next = () => {
+    if (!userData.currency || !userData.name) return;
+
+    if (userData.email) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(userData.email)) {
+        setEmailError("Please enter a valid email address.");
+        return;
+      }
     }
+
+    setStep(1);
   };
 
-  // Accounts Creation (Step 1)
-  const handleCreateAccounts = async () => {
-    setLoading(true);
-    try {
-      for (const accType of selectedAccounts) {
-        let type = "CASH";
-        if (accType === "Bank") type = "BANK";
-        if (accType === "Paypal" || accType === "Zelle") type = "Wallet";
-
-        await api.createAccount({
-          name: accType,
-          type: type,
-          classification: "EQUITY",
-          current_balance: 0,
-          currency: userData.currency,
-        });
-      }
-      setStep(2);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+  // Accounts Creation (Step 1) - Just advance step
+  const handleStep1Next = () => {
+    setStep(2);
   };
 
-  // Persons Creation (Step 2)
-  const handleCreatePersons = async () => {
-    setLoading(true);
-    try {
-      for (const name of persons) {
-        await api.createPerson({ name });
-      }
-      setStep(3);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+  // Persons Creation (Step 2) - Just advance step
+  const handleStep2Next = () => {
+    setStep(3);
   };
 
   const handleAddCustomCategory = () => {
@@ -159,38 +129,100 @@ export function OnboardingPage() {
     setCustomColor("#808080");
   };
 
-  // Categories Creation (Step 3)
-  const handleCreateCategories = async () => {
-    setLoading(true);
-    try {
-      const allCats = [...selectedCategories];
+  // Categories Creation (Step 3) - Trigger Final Submission
+  const handleFinishOnboarding = async () => {
+    setStep(4); // Move to loading screen immediately
+    setSubmitting(true);
 
-      for (const cat of allCats) {
-        await api.createCategory({
-          name: cat.name,
-          type: cat.type,
-          icon: cat.icon,
-          color: cat.color,
+    // Use deferred execution to allow UI to update to Step 4 first
+    setTimeout(async () => {
+      try {
+        // 1. Create User
+        await api.createUser({
+          name: userData.name,
+          email: userData.email || undefined,
+          base_currency: userData.currency,
         });
+
+        // 2. Create Accounts
+        for (const accType of selectedAccounts) {
+          let type = "CASH";
+          if (accType === "Bank") type = "BANK";
+          if (accType === "Paypal" || accType === "Zelle") type = "Wallet";
+
+          await api.createAccount({
+            name: accType,
+            classification: "EQUITY",
+            type: type,
+            current_balance: 0,
+            currency: userData.currency,
+          });
+        }
+
+        // 3. Create Persons
+        for (const name of persons) {
+          await api.createPerson({ name });
+        }
+
+        // 4. Create Categories
+        for (const cat of selectedCategories) {
+          await api.createCategory({
+            name: cat.name,
+            type: cat.type,
+            icon: cat.icon,
+            color: cat.color,
+          });
+        }
+
+        // 4.1 Create internal categories
+        await api.createCategory({
+          name: "Transfer",
+          type: "TRANSFER",
+          icon: "🔄",
+          color: "#808080",
+        });
+
+        // 5. Finalize
+        await refreshUser();
+        navigate("/");
+      } catch (e) {
+        console.error("Onboarding failed", e);
+        alert(
+          "Something went wrong setting up your account. Please try again.",
+        );
+        setStep(3); // Go back to previous step on error
+        setSubmitting(false);
       }
-      setStep(4);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    }, 1000); // Small artificial delay to show the nice loading animation if wanted, or just 0
   };
 
-  const handleAllSet = () => {
-    navigate("/");
-    window.location.reload();
-  };
+  const { loadMessageById } = useMascot();
+
+  useEffect(() => {
+    switch (step) {
+      case 0:
+        loadMessageById("onboarding-0");
+        break;
+      case 1:
+        loadMessageById("onboarding-1");
+        break;
+      case 2:
+        loadMessageById("onboarding-2");
+        break;
+      case 3:
+        loadMessageById("onboarding-3");
+        break;
+      case 4:
+        loadMessageById("onboarding-4");
+        break;
+    }
+  }, [step, loadMessageById]);
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         {step === 0 && (
-          <Card className="border-none shadow-xl bg-card/50 backdrop-blur">
+          <Card className="border-none shadow-xl bg-card/50 backdrop-blur animate-in fade-in slide-in-from-bottom-4 duration-500">
             <CardHeader>
               <CardTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
                 Welcome!
@@ -211,14 +243,26 @@ export function OnboardingPage() {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Email</label>
+                <label className="text-sm font-medium">Email (Optional)</label>
                 <Input
                   placeholder="you@example.com"
                   value={userData.email}
-                  onChange={(e) =>
-                    setUserData({ ...userData, email: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setUserData({ ...userData, email: e.target.value });
+                    if (emailError) setEmailError("");
+                  }}
+                  onBlur={() => {
+                    if (userData.email) {
+                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                      if (!emailRegex.test(userData.email)) {
+                        setEmailError("Please enter a valid email address.");
+                      }
+                    }
+                  }}
                 />
+                {emailError && (
+                  <p className="text-xs text-destructive">{emailError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Currency</label>
@@ -236,19 +280,15 @@ export function OnboardingPage() {
                   <option value="JPY">JPY (¥)</option>
                 </select>
               </div>
-              <Button
-                className="w-full mt-4"
-                onClick={handleCreateUser}
-                disabled={loading}
-              >
-                {loading ? "Creating..." : "Start Setup"}
+              <Button className="w-full mt-4" onClick={handleStep0Next}>
+                Start Setup
               </Button>
             </CardContent>
           </Card>
         )}
 
         {step === 1 && (
-          <Card className="border-none shadow-xl">
+          <Card className="border-none shadow-xl animate-in fade-in slide-in-from-right-8 duration-500">
             <CardHeader>
               <CardTitle>Create Accounts</CardTitle>
               <CardDescription>
@@ -289,8 +329,8 @@ export function OnboardingPage() {
                   Only Cash
                 </Button>
                 <Button
-                  onClick={handleCreateAccounts}
-                  disabled={loading || selectedAccounts.length === 0}
+                  onClick={handleStep1Next}
+                  disabled={selectedAccounts.length === 0}
                 >
                   Next
                 </Button>
@@ -300,7 +340,7 @@ export function OnboardingPage() {
         )}
 
         {step === 2 && (
-          <Card className="border-none shadow-xl">
+          <Card className="border-none shadow-xl animate-in fade-in slide-in-from-right-8 duration-500">
             <CardHeader>
               <CardTitle>Add Persons</CardTitle>
               <CardDescription>
@@ -354,16 +394,14 @@ export function OnboardingPage() {
                 )}
               </div>
               <div className="flex justify-end pt-4">
-                <Button onClick={handleCreatePersons} disabled={loading}>
-                  Next
-                </Button>
+                <Button onClick={handleStep2Next}>Next</Button>
               </div>
             </CardContent>
           </Card>
         )}
 
         {step === 3 && (
-          <Card className="border-none shadow-xl">
+          <Card className="border-none shadow-xl animate-in fade-in slide-in-from-right-8 duration-500">
             <CardHeader>
               <CardTitle>Select Categories</CardTitle>
               <CardDescription>
@@ -490,8 +528,8 @@ export function OnboardingPage() {
 
               <div className="flex justify-end pt-4">
                 <Button
-                  onClick={handleCreateCategories}
-                  disabled={loading || selectedCategories.length === 0}
+                  onClick={handleFinishOnboarding}
+                  disabled={submitting || selectedCategories.length === 0}
                 >
                   Create & Finish
                 </Button>
@@ -502,16 +540,17 @@ export function OnboardingPage() {
 
         {step === 4 && (
           <div className="text-center space-y-6 animate-in fade-in zoom-in duration-500">
-            <div className="bg-primary/20 p-6 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-primary">
-              <Check className="h-12 w-12" />
+            <div className="relative">
+              <div className="bg-primary/20 p-6 rounded-full w-24 h-24 mx-auto flex items-center justify-center text-primary relative z-10">
+                <Loader2 className="h-12 w-12 animate-spin" />
+              </div>
             </div>
-            <h1 className="text-4xl font-bold">All Set!</h1>
+
+            <h1 className="text-4xl font-bold">Setting up your space...</h1>
             <p className="text-xl text-muted-foreground">
-              Your finance journey begins now.
+              Creating your accounts, categories, and personalizing your
+              experience.
             </p>
-            <Button size="lg" className="mt-8 px-8" onClick={handleAllSet}>
-              Go to Dashboard
-            </Button>
           </div>
         )}
       </div>

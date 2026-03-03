@@ -125,6 +125,10 @@ export function TransactionsPage() {
   };
 
   const handleDelete = async (t: Transaction) => {
+    if (t.is_system_generated) {
+      alert("Cannot delete system-generated transaction.");
+      return;
+    }
     //TODO: Show a confirmation modal instead of using window.confirm
     if (
       window.confirm(

@@ -155,7 +155,10 @@ export function YearResume() {
             variant="outline"
             size="icon"
             onClick={handleRecalculate}
-            disabled={recalculating}
+            disabled={recalculating || year < currentYear}
+            className={
+              year < currentYear ? "opacity-50 cursor-not-allowed hidden" : ""
+            }
           >
             {recalculating ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -164,47 +167,6 @@ export function YearResume() {
             )}
           </Button>
         </div>
-      </div>
-
-      {/* Month Status Indicators */}
-      <div className="flex flex-wrap gap-2 pb-2">
-        {allMonths.map((m) => {
-          let badgeClass =
-            "bg-secondary text-secondary-foreground hover:bg-secondary/80";
-          let cursorClass = "cursor-default";
-          let onClick = undefined;
-
-          if (m.status === "present") {
-            badgeClass =
-              "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800";
-          } else if (m.status === "missing-past") {
-            badgeClass =
-              "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 cursor-pointer hover:bg-red-200 dark:hover:bg-red-900/50";
-            cursorClass = "cursor-pointer";
-            onClick = () => handleRecalculateMonth(m.monthNum);
-          } else if (m.status === "missing-current") {
-            badgeClass =
-              "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900/50";
-            cursorClass = "cursor-pointer";
-            onClick = () => handleRecalculateMonth(m.monthNum);
-          } else if (m.status === "missing-future") {
-            badgeClass =
-              "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700";
-          }
-
-          const isLoading = recalculatingMonth === m.monthNum;
-
-          return (
-            <div
-              key={m.monthNum}
-              className={`px-3 py-1 rounded-full border text-xs font-medium flex items-center gap-1 transition-colors ${badgeClass} ${cursorClass}`}
-              onClick={!isLoading && onClick ? onClick : undefined}
-            >
-              {m.monthName}
-              {isLoading && <Loader2 className="h-3 w-3 animate-spin ml-1" />}
-            </div>
-          );
-        })}
       </div>
 
       {/* Yearly Summary Cards */}
@@ -300,6 +262,56 @@ export function YearResume() {
           </CardContent>
         </Card>
       </div>
+      {/* Month Status Indicators */}
+      <div className="flex flex-wrap gap-2 pb-2">
+        {allMonths.map((m) => {
+          let badgeClass =
+            "bg-secondary text-secondary-foreground hover:bg-secondary/80";
+          let cursorClass = "cursor-default";
+          let onClick = undefined;
+
+          // Disable interaction for past years
+          const isPastYear = year < currentYear;
+
+          if (m.status === "present") {
+            badgeClass =
+              "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800";
+          } else if (m.status === "missing-past") {
+            badgeClass =
+              "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 cursor-pointer hover:bg-red-200 dark:hover:bg-red-900/50";
+            if (!isPastYear) {
+              cursorClass = "cursor-pointer";
+              onClick = () => handleRecalculateMonth(m.monthNum);
+            } else {
+              badgeClass =
+                "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 opacity-70";
+            }
+          } else if (m.status === "missing-current") {
+            badgeClass =
+              "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800 cursor-pointer hover:bg-blue-200 dark:hover:bg-blue-900/50";
+            if (!isPastYear) {
+              cursorClass = "cursor-pointer";
+              onClick = () => handleRecalculateMonth(m.monthNum);
+            }
+          } else if (m.status === "missing-future") {
+            badgeClass =
+              "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700";
+          }
+
+          const isLoading = recalculatingMonth === m.monthNum;
+
+          return (
+            <div
+              key={m.monthNum}
+              className={`px-3 py-1 rounded-full border text-xs font-medium flex items-center gap-1 transition-colors ${badgeClass} ${cursorClass}`}
+              onClick={!isLoading && onClick ? onClick : undefined}
+            >
+              {m.monthName}
+              {isLoading && <Loader2 className="h-3 w-3 animate-spin ml-1" />}
+            </div>
+          );
+        })}
+      </div>
       {/* Monthly Detail Cards */}
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Monthly Breakdown</h2>
@@ -313,20 +325,23 @@ export function YearResume() {
                   <CardTitle className="text-base font-semibold">
                     {summary.month_name}
                   </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => handleRecalculateMonth(summary.month)}
-                    disabled={recalculatingMonth === summary.month}
-                  >
-                    {recalculatingMonth === summary.month ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-3 w-3" />
-                    )}
-                  </Button>
+                  {year >= currentYear && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleRecalculateMonth(summary.month)}
+                      disabled={recalculatingMonth === summary.month}
+                    >
+                      {recalculatingMonth === summary.month ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3" />
+                      )}
+                    </Button>
+                  )}
                 </CardHeader>
+
                 <CardContent className="space-y-2 text-sm pt-4">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Income:</span>
