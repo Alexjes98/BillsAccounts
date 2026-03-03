@@ -38,7 +38,37 @@ export function OnboardingPage() {
   const [selectedAccounts, setSelectedAccounts] = useState<string[]>(["Cash"]);
   const [persons, setPersons] = useState<string[]>([]);
   const [newPerson, setNewPerson] = useState("");
-  const [emailError, setEmailError] = useState("");
+
+  const [isOnlineUser, setIsOnlineUser] = useState(false);
+
+  useEffect(() => {
+    import("aws-amplify/auth").then(({ fetchUserAttributes }) => {
+      fetchUserAttributes()
+        .then((attributes) => {
+          if (attributes.email) {
+            setIsOnlineUser(true);
+            setUserData((prev) => ({
+              ...prev,
+              email: attributes.email as string,
+            }));
+
+            // Create user initially in backend locally
+            api
+              .createUser({
+                name: "", // Will be updated later
+                email: attributes.email,
+                base_currency: "USD",
+              })
+              .catch((err) => {
+                console.error("Failed to create initial online user", err);
+              });
+          }
+        })
+        .catch(() => {
+          // Not logged in via Amplify
+        });
+    });
+  }, [api]);
 
   const defaultCategories: Category[] = [
     { name: "Salary", type: "INCOME", icon: "💰", color: "#10B981" },
@@ -83,7 +113,7 @@ export function OnboardingPage() {
     if (userData.email) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(userData.email)) {
-        setEmailError("Please enter a valid email address.");
+        alert("Please enter a valid email address.");
         return;
       }
     }
@@ -137,12 +167,19 @@ export function OnboardingPage() {
     // Use deferred execution to allow UI to update to Step 4 first
     setTimeout(async () => {
       try {
-        // 1. Create User
-        await api.createUser({
-          name: userData.name,
-          email: userData.email || undefined,
-          base_currency: userData.currency,
-        });
+        // 1. Create or Update User
+        if (isOnlineUser && api.updateUser) {
+          await api.updateUser("me", {
+            name: userData.name,
+            base_currency: userData.currency,
+          });
+        } else {
+          await api.createUser({
+            name: userData.name,
+            email: userData.email || undefined,
+            base_currency: userData.currency,
+          });
+        }
 
         // 2. Create Accounts
         for (const accType of selectedAccounts) {
@@ -241,28 +278,6 @@ export function OnboardingPage() {
                     setUserData({ ...userData, name: e.target.value })
                   }
                 />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Email (Optional)</label>
-                <Input
-                  placeholder="you@example.com"
-                  value={userData.email}
-                  onChange={(e) => {
-                    setUserData({ ...userData, email: e.target.value });
-                    if (emailError) setEmailError("");
-                  }}
-                  onBlur={() => {
-                    if (userData.email) {
-                      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                      if (!emailRegex.test(userData.email)) {
-                        setEmailError("Please enter a valid email address.");
-                      }
-                    }
-                  }}
-                />
-                {emailError && (
-                  <p className="text-xs text-destructive">{emailError}</p>
-                )}
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Currency</label>

@@ -257,6 +257,7 @@ export interface ApiRepository {
 
   getUser(): Promise<User | null>;
   createUser(data: CreateUserPayload): Promise<User>;
+  updateUser?(id: string, data: Partial<CreateUserPayload>): Promise<User>;
   getAllData?(): Promise<any>;
   loadData?(data: any): Promise<void>;
   getMascotMessage?(context: string): Promise<MascotMessage | null>;

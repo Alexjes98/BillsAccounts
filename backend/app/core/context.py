@@ -1,46 +1,39 @@
-from flask import g, request, current_app, jsonify
-from app.core.database import SessionLocal
-from app.models.models import User
 import logging
+from fastapi import Depends, HTTPException, Request
+from sqlalchemy.orm import Session
+from jose import jwt
+from app.core.database import get_db
+from app.models.models import User
 
-def get_current_user():
-    """Type-safe retrieval of current user"""
-    return g.get("user")
+logger = logging.getLogger("auth_context")
+logger.setLevel(logging.DEBUG)
 
-def get_current_user_id():
-    """Type-safe retrieval of current user id"""
-    user = get_current_user()
-    if user:
-        return user.id
-    return None
 
-def setup_app_context(app):
-    @app.before_request
-    def load_user():
-        # Hardcoded ID as requested by the user
-        target_user_id = "5048520a-da77-4a94-b5e8-0376829ae095"
-        
-        # Create a session for this request context
-        session = SessionLocal()
-        g._context_session = session
-        
-        try:
-            user = session.query(User).filter(User.id == target_user_id).first()
-            if user:
-                g.user = user
-                # We also store the ID directly for convenience
-                g.user_id = user.id
-            else:
-                logging.warning(f"Hardcoded user {target_user_id} not found in database.")
-                g.user = None
-                g.user_id = None
-        except Exception as e:
-            logging.error(f"Error loading user in app context: {e}")
-            g.user = None
-            g.user_id = None
+def get_current_user(request: Request, db: Session = Depends(get_db)):
+    auth_header = request.headers.get("Authorization")
 
-    @app.teardown_request
-    def cleanup_context(exception=None):
-        session = g.pop('_context_session', None)
-        if session:
-            session.close()
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401, detail="Missing or invalid Authorization header."
+        )
+
+    token = auth_header.split(" ")[1]
+
+    try:
+        claims = jwt.get_unverified_claims(token)
+        email = claims.get("email")
+        if not email:
+            logger.error("No email found in token claims.")
+            raise HTTPException(
+                status_code=400, detail="Token must include email claim (use idToken)."
+            )
+
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            logger.error(f"User with email {email} not found in DB.")
+            raise HTTPException(status_code=404, detail="User not found in database.")
+
+        return user
+    except Exception as e:
+        logger.error(f"Error parsing token: {e}")
+        raise HTTPException(status_code=401, detail=f"Invalid token: {e}")

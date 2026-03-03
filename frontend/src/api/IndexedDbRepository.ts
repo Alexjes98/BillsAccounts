@@ -1508,8 +1508,8 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getUser(): Promise<User | null> {
     const db = await this.dbPromise;
-    const user = await db.get("user", "local-user");
-    return user || null;
+    const users = await db.getAll("user");
+    return users.length > 0 ? users[0] : null;
   }
 
   async createUser(data: CreateUserPayload): Promise<User> {
@@ -1518,14 +1518,11 @@ export class IndexedDbRepository implements ApiRepository {
     // Automatically create the user person
     const personName = data.name;
     const userPerson: Person = {
-      id: "local-user-person",
+      id: crypto.randomUUID(),
       name: personName,
       contact_info: data.email || "",
       created_at: new Date().toISOString(),
     };
-
-    userPerson.id = crypto.randomUUID();
-
     await db.put("persons", userPerson);
 
     const newUser: User = {
@@ -1539,6 +1536,32 @@ export class IndexedDbRepository implements ApiRepository {
     await db.put("user", newUser);
 
     return newUser;
+  }
+
+  async updateUser(
+    id: string,
+    data: Partial<CreateUserPayload>,
+  ): Promise<User> {
+    const db = await this.dbPromise;
+    const user = await db.get("user", id);
+    if (!user) throw new Error("User not found");
+
+    if (data.name !== undefined) user.name = data.name;
+    if (data.base_currency !== undefined)
+      user.base_currency = data.base_currency;
+
+    await db.put("user", user);
+
+    // Update userPerson as well if name changes
+    if (data.name !== undefined && user.person_id) {
+      const person = await db.get("persons", user.person_id);
+      if (person) {
+        person.name = data.name;
+        await db.put("persons", person);
+      }
+    }
+
+    return user;
   }
 
   async getAllData(): Promise<any> {

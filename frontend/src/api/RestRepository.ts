@@ -19,6 +19,7 @@ import {
   TransactionQueryParams,
   TransferPayload,
   User,
+  CreateUserPayload,
   GroupedDebts,
 } from "./repository";
 import { MascotMessage } from "./mascotMessages";
@@ -79,6 +80,7 @@ export class RestApiRepository implements ApiRepository {
   async createAccount(data: CreateAccountPayload): Promise<Account> {
     validateInput(data.name, MAX_NAME_LENGTH, "Account Name");
     data.name = sanitizeInput(data.name);
+    console.log(data);
     const response = await api.post("/api/accounts", data);
     return response.data;
   }
@@ -287,9 +289,17 @@ export class RestApiRepository implements ApiRepository {
     return response.data;
   }
 
-  async createUser(_data: any): Promise<User> {
-    // For online version, this is handled by Auth provider usually, or we can mock it
-    throw new Error("Not implemented for REST API");
+  async createUser(data: CreateUserPayload): Promise<User> {
+    const response = await api.post("/api/users", data);
+    return response.data;
+  }
+
+  async updateUser(
+    _id: string,
+    data: Partial<CreateUserPayload>,
+  ): Promise<User> {
+    const response = await api.patch("/api/users/me", data);
+    return response.data;
   }
 
   async getMascotMessage(context: string): Promise<MascotMessage | null> {

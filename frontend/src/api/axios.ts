@@ -23,7 +23,9 @@ import { fetchAuthSession } from "aws-amplify/auth";
 api.interceptors.request.use(async (config) => {
   try {
     const session = await fetchAuthSession();
-    const token = session.tokens?.accessToken?.toString();
+    const token =
+      session.tokens?.idToken?.toString() ||
+      session.tokens?.accessToken?.toString();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
