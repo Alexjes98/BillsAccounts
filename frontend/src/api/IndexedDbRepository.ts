@@ -23,6 +23,7 @@ import {
   GroupedDebts,
 } from "./repository";
 import { MascotMessage, FALLBACK_MESSAGES } from "./mascotMessages";
+import { encryptObject, decryptObject } from "@/lib/crypto";
 import {
   sanitizeInput,
   validateInput,
@@ -107,8 +108,148 @@ export class IndexedDbRepository implements ApiRepository {
   private dbPromise: Promise<IDBPDatabase<MyDB>>;
   private readonly DB_NAME = "finance_app_db";
   private readonly DB_VERSION = 1;
+  private cryptoKey: CryptoKey | null = null;
 
-  constructor() {
+  private static readonly INDEX_FIELDS: Record<string, string[]> = {
+    transactions: [
+      "id",
+      "transaction_date",
+      "account_id",
+      "category_id",
+      "debt_id",
+      "savings_goal_id",
+      "amount",
+    ],
+    categories: ["id", "type"],
+    accounts: ["id", "type"],
+    debts: ["id", "debtor_id", "creditor_id", "type", "is_settled"],
+    persons: ["id"],
+    savings_goals: ["id"],
+    monthly_summaries: ["id", "year", "month"],
+    user: ["id", "person_id"],
+  };
+
+  private async encryptRecord(record: any, storeName: string): Promise<any> {
+    if (!this.cryptoKey) return record;
+
+    const indexFields = IndexedDbRepository.INDEX_FIELDS[storeName] || ["id"];
+    const plainTextRecord: any = {};
+    const sensitiveRecord: any = {};
+
+    for (const key of Object.keys(record)) {
+      if (indexFields.includes(key)) {
+        plainTextRecord[key] = record[key];
+      } else {
+        sensitiveRecord[key] = record[key];
+      }
+    }
+
+    if (Object.keys(sensitiveRecord).length === 0) return plainTextRecord;
+
+    const encryptedData = await encryptObject(sensitiveRecord, this.cryptoKey);
+    plainTextRecord._encryptedData = encryptedData;
+    return plainTextRecord;
+  }
+
+  private async decryptRecord(record: any): Promise<any> {
+    if (!this.cryptoKey || !record || !record._encryptedData) return record;
+
+    try {
+      const decrypted = await decryptObject(
+        record._encryptedData,
+        this.cryptoKey,
+      );
+      const fullRecord = { ...record, ...decrypted };
+      delete fullRecord._encryptedData;
+      return fullRecord;
+    } catch (e) {
+      console.error("Failed to decrypt record", record);
+      return record;
+    }
+  }
+
+  private async _put(
+    db: IDBPDatabase<MyDB>,
+    storeName: string,
+    value: any,
+  ): Promise<any> {
+    const encrypted = await this.encryptRecord(value, storeName);
+    // @ts-ignore
+    return db.put(storeName, encrypted);
+  }
+
+  private async _get(
+    db: IDBPDatabase<MyDB>,
+    storeName: string,
+    key: string,
+  ): Promise<any> {
+    // @ts-ignore
+    const record = await db.get(storeName, key);
+    return this.decryptRecord(record);
+  }
+
+  private async _getAll(
+    db: IDBPDatabase<MyDB>,
+    storeName: string,
+  ): Promise<any[]> {
+    // @ts-ignore
+    const records = await db.getAll(storeName);
+    return Promise.all(records.map((r) => this.decryptRecord(r)));
+  }
+
+  private async _getAllFromIndex(
+    db: IDBPDatabase<MyDB>,
+    storeName: string,
+    indexName: string,
+    key: any,
+  ): Promise<any[]> {
+    // @ts-ignore
+    const records = await db.getAllFromIndex(storeName, indexName, key);
+    return Promise.all(records.map((r) => this.decryptRecord(r)));
+  }
+
+  private async migrateToEncrypted() {
+    if (!this.cryptoKey) return;
+    const db = await this.dbPromise;
+
+    const stores = [
+      "transactions",
+      "categories",
+      "accounts",
+      "debts",
+      "persons",
+      "savings_goals",
+      "monthly_summaries",
+      "user",
+    ];
+
+    const tx = db.transaction(stores as any, "readwrite");
+
+    for (const storeName of stores) {
+      const store = tx.objectStore(storeName as any);
+      const records = await store.getAll();
+      for (const record of records) {
+        if (!record._encryptedData) {
+          const encryptedRecord = await this.encryptRecord(record, storeName);
+          await store.put(encryptedRecord);
+        }
+      }
+    }
+
+    await tx.done;
+    console.log("Migration to encrypted DB completed.");
+  }
+
+  constructor(cryptoKey?: CryptoKey | null) {
+    this.cryptoKey = cryptoKey || null;
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("crypto:password_set", async (e: any) => {
+        this.cryptoKey = e.detail.key;
+        await this.migrateToEncrypted();
+      });
+    }
+
     this.dbPromise = openDB<MyDB>(this.DB_NAME, this.DB_VERSION, {
       upgrade(db) {
         // Transactions
@@ -147,7 +288,7 @@ export class IndexedDbRepository implements ApiRepository {
 
   private async seedInitialData() {
     // const db = await this.dbPromise;
-    // const user = await db.getAll("user");
+    // const user = await this._getAll(db, "user");
     // Removed user seeding to allow onboarding
     // if (user.length === 0) { ... }
   }
@@ -156,10 +297,10 @@ export class IndexedDbRepository implements ApiRepository {
   private async getAllMaps() {
     const db = await this.dbPromise;
     const [categories, accounts, debts, savingsGoals] = await Promise.all([
-      db.getAll("categories"),
-      db.getAll("accounts"),
-      db.getAll("debts"),
-      db.getAll("savings_goals"),
+      await this._getAll(db, "categories"),
+      await this._getAll(db, "accounts"),
+      await this._getAll(db, "debts"),
+      await this._getAll(db, "savings_goals"),
     ]);
 
     return {
@@ -261,7 +402,8 @@ export class IndexedDbRepository implements ApiRepository {
       }
 
       while (cursor && items.length < per_page) {
-        items.push(this.hydrateTransaction(cursor.value, maps));
+        const decryptedTx = await this.decryptRecord(cursor.value);
+        items.push(this.hydrateTransaction(decryptedTx, maps));
         cursor = await cursor.continue();
       }
 
@@ -283,7 +425,7 @@ export class IndexedDbRepository implements ApiRepository {
       const allMatches: Transaction[] = [];
 
       while (cursor) {
-        const tx = cursor.value;
+        const tx = await this.decryptRecord(cursor.value);
         let isMatch = true;
 
         if (categoryId && tx.category_id !== categoryId) isMatch = false;
@@ -347,15 +489,17 @@ export class IndexedDbRepository implements ApiRepository {
     // Actually, we can just construct the hydrated object manually from the specific items we fetched.
 
     // Fetch related objects to hydrate the response
-    const category = await db.get("categories", data.category_id);
+    const category = await this._get(db, "categories", data.category_id);
     if (!category) throw new Error("Category not found");
 
     const account = data.account_id
-      ? await db.get("accounts", data.account_id)
+      ? await this._get(db, "accounts", data.account_id)
       : undefined;
-    const debt = data.debt_id ? await db.get("debts", data.debt_id) : undefined;
+    const debt = data.debt_id
+      ? await this._get(db, "debts", data.debt_id)
+      : undefined;
     const savings_goal = data.savings_goal_id
-      ? await db.get("savings_goals", data.savings_goal_id)
+      ? await this._get(db, "savings_goals", data.savings_goal_id)
       : undefined;
 
     // 1. Determine Amount Sign
@@ -416,7 +560,7 @@ export class IndexedDbRepository implements ApiRepository {
         } else {
           debt.is_settled = false;
         }
-        await db.put("debts", debt);
+        await this._put(db, "debts", debt);
       }
     }
 
@@ -431,14 +575,14 @@ export class IndexedDbRepository implements ApiRepository {
       // explicitly omit category, account, debt, savings_goal objects
     };
 
-    await db.put("transactions", newTx);
+    await this._put(db, "transactions", newTx);
 
     // 3. Update Account Balance
     if (data.account_id && account) {
       account.current_balance = roundAmount(
         account.current_balance + data.amount,
       );
-      await db.put("accounts", account);
+      await this._put(db, "accounts", account);
     }
 
     // RETURN Hydrated Transaction
@@ -464,7 +608,7 @@ export class IndexedDbRepository implements ApiRepository {
     data: Partial<CreateTransactionPayload>,
   ): Promise<Transaction> {
     const db = await this.dbPromise;
-    const tx = await db.get("transactions", id);
+    const tx = await this._get(db, "transactions", id);
     if (!tx) throw new Error("Transaction not found");
 
     // 1. Revert Old Balance Effect
@@ -472,20 +616,20 @@ export class IndexedDbRepository implements ApiRepository {
     const oldAmount = tx.amount;
 
     if (oldAccountId) {
-      const oldAccount = await db.get("accounts", oldAccountId);
+      const oldAccount = await this._get(db, "accounts", oldAccountId);
       if (oldAccount) {
         oldAccount.current_balance = roundAmount(
           oldAccount.current_balance - oldAmount,
         );
-        await db.put("accounts", oldAccount);
+        await this._put(db, "accounts", oldAccount);
       }
     }
 
     // 2. Prepare Updates
     // We need to check if category changed to recalculate amount sign
-    let category = await db.get("categories", tx.category_id); // Default to existing
+    let category = await this._get(db, "categories", tx.category_id); // Default to existing
     if (data.category_id && data.category_id !== tx.category_id) {
-      const newCat = await db.get("categories", data.category_id);
+      const newCat = await this._get(db, "categories", data.category_id);
       if (newCat) category = newCat;
     }
 
@@ -539,12 +683,12 @@ export class IndexedDbRepository implements ApiRepository {
 
     // 3. Apply New Balance Effect
     if (updatedTx.account_id) {
-      const newAccount = await db.get("accounts", updatedTx.account_id);
+      const newAccount = await this._get(db, "accounts", updatedTx.account_id);
       if (newAccount) {
         newAccount.current_balance = roundAmount(
           newAccount.current_balance + updatedTx.amount,
         );
-        await db.put("accounts", newAccount);
+        await this._put(db, "accounts", newAccount);
       }
     }
 
@@ -556,20 +700,20 @@ export class IndexedDbRepository implements ApiRepository {
 
     // Scenario A: Debt ID Changed (or removed)
     if (oldDebtId && oldDebtId !== newDebtId) {
-      const oldDebt = await db.get("debts", oldDebtId);
+      const oldDebt = await this._get(db, "debts", oldDebtId);
       if (oldDebt) {
         oldDebt.remaining_amount = roundAmount(
           oldDebt.remaining_amount + oldAmountAbs,
         );
         oldDebt.is_settled = false;
-        await db.put("debts", oldDebt);
+        await this._put(db, "debts", oldDebt);
       }
     }
 
     let debtObj: Debt | undefined;
 
     if (newDebtId && newDebtId !== oldDebtId) {
-      const newDebt = await db.get("debts", newDebtId);
+      const newDebt = await this._get(db, "debts", newDebtId);
       if (newDebt) {
         newDebt.remaining_amount = roundAmount(
           newDebt.remaining_amount - newAmountAbs,
@@ -580,14 +724,14 @@ export class IndexedDbRepository implements ApiRepository {
         } else {
           newDebt.is_settled = false;
         }
-        await db.put("debts", newDebt);
+        await this._put(db, "debts", newDebt);
         debtObj = newDebt;
       }
     }
 
     // Scenario B: Debt ID Unchanged, Amount Changed
     if (newDebtId && newDebtId === oldDebtId && oldAmountAbs !== newAmountAbs) {
-      const debt = await db.get("debts", newDebtId);
+      const debt = await this._get(db, "debts", newDebtId);
       if (debt) {
         const diff = oldAmountAbs - newAmountAbs;
         debt.remaining_amount = roundAmount(debt.remaining_amount + diff);
@@ -598,25 +742,29 @@ export class IndexedDbRepository implements ApiRepository {
         } else {
           debt.is_settled = false;
         }
-        await db.put("debts", debt);
+        await this._put(db, "debts", debt);
         debtObj = debt;
       }
     } else if (newDebtId && newDebtId === oldDebtId) {
       // Just fetch it for hydration
-      debtObj = await db.get("debts", newDebtId);
+      debtObj = await this._get(db, "debts", newDebtId);
     }
 
     let savingsGoalObj: SavingsGoal | undefined;
     if (updatedTx.savings_goal_id) {
-      savingsGoalObj = await db.get("savings_goals", updatedTx.savings_goal_id);
+      savingsGoalObj = await this._get(
+        db,
+        "savings_goals",
+        updatedTx.savings_goal_id,
+      );
     }
 
     let accountObj: Account | undefined;
     if (updatedTx.account_id) {
-      accountObj = await db.get("accounts", updatedTx.account_id);
+      accountObj = await this._get(db, "accounts", updatedTx.account_id);
     }
 
-    await db.put("transactions", updatedTx);
+    await this._put(db, "transactions", updatedTx);
 
     // Return Hydrated
     return {
@@ -638,23 +786,23 @@ export class IndexedDbRepository implements ApiRepository {
 
   async deleteTransaction(id: string): Promise<void> {
     const db = await this.dbPromise;
-    const tx = await db.get("transactions", id);
+    const tx = await this._get(db, "transactions", id);
     if (!tx) return;
 
     // 1. Revert Account Balance
     if (tx.account_id) {
-      const account = await db.get("accounts", tx.account_id);
+      const account = await this._get(db, "accounts", tx.account_id);
       if (account) {
         account.current_balance = roundAmount(
           account.current_balance - tx.amount,
         );
-        await db.put("accounts", account);
+        await this._put(db, "accounts", account);
       }
     }
 
     // Revert Debt Balance
     if (tx.debt_id) {
-      const debt = await db.get("debts", tx.debt_id);
+      const debt = await this._get(db, "debts", tx.debt_id);
       if (debt) {
         // Revert the payment: Add back the absolute transaction amount
         debt.remaining_amount = roundAmount(
@@ -666,7 +814,7 @@ export class IndexedDbRepository implements ApiRepository {
           debt.is_settled = false;
         }
 
-        await db.put("debts", debt);
+        await this._put(db, "debts", debt);
       }
     }
 
@@ -676,9 +824,9 @@ export class IndexedDbRepository implements ApiRepository {
 
   async transfer(data: TransferPayload): Promise<void> {
     const db = await this.dbPromise;
-    const fromAccount = await db.get("accounts", data.from_account_id);
-    const toAccount = await db.get("accounts", data.to_account_id);
-    const category = await db.get("categories", data.category_id);
+    const fromAccount = await this._get(db, "accounts", data.from_account_id);
+    const toAccount = await this._get(db, "accounts", data.to_account_id);
+    const category = await this._get(db, "categories", data.category_id);
 
     if (!fromAccount || !toAccount) throw new Error("Account not found");
     if (!category) throw new Error("Category not found");
@@ -695,7 +843,7 @@ export class IndexedDbRepository implements ApiRepository {
 
     // Handle Debt Update
     if (data.debt_id) {
-      const debt = await db.get("debts", data.debt_id);
+      const debt = await this._get(db, "debts", data.debt_id);
       if (debt) {
         debt.remaining_amount = roundAmount(
           debt.remaining_amount - Math.abs(data.amount),
@@ -706,7 +854,7 @@ export class IndexedDbRepository implements ApiRepository {
         } else {
           debt.is_settled = false;
         }
-        await db.put("debts", debt);
+        await this._put(db, "debts", debt);
       }
     }
 
@@ -736,8 +884,8 @@ export class IndexedDbRepository implements ApiRepository {
       debt_id: data.debt_id,
     };
 
-    await db.put("transactions", txOut);
-    await db.put("transactions", txIn);
+    await this._put(db, "transactions", txOut);
+    await this._put(db, "transactions", txIn);
 
     // Update balances
     fromAccount.current_balance = roundAmount(
@@ -747,18 +895,18 @@ export class IndexedDbRepository implements ApiRepository {
       toAccount.current_balance + data.amount,
     );
 
-    await db.put("accounts", fromAccount);
-    await db.put("accounts", toAccount);
+    await this._put(db, "accounts", fromAccount);
+    await this._put(db, "accounts", toAccount);
   }
 
   async getSavingsGoals(): Promise<SavingsGoal[]> {
     const db = await this.dbPromise;
-    return db.getAll("savings_goals");
+    return await this._getAll(db, "savings_goals");
   }
 
   async getCategories(): Promise<Category[]> {
     const db = await this.dbPromise;
-    return db.getAll("categories");
+    return await this._getAll(db, "categories");
   }
 
   async createCategory(data: CategoryCreate): Promise<Category> {
@@ -772,7 +920,7 @@ export class IndexedDbRepository implements ApiRepository {
     validateInput(newCat.name, MAX_NAME_LENGTH, "Category Name");
     newCat.name = sanitizeInput(newCat.name);
 
-    await db.put("categories", newCat);
+    await this._put(db, "categories", newCat);
     return newCat;
   }
 
@@ -781,7 +929,7 @@ export class IndexedDbRepository implements ApiRepository {
     data: Partial<CategoryCreate>,
   ): Promise<Category> {
     const db = await this.dbPromise;
-    const cat = await db.get("categories", id);
+    const cat = await this._get(db, "categories", id);
     if (!cat) throw new Error("Category not found");
     const updated = { ...cat, ...data };
 
@@ -790,7 +938,7 @@ export class IndexedDbRepository implements ApiRepository {
       updated.name = sanitizeInput(updated.name);
     }
 
-    await db.put("categories", updated);
+    await this._put(db, "categories", updated);
     return updated;
   }
 
@@ -798,7 +946,8 @@ export class IndexedDbRepository implements ApiRepository {
     const db = await this.dbPromise;
 
     // Check for related transactions
-    const transactions = await db.getAllFromIndex(
+    const transactions = await this._getAllFromIndex(
+      db,
       "transactions",
       "by-category",
       id,
@@ -814,7 +963,7 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getAccounts(): Promise<Account[]> {
     const db = await this.dbPromise;
-    return db.getAll("accounts");
+    return await this._getAll(db, "accounts");
   }
 
   async createAccount(data: CreateAccountPayload): Promise<Account> {
@@ -833,7 +982,7 @@ export class IndexedDbRepository implements ApiRepository {
     validateInput(newAcc.name, MAX_NAME_LENGTH, "Account Name");
     newAcc.name = sanitizeInput(newAcc.name);
 
-    await db.put("accounts", newAcc);
+    await this._put(db, "accounts", newAcc);
     return newAcc;
   }
 
@@ -842,7 +991,7 @@ export class IndexedDbRepository implements ApiRepository {
     data: Partial<CreateAccountPayload>,
   ): Promise<Account> {
     const db = await this.dbPromise;
-    const acc = await db.get("accounts", id);
+    const acc = await this._get(db, "accounts", id);
     if (!acc) throw new Error("Account not found");
     const updated = { ...acc, ...data, updated_at: new Date().toISOString() };
 
@@ -859,7 +1008,7 @@ export class IndexedDbRepository implements ApiRepository {
       updated.classification = data.classification;
     }
 
-    await db.put("accounts", updated);
+    await this._put(db, "accounts", updated);
     return updated;
   }
 
@@ -867,7 +1016,8 @@ export class IndexedDbRepository implements ApiRepository {
     const db = await this.dbPromise;
 
     // Cascade delete transactions
-    const transactions = await db.getAllFromIndex(
+    const transactions = await this._getAllFromIndex(
+      db,
       "transactions",
       "by-account",
       id,
@@ -907,10 +1057,10 @@ export class IndexedDbRepository implements ApiRepository {
       // 1. Create/Find Asset Account for Person (User is Creditor, Person is Debtor)
       // ID: user_id + person_id + debt_id
       const accountId = `${newDebt.user_id}-${newDebt.debtor_id}-DELAYED_PAYMENT`;
-      let account = await db.get("accounts", accountId);
+      let account = await this._get(db, "accounts", accountId);
 
       if (!account) {
-        const person = await db.get("persons", newDebt.debtor_id);
+        const person = await this._get(db, "persons", newDebt.debtor_id);
         const personName = person ? person.name : "Unknown";
         account = {
           id: accountId,
@@ -921,7 +1071,7 @@ export class IndexedDbRepository implements ApiRepository {
           currency: "USD",
           updated_at: new Date().toISOString(),
         };
-        await db.put("accounts", account);
+        await this._put(db, "accounts", account);
       }
 
       // 2. Create Income Transaction
@@ -943,10 +1093,10 @@ export class IndexedDbRepository implements ApiRepository {
       // User owes Person (Liability)
       // ID: user_id + creditor_id + debt_id
       const accountId = `${newDebt.user_id}-${newDebt.creditor_id}-PASSIVE_DEBT`;
-      let account = await db.get("accounts", accountId);
+      let account = await this._get(db, "accounts", accountId);
 
       if (!account) {
-        const person = await db.get("persons", newDebt.creditor_id);
+        const person = await this._get(db, "persons", newDebt.creditor_id);
         const personName = person ? person.name : "Unknown";
         account = {
           id: accountId,
@@ -957,7 +1107,7 @@ export class IndexedDbRepository implements ApiRepository {
           currency: "USD",
           updated_at: new Date().toISOString(),
         };
-        await db.put("accounts", account);
+        await this._put(db, "accounts", account);
       }
 
       // Create Expense Transaction (Dr Expense, Cr Liability)
@@ -979,7 +1129,7 @@ export class IndexedDbRepository implements ApiRepository {
         account.current_balance = roundAmount(
           account.current_balance - data.total_amount,
         ); // Debt = Negative balance
-        await db.put("accounts", account);
+        await this._put(db, "accounts", account);
       }
     } else if (data.type === "LOAN") {
       // User Loaned to Person
@@ -988,10 +1138,10 @@ export class IndexedDbRepository implements ApiRepository {
         throw new Error("Source Account is required for Loan");
 
       const targetAccountId = `${newDebt.user_id}-${newDebt.debtor_id}-LOAN`;
-      let targetAccount = await db.get("accounts", targetAccountId);
+      let targetAccount = await this._get(db, "accounts", targetAccountId);
 
       if (!targetAccount) {
-        const person = await db.get("persons", newDebt.debtor_id);
+        const person = await this._get(db, "persons", newDebt.debtor_id);
         const personName = person ? person.name : "Unknown";
         targetAccount = {
           id: targetAccountId,
@@ -1002,11 +1152,11 @@ export class IndexedDbRepository implements ApiRepository {
           currency: "USD",
           updated_at: new Date().toISOString(),
         };
-        await db.put("accounts", targetAccount);
+        await this._put(db, "accounts", targetAccount);
       }
 
       // Transfer
-      const categories = await db.getAll("categories");
+      const categories = await this._getAll(db, "categories");
       const transferCat = categories.find((c) => c.type === "TRANSFER");
       if (!transferCat)
         throw new Error("No TRANSFER category found for Loan creation");
@@ -1023,13 +1173,13 @@ export class IndexedDbRepository implements ApiRepository {
       await this.transfer(transferData);
     }
 
-    await db.put("debts", newDebt);
+    await this._put(db, "debts", newDebt);
     return newDebt;
   }
 
   async getDebts(): Promise<Debt[]> {
     const db = await this.dbPromise;
-    return db.getAll("debts");
+    return await this._getAll(db, "debts");
   }
 
   async updateDebt(
@@ -1037,7 +1187,7 @@ export class IndexedDbRepository implements ApiRepository {
     data: Partial<CreateDebtPayload> | { is_settled: boolean },
   ): Promise<Debt> {
     const db = await this.dbPromise;
-    const debt = await db.get("debts", id);
+    const debt = await this._get(db, "debts", id);
     if (!debt) throw new Error("Debt not found");
 
     const updatedDebt = { ...debt, ...data };
@@ -1060,7 +1210,7 @@ export class IndexedDbRepository implements ApiRepository {
       updatedDebt.description = sanitizeInput(data.description);
     }
 
-    await db.put("debts", updatedDebt);
+    await this._put(db, "debts", updatedDebt);
     return updatedDebt;
   }
 
@@ -1070,7 +1220,7 @@ export class IndexedDbRepository implements ApiRepository {
     // 1. Get all transactions linked to this debt
     // We scan all transactions because there is no index on debt_id.
     // Given client-side usage, this is generally acceptable.
-    const allTransactions = await db.getAll("transactions");
+    const allTransactions = await this._getAll(db, "transactions");
     const debtTransactions = allTransactions.filter((tx) => tx.debt_id === id);
 
     // 2. Delete each transaction
@@ -1086,7 +1236,7 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getGroupedDebts(): Promise<GroupedDebts> {
     const db = await this.dbPromise;
-    const debts = await db.getAll("debts");
+    const debts = await this._getAll(db, "debts");
 
     debts.sort((a, b) => {
       const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
@@ -1122,8 +1272,8 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getDebtsSummary(): Promise<DebtSummary[]> {
     const db = await this.dbPromise;
-    const debts = await db.getAll("debts");
-    const persons = await db.getAll("persons");
+    const debts = await this._getAll(db, "debts");
+    const persons = await this._getAll(db, "persons");
 
     // Filter active debts
     const activeDebts = debts.filter((d) => !d.is_settled && !d.deleted_at);
@@ -1163,8 +1313,8 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getPersons(): Promise<Person[]> {
     const db = await this.dbPromise;
-    const persons = await db.getAll("persons");
-    const user = await db.get("user", "local-user");
+    const persons = await this._getAll(db, "persons");
+    const user = await this._get(db, "user", "local-user");
 
     if (user && user.person_id) {
       return persons.filter((p) => p.id !== user.person_id);
@@ -1193,13 +1343,13 @@ export class IndexedDbRepository implements ApiRepository {
       newPerson.contact_info = sanitizeInput(newPerson.contact_info);
     }
 
-    await db.put("persons", newPerson);
+    await this._put(db, "persons", newPerson);
     return newPerson;
   }
 
   async updatePerson(id: string, data: CreatePersonPayload): Promise<Person> {
     const db = await this.dbPromise;
-    const person = await db.get("persons", id);
+    const person = await this._get(db, "persons", id);
     if (!person) throw new Error("Person not found");
     const updated = {
       ...person,
@@ -1219,7 +1369,7 @@ export class IndexedDbRepository implements ApiRepository {
       updated.contact_info = sanitizeInput(updated.contact_info);
     }
 
-    await db.put("persons", updated);
+    await this._put(db, "persons", updated);
     return updated;
   }
 
@@ -1233,9 +1383,9 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getDashboardSummary(): Promise<DashboardData> {
     const db = await this.dbPromise;
-    const transactions = await db.getAll("transactions");
-    const accounts = await db.getAll("accounts");
-    const categories = await db.getAll("categories");
+    const transactions = await this._getAll(db, "transactions");
+    const accounts = await this._getAll(db, "accounts");
+    const categories = await this._getAll(db, "categories");
     const catMap = new Map(categories.map((c) => [c.id, c]));
 
     const balance = accounts.reduce(
@@ -1296,7 +1446,11 @@ export class IndexedDbRepository implements ApiRepository {
       lastMonthYear -= 1;
     }
     const lastMonthId = `${lastMonthYear}-${lastMonthIndex + 1}`;
-    const lastMonthSummary = await db.get("monthly_summaries", lastMonthId);
+    const lastMonthSummary = await this._get(
+      db,
+      "monthly_summaries",
+      lastMonthId,
+    );
 
     // New Calculations
     const currentDay = now.getDate();
@@ -1341,7 +1495,8 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getMonthlySummaries(year: number): Promise<MonthlySummary[]> {
     const db = await this.dbPromise;
-    const summaries = await db.getAllFromIndex(
+    const summaries = await this._getAllFromIndex(
+      db,
       "monthly_summaries",
       "by-year",
       year,
@@ -1354,8 +1509,8 @@ export class IndexedDbRepository implements ApiRepository {
     count: number;
   }> {
     const db = await this.dbPromise;
-    const transactions = await db.getAll("transactions");
-    const categories = await db.getAll("categories");
+    const transactions = await this._getAll(db, "transactions");
+    const categories = await this._getAll(db, "categories");
     const catMap = new Map(categories.map((c) => [c.id, c]));
 
     const currentYear = new Date().getFullYear();
@@ -1372,7 +1527,7 @@ export class IndexedDbRepository implements ApiRepository {
     });
 
     // 2. Identify all months from existing summaries
-    const existingSummaries = await db.getAll("monthly_summaries");
+    const existingSummaries = await this._getAll(db, "monthly_summaries");
     existingSummaries.forEach((s) => {
       if (s.year >= currentYear) {
         monthsSet.add(`${s.year}-${s.month}`);
@@ -1426,7 +1581,7 @@ export class IndexedDbRepository implements ApiRepository {
         closing_balance,
       };
 
-      await db.put("monthly_summaries", summary);
+      await this._put(db, "monthly_summaries", summary);
       count++;
     }
 
@@ -1446,13 +1601,13 @@ export class IndexedDbRepository implements ApiRepository {
     const monthIndex = month - 1;
 
     // 1. Fetch transactions for the month
-    const allTransactions = await db.getAll("transactions");
+    const allTransactions = await this._getAll(db, "transactions");
     const monthTransactions = allTransactions.filter((t) => {
       const d = parseLocalDate(t.transaction_date);
       return d.getFullYear() === year && d.getMonth() === monthIndex;
     });
 
-    const categories = await db.getAll("categories");
+    const categories = await this._getAll(db, "categories");
     const catMap = new Map(categories.map((c) => [c.id, c]));
 
     // 2. Calculate Totals
@@ -1486,7 +1641,7 @@ export class IndexedDbRepository implements ApiRepository {
       closing_balance,
     };
 
-    await db.put("monthly_summaries", summary);
+    await this._put(db, "monthly_summaries", summary);
 
     return { message: "Recalculated locally", data: summary };
   }
@@ -1508,7 +1663,7 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getUser(): Promise<User | null> {
     const db = await this.dbPromise;
-    const users = await db.getAll("user");
+    const users = await this._getAll(db, "user");
     return users.length > 0 ? users[0] : null;
   }
 
@@ -1523,7 +1678,7 @@ export class IndexedDbRepository implements ApiRepository {
       contact_info: data.email || "",
       created_at: new Date().toISOString(),
     };
-    await db.put("persons", userPerson);
+    await this._put(db, "persons", userPerson);
 
     const newUser: User = {
       id: "local-user",
@@ -1533,7 +1688,7 @@ export class IndexedDbRepository implements ApiRepository {
       person_id: userPerson.id,
       created_at: new Date().toISOString(),
     };
-    await db.put("user", newUser);
+    await this._put(db, "user", newUser);
 
     return newUser;
   }
@@ -1543,21 +1698,21 @@ export class IndexedDbRepository implements ApiRepository {
     data: Partial<CreateUserPayload>,
   ): Promise<User> {
     const db = await this.dbPromise;
-    const user = await db.get("user", id);
+    const user = await this._get(db, "user", id);
     if (!user) throw new Error("User not found");
 
     if (data.name !== undefined) user.name = data.name;
     if (data.base_currency !== undefined)
       user.base_currency = data.base_currency;
 
-    await db.put("user", user);
+    await this._put(db, "user", user);
 
     // Update userPerson as well if name changes
     if (data.name !== undefined && user.person_id) {
-      const person = await db.get("persons", user.person_id);
+      const person = await this._get(db, "persons", user.person_id);
       if (person) {
         person.name = data.name;
-        await db.put("persons", person);
+        await this._put(db, "persons", person);
       }
     }
 
@@ -1566,14 +1721,14 @@ export class IndexedDbRepository implements ApiRepository {
 
   async getAllData(): Promise<any> {
     const db = await this.dbPromise;
-    const transactions = await db.getAll("transactions");
-    const categories = await db.getAll("categories");
-    const accounts = await db.getAll("accounts");
-    const debts = await db.getAll("debts");
-    const persons = await db.getAll("persons");
-    const savings_goals = await db.getAll("savings_goals");
-    const monthly_summaries = await db.getAll("monthly_summaries");
-    const user = await db.getAll("user");
+    const transactions = await this._getAll(db, "transactions");
+    const categories = await this._getAll(db, "categories");
+    const accounts = await this._getAll(db, "accounts");
+    const debts = await this._getAll(db, "debts");
+    const persons = await this._getAll(db, "persons");
+    const savings_goals = await this._getAll(db, "savings_goals");
+    const monthly_summaries = await this._getAll(db, "monthly_summaries");
+    const user = await this._getAll(db, "user");
 
     return {
       transactions,
@@ -1651,7 +1806,8 @@ export class IndexedDbRepository implements ApiRepository {
       if (data[storeName] && Array.isArray(data[storeName])) {
         const store = tx.objectStore(storeName as any);
         for (const item of data[storeName]) {
-          await store.put(item);
+          const encryptedItem = await this.encryptRecord(item, storeName);
+          await store.put(encryptedItem);
         }
       }
     }

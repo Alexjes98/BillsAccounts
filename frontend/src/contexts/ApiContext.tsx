@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode, useMemo } from "react";
 import { ApiRepository } from "../api/repository";
 import { RestApiRepository } from "../api/RestRepository";
 import { IndexedDbRepository } from "../api/IndexedDbRepository";
+import { useCrypto } from "@/context/CryptoContext";
 
 const ApiContext = createContext<ApiRepository | null>(null);
 
@@ -14,14 +15,16 @@ export const ApiProvider = ({
   children,
   isAuthenticated,
 }: ApiProviderProps) => {
+  const { cryptoKey } = useCrypto();
+
   const api = useMemo(() => {
     // If authenticated, use the Cloud (Rest) repository
     // If not, use the Local (IndexedDB) repository
     console.log("Initializing API Repository. Authenticated:", isAuthenticated);
     return isAuthenticated
       ? new RestApiRepository()
-      : new IndexedDbRepository();
-  }, [isAuthenticated]);
+      : new IndexedDbRepository(cryptoKey);
+  }, [isAuthenticated, cryptoKey]);
 
   return <ApiContext.Provider value={api}>{children}</ApiContext.Provider>;
 };
