@@ -6,6 +6,7 @@ import { DebtsPage } from "@/pages/DebtsPage";
 import { CategoriesPage } from "@/pages/CategoriesPage";
 import { AccountsPage } from "@/pages/AccountsPage";
 import { YearResume } from "@/pages/YearResume";
+import { ChatPage } from "@/pages/ChatPage";
 /*
  * Free Mode Pages
  */
@@ -115,6 +116,7 @@ export function Layout() {
               <NavLink to={getPath("/categories")}>Categories</NavLink>
               <NavLink to={getPath("/accounts")}>Accounts</NavLink>
               <NavLink to={getPath("/year-resume")}>Year Resume</NavLink>
+              <NavLink to={getPath("/chat")}>Assistant</NavLink>
               <NavLink to={getPath("/profile")}>Profile</NavLink>
             </nav>
             <div className="ml-auto text-sm text-muted-foreground flex items-center gap-2">
@@ -147,6 +149,7 @@ export function Layout() {
           <Route path="/free/categories" element={<CategoriesPage />} />
           <Route path="/free/accounts" element={<AccountsPage />} />
           <Route path="/free/year-resume" element={<FreeYearResume />} />
+          <Route path="/free/chat" element={<ChatPage />} />
           <Route path="/free/profile" element={<ProfilePage />} />
           {/* Free routes */}
           {/* Free routes */}
@@ -207,6 +210,14 @@ export function Layout() {
             element={
               <RequireAuth>
                 <YearResume />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/chat"
+            element={
+              <RequireAuth>
+                <ChatPage />
               </RequireAuth>
             }
           />

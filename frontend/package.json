@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.15.0",
+    "@langchain/core": "^1.1.30",
+    "@langchain/google-genai": "^2.1.24",
+    "@langchain/langgraph": "^1.2.0",
     "@radix-ui/react-slot": "^1.2.4",
     "aws-amplify": "^6.16.2",
     "axios": "^1.13.2",
@@ -24,6 +27,7 @@
     "react-dom": "^19.2.0",
     "recharts": "^3.6.0",
     "tailwind-merge": "^3.4.0",
+    "zod": "^4.3.6",
     "zustand": "^5.0.10"
   },
   "devDependencies": {

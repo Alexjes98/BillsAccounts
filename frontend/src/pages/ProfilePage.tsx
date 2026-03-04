@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "../context/UserContext";
 import { useApi } from "../contexts/ApiContext";
+import { useLLM } from "../context/LLMContext";
 import {
   Card,
   CardContent,
@@ -18,6 +19,9 @@ export function ProfilePage() {
   const isOffline = location.pathname.includes("/free");
   const [downloading, setDownloading] = useState(false);
   const [dbUser, setDbUser] = useState<any>(null);
+
+  const { provider, apiKey, setProvider, setApiKey, clearConfig } = useLLM();
+  const [tempKey, setTempKey] = useState(apiKey);
 
   useEffect(() => {
     // If we need to fetch user details that might not be in context fully or refreshed
@@ -218,6 +222,80 @@ export function ProfilePage() {
                 Reset Mode Preference
               </Button>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">AI Assistant Configuration</h2>
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-medium">LLM Provider</label>
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+                value={provider}
+                onChange={(e) => setProvider(e.target.value as any)}
+              >
+                <option value="None">None</option>
+                <option value="OpenAI">OpenAI</option>
+                <option value="Anthropic">Anthropic</option>
+                <option value="Gemini">Gemini</option>
+                <option value="WebLLM">WebLLM (Local Engine)</option>
+              </select>
+            </div>
+
+            {provider !== "None" && provider !== "WebLLM" && (
+              <div className="flex flex-col gap-2">
+                <label className="text-sm font-medium">
+                  API Key{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (Stored locally in your browser - Not sent to any backend)
+                  </span>
+                </label>
+                <input
+                  type="password"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder={`Enter your ${provider} API Key`}
+                  value={tempKey}
+                  onChange={(e) => setTempKey(e.target.value)}
+                />
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    onClick={() => {
+                      setApiKey(tempKey);
+                      alert("API Key saved to your browser securely!");
+                    }}
+                  >
+                    Save Key
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setApiKey("");
+                      setTempKey("");
+                      clearConfig();
+                      alert("Configuration cleared!");
+                    }}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {provider === "WebLLM" && (
+              <div className="flex flex-col gap-2 p-3 bg-muted rounded-md text-sm text-foreground my-2">
+                <p>
+                  <strong>WebLLM mode</strong> runs entirely offline in your
+                  browser.
+                </p>
+                <p className="text-muted-foreground">
+                  It requires downloading a large model (2GB+) the first time
+                  and uses your device's GPU. No API key is needed.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -4,16 +4,19 @@ import { ApiProvider } from "@/contexts/ApiContext";
 import { Layout } from "@/components/Layout";
 import { MascotProvider } from "@/context/MascotContext";
 import { Mascot } from "@/components/Mascot";
+import { LLMProvider } from "@/context/LLMContext";
 
 function App() {
   return (
     <Router>
       <ApiWrapper>
         <UserProvider>
-          <MascotProvider>
-            <Layout />
-            <Mascot />
-          </MascotProvider>
+          <LLMProvider>
+            <MascotProvider>
+              <Layout />
+              <Mascot />
+            </MascotProvider>
+          </LLMProvider>
         </UserProvider>
       </ApiWrapper>
     </Router>
