@@ -23,7 +23,7 @@ export const ApiProvider = ({
     console.log("Initializing API Repository. Authenticated:", isAuthenticated);
     return isAuthenticated
       ? new RestApiRepository()
-      : new IndexedDbRepository(cryptoKey);
+      : IndexedDbRepository.getInstance(cryptoKey);
   }, [isAuthenticated, cryptoKey]);
 
   return <ApiContext.Provider value={api}>{children}</ApiContext.Provider>;

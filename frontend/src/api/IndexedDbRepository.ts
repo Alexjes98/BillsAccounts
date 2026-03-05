@@ -105,7 +105,8 @@ interface MyDB extends DBSchema {
 }
 
 export class IndexedDbRepository implements ApiRepository {
-  private dbPromise: Promise<IDBPDatabase<MyDB>>;
+  private static instance: IndexedDbRepository;
+  private dbPromise!: Promise<IDBPDatabase<MyDB>>;
   private readonly DB_NAME = "finance_app_db";
   private readonly DB_VERSION = 1;
   private cryptoKey: CryptoKey | null = null;
@@ -240,7 +241,17 @@ export class IndexedDbRepository implements ApiRepository {
     console.log("Migration to encrypted DB completed.");
   }
 
-  constructor(cryptoKey?: CryptoKey | null) {
+  public static getInstance(cryptoKey?: CryptoKey | null): IndexedDbRepository {
+    if (!IndexedDbRepository.instance) {
+      IndexedDbRepository.instance = new IndexedDbRepository(cryptoKey);
+    } else if (cryptoKey && !IndexedDbRepository.instance.cryptoKey) {
+      IndexedDbRepository.instance.cryptoKey = cryptoKey;
+      IndexedDbRepository.instance.migrateToEncrypted().catch(console.error);
+    }
+    return IndexedDbRepository.instance;
+  }
+
+  private constructor(cryptoKey?: CryptoKey | null) {
     this.cryptoKey = cryptoKey || null;
 
     if (typeof window !== "undefined") {
@@ -350,6 +361,7 @@ export class IndexedDbRepository implements ApiRepository {
   async getTransactions(
     params?: TransactionQueryParams,
   ): Promise<PaginatedResponse<Transaction>> {
+    console.log("getTransactions params:", params);
     const db = await this.dbPromise;
     const maps = await this.getAllMaps();
 
@@ -392,6 +404,7 @@ export class IndexedDbRepository implements ApiRepository {
     );
 
     if (!hasFilters) {
+      console.log("No filters");
       const total = await txStore.count();
 
       // Advance to the correct page
@@ -415,6 +428,7 @@ export class IndexedDbRepository implements ApiRepository {
         pages: Math.ceil(total / per_page),
       };
     } else {
+      console.log("With filters");
       // Filtered Case: We must iterate to find matches
       // Note: Getting total count for filtered items in IDB is hard without iterating all.
       // For now, we unfortunately have to iterate potentially everything to get the TOTAL count for pagination to work correctly (pages count).
@@ -432,8 +446,15 @@ export class IndexedDbRepository implements ApiRepository {
         else if (accountId && tx.account_id !== accountId) isMatch = false;
         else if (debtId && tx.debt_id !== debtId) isMatch = false;
         else if (search) {
-          const nameMatch = tx.name.toLowerCase().includes(search);
-          const descMatch = tx.description?.toLowerCase().includes(search);
+          const searchTerms = search.toLowerCase().split(/\s+/).filter(Boolean);
+          const nameMatch = searchTerms.some((term) =>
+            tx.name.toLowerCase().includes(term),
+          );
+          const descMatch = tx.description
+            ? searchTerms.some((term) =>
+                tx.description!.toLowerCase().includes(term),
+              )
+            : false;
           if (!nameMatch && !descMatch) isMatch = false;
         }
 
@@ -466,6 +487,10 @@ export class IndexedDbRepository implements ApiRepository {
       // Now we have all matches, we can slice for pagination
       const total = allMatches.length;
       const paginatedItems = allMatches.slice(skipCount, skipCount + per_page);
+
+      console.log("total", total);
+
+      console.log("paginatedItems", paginatedItems);
 
       return {
         items: paginatedItems,

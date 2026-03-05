@@ -1,50 +1,24 @@
 import { LLMProviderType } from "@/context/LLMContext";
 import { Message } from "@/pages/ChatPage";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
-import { tool } from "@langchain/core/tools";
-import { z } from "zod";
-import { IndexedDbRepository } from "@/api/IndexedDbRepository";
+import { StateGraph, MessagesAnnotation } from "@langchain/langgraph/web";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
 import {
   HumanMessage,
   AIMessage,
   SystemMessage,
 } from "@langchain/core/messages";
+import { llmFactory } from "./LLMFactory";
+import { createSearchMovementsTool } from "./tools";
 
-const systemPrompt = `
-You are a local-first financial AI agent.
+const getSystemPrompt = (toolName: string) =>
+  `
+You are a financial AI agent.
 You have tools available to search the local database for financial transactions.
-Use the tools when the user asks questions about their spending, income, or specific transactions.
+You have access to the following tools: ${toolName}.
+That allows you to search for financial transactions. Use it and answer the user's question the best you can.
+If you don't have the answer, say so.
 Always be helpful, concise, and provide financial insights when possible.
 `.trim();
-
-const searchMovementsTool = tool(
-  async ({ query }) => {
-    try {
-      const repo = new IndexedDbRepository();
-      const results = await repo.getTransactions({
-        search: query,
-        per_page: 50,
-      });
-      return JSON.stringify(results.items);
-    } catch (error) {
-      console.error("Error searching movements:", error);
-      return "Failed to search transactions. Please try again.";
-    }
-  },
-  {
-    name: "search_movements",
-    description:
-      "Search the IndexedDB repository for financial transactions (movements). Use this when the user asks about their spending, income, or specific purchases.",
-    schema: z.object({
-      query: z
-        .string()
-        .describe(
-          "The search term to query transactions with, e.g., 'food', 'rent', or a merchant name.",
-        ),
-    }),
-  },
-);
 
 export async function runReActAgent(
   provider: LLMProviderType,
@@ -55,21 +29,43 @@ export async function runReActAgent(
     throw new Error(`API Key is missing for provider: ${provider}`);
   }
 
-  const userQuery = messages[messages.length - 1].content;
   let llmResponse = "";
 
   switch (provider) {
     case "Gemini":
       try {
-        const llm = new ChatGoogleGenerativeAI({
-          apiKey: apiKey,
-          model: "gemini-2.5-flash",
-        });
+        const llm = llmFactory.getModel(provider, apiKey);
 
-        const agent = createReactAgent({
-          llm,
-          tools: [searchMovementsTool],
-        });
+        const searchMovementsTool = createSearchMovementsTool();
+        const tools = [searchMovementsTool];
+        const toolNode = new ToolNode(tools);
+
+        const callModel = async (state: typeof MessagesAnnotation.State) => {
+          const modelWithTools = llm.bindTools(tools);
+          const response = await modelWithTools.invoke(state.messages);
+          console.log("response", response);
+          return { messages: [response] };
+        };
+
+        const shouldContinue = (state: typeof MessagesAnnotation.State) => {
+          const messages = state.messages;
+          const lastMessage = messages[messages.length - 1] as AIMessage;
+          console.log("lastMessage", lastMessage);
+
+          if (lastMessage.tool_calls?.length) {
+            return "tools";
+          }
+          return "__end__";
+        };
+
+        const workflow = new StateGraph(MessagesAnnotation)
+          .addNode("agent", callModel)
+          .addNode("tools", toolNode)
+          .addEdge("__start__", "agent")
+          .addConditionalEdges("agent", shouldContinue)
+          .addEdge("tools", "agent");
+
+        const app = workflow.compile();
 
         const formattedMessages = messages.map((msg) =>
           msg.role === "user"
@@ -77,9 +73,14 @@ export async function runReActAgent(
             : new AIMessage(msg.content),
         );
 
-        const agentState = await agent.invoke({
-          messages: [new SystemMessage(systemPrompt), ...formattedMessages],
+        const agentState = await app.invoke({
+          messages: [
+            new SystemMessage(getSystemPrompt(searchMovementsTool.name)),
+            ...formattedMessages,
+          ],
         });
+
+        console.log("agentState", agentState);
 
         const lastMessage = agentState.messages[agentState.messages.length - 1];
         llmResponse =
@@ -92,17 +93,15 @@ export async function runReActAgent(
       break;
 
     case "OpenAI":
-      llmResponse = `[Mock OpenAI] I see you said: "${userQuery}". You would need to implement the fetch inside lib/agent.ts`;
+      llmResponse = `Not implemented`;
       break;
 
     case "Anthropic":
-      llmResponse = `[Mock Anthropic] Message received: "${userQuery}". Implement fetch inside lib/agent.ts`;
+      llmResponse = `Not implemented`;
       break;
-
     case "WebLLM":
-      llmResponse = `[Mock WebLLM] Local inference would run here via MLCEngine. Try saying: "${userQuery}" after you implement the setup!`;
+      llmResponse = `Not implemented`;
       break;
-
     default:
       llmResponse = "Unsupported provider selected.";
       break;

@@ -40,8 +40,6 @@ export function ChatPage() {
     setLoading(true);
 
     try {
-      // Basic skeleton of ReAct loop invocation.
-      // We pass the conversation history and the user's new message.
       const historyMsg = [...messages, userMessage];
       const response = await runReActAgent(provider, apiKey, historyMsg);
 
