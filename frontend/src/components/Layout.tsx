@@ -28,18 +28,97 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { FreeOnboardingPage } from "@/pages/free/FreeOnboardingPage";
+import {
+  LayoutDashboard,
+  ArrowRightLeft,
+  CreditCard,
+  Settings,
+  BarChart3,
+  MessageSquare,
+  User,
+  ChevronDown,
+  ChevronRight,
+  Menu,
+  X,
+  Users,
+  Wallet,
+  Tags,
+  CalendarDays,
+  PieChart,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 
-function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
+function SidebarGroup({
+  title,
+  icon: Icon,
+  children,
+  isOpen,
+  onToggle,
+  isCollapsed,
+}: {
+  title: string;
+  icon: React.ElementType;
+  children: React.ReactNode;
+  isOpen: boolean;
+  onToggle: () => void;
+  isCollapsed: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        onClick={onToggle}
+        className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-accent/50 hover:text-foreground text-muted-foreground w-full cursor-pointer ${isCollapsed ? "justify-center" : "justify-between"}`}
+        title={isCollapsed ? title : undefined}
+      >
+        <div className="flex items-center gap-3">
+          <Icon className="w-5 h-5 flex-shrink-0" />
+          {!isCollapsed && <span>{title}</span>}
+        </div>
+        {!isCollapsed &&
+          (isOpen ? (
+            <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
+          ) : (
+            <ChevronRight className="w-4 h-4 ml-2 flex-shrink-0" />
+          ))}
+      </button>
+      {isOpen && !isCollapsed && (
+        <div className="flex flex-col gap-1 ml-6 pl-2 border-l border-border mt-1 transition-all duration-300">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidebarLink({
+  to,
+  icon: Icon,
+  children,
+  onClick,
+  isCollapsed,
+  title,
+}: {
+  to: string;
+  icon?: React.ElementType;
+  children?: React.ReactNode;
+  onClick?: () => void;
+  isCollapsed?: boolean;
+  title?: string;
+}) {
   const location = useLocation();
   const isActive = location.pathname === to;
   return (
     <Link
       to={to}
-      className={`text-sm font-medium transition-colors hover:text-primary ${isActive ? "text-primary" : "text-muted-foreground"}`}
+      onClick={onClick}
+      className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive ? "bg-primary/10 text-primary" : "hover:bg-accent/50 hover:text-foreground text-muted-foreground"} ${isCollapsed ? "justify-center" : ""}`}
+      title={isCollapsed ? title : undefined}
     >
-      {children}
+      {Icon && <Icon className="w-5 h-5 flex-shrink-0" />}
+      {!isCollapsed && children && <span>{children}</span>}
     </Link>
   );
 }
@@ -50,6 +129,22 @@ export function Layout() {
   const navigate = useNavigate();
   const { user, loading } = useUser();
   const isOfflineMode = location.pathname.includes("/free");
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    manage: false,
+    insights: false,
+  });
+
+  const toggleGroup = (group: string) => {
+    // If collapsed, automatically expand the sidebar so the group items are visible
+    if (isCollapsed) {
+      setIsCollapsed(false);
+    }
+    setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }));
+  };
 
   useEffect(() => {
     if (loading) return;
@@ -104,149 +199,297 @@ export function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans antialiased">
+    <div className="h-screen overflow-hidden bg-background text-foreground font-sans antialiased flex">
       {location.pathname !== "/mode-selection" && (
-        <header className="border-b sticky top-0 bg-background z-10">
-          <div className="flex h-16 items-center px-4 max-w-7xl mx-auto gap-6">
-            <div className="font-bold text-xl mr-4">MyFinance App</div>
-            <nav className="flex items-center gap-6">
-              <NavLink to={getPath("/dashboard")}>Dashboard</NavLink>
-              <NavLink to={getPath("/transactions")}>Transactions</NavLink>
-              <NavLink to={getPath("/debts")}>Debts</NavLink>
-              <NavLink to={getPath("/persons")}>Persons</NavLink>
-              <NavLink to={getPath("/categories")}>Categories</NavLink>
-              <NavLink to={getPath("/accounts")}>Accounts</NavLink>
-              <NavLink to={getPath("/monthly-summary")}>
-                Monthly Summary
-              </NavLink>
-              <NavLink to={getPath("/year-resume")}>Year Resume</NavLink>
-              <NavLink to={getPath("/chat")}>Assistant</NavLink>
-              <NavLink to={getPath("/profile")}>Profile</NavLink>
-            </nav>
-            <div className="ml-auto text-sm text-muted-foreground flex items-center gap-2">
-              <UserDisplay />
-              {isOfflineMode && <span>Beta (Free Mode)</span>}
-            </div>
-          </div>
-        </header>
-      )}
-      <main
-        className={
-          location.pathname === "/mode-selection"
-            ? ""
-            : "py-6 px-4 max-w-7xl mx-auto"
-        }
-      >
-        {error && (
-          <div className="max-w-md mx-auto mb-4 p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-md">
-            {error}
-          </div>
-        )}
-        <Routes>
-          {/* Free routes */}
-          <Route path="/free/onboarding" element={<FreeOnboardingPage />} />
-          <Route path="/free/dashboard" element={<FreeDashboard />} />
-          <Route path="/free/transactions" element={<FreeTransactionsPage />} />
-          {/* Free routes */}
-          <Route path="/free/persons" element={<PersonsPage />} />
-          <Route path="/free/debts" element={<FreeDebtsPage />} />
-          <Route path="/free/categories" element={<CategoriesPage />} />
-          <Route path="/free/accounts" element={<AccountsPage />} />
-          <Route
-            path="/free/monthly-summary"
-            element={<FreeMonthlySummaryPage />}
-          />
-          <Route path="/free/year-resume" element={<FreeYearResume />} />
-          <Route path="/free/chat" element={<ChatPage />} />
-          <Route path="/free/profile" element={<ProfilePage />} />
-          {/* Free routes */}
-          {/* Free routes */}
-          <Route path="/" element={<RootRedirector />} />
-          <Route path="/mode-selection" element={<ModeSelectionPage />} />
+        <>
+          {/* Mobile Overlay */}
+          {isSidebarOpen && (
+            <div
+              className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+          )}
 
-          {/* Online Routes - Protected by Amplify */}
-          <Route
-            path="/dashboard"
-            element={
-              <RequireAuth>
-                <Dashboard />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/transactions"
-            element={
-              <RequireAuth>
-                <TransactionsPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/persons"
-            element={
-              <RequireAuth>
-                <PersonsPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/debts"
-            element={
-              <RequireAuth>
-                <DebtsPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/categories"
-            element={
-              <RequireAuth>
-                <CategoriesPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/accounts"
-            element={
-              <RequireAuth>
-                <AccountsPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/year-resume"
-            element={
-              <RequireAuth>
-                <YearResume />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/chat"
-            element={
-              <RequireAuth>
-                <ChatPage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <RequireAuth>
-                <ProfilePage />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/onboarding"
-            element={
-              <RequireAuth>
-                <OnboardingPage />
-              </RequireAuth>
-            }
-          />
-        </Routes>
-      </main>
+          {/* Sidebar */}
+          <aside
+            className={`fixed inset-y-0 left-0 z-50 bg-card border-r border-border transform transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex-shrink-0 flex flex-col ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"} ${isCollapsed ? "w-20" : "w-64"}`}
+          >
+            <div className="flex h-16 items-center px-4 border-b border-border justify-between whitespace-nowrap overflow-hidden">
+              <div
+                className={`font-bold text-xl text-primary transition-opacity duration-300 ${isCollapsed ? "opacity-0 w-0 hidden" : "opacity-100 px-2"}`}
+              >
+                MyFinance App
+              </div>
+              {/* Expand/Collapse Toggle Desktop */}
+              <button
+                className="hidden lg:flex p-2 text-muted-foreground hover:text-foreground rounded-md transition-colors mx-auto"
+                onClick={() => setIsCollapsed(!isCollapsed)}
+                title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              >
+                {isCollapsed ? (
+                  <PanelLeftOpen className="w-5 h-5" />
+                ) : (
+                  <PanelLeftClose className="w-5 h-5" />
+                )}
+              </button>
+              {/* Close Sidebar Mobile */}
+              <button
+                className="lg:hidden p-2 text-muted-foreground hover:text-foreground ml-auto"
+                onClick={() => setIsSidebarOpen(false)}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-3 flex flex-col gap-2">
+              <SidebarLink
+                to={getPath("/dashboard")}
+                icon={LayoutDashboard}
+                onClick={() => setIsSidebarOpen(false)}
+                isCollapsed={isCollapsed}
+                title="Dashboard"
+              >
+                Dashboard
+              </SidebarLink>
+              <SidebarLink
+                to={getPath("/transactions")}
+                icon={ArrowRightLeft}
+                onClick={() => setIsSidebarOpen(false)}
+                isCollapsed={isCollapsed}
+                title="Transactions"
+              >
+                Transactions
+              </SidebarLink>
+              <SidebarLink
+                to={getPath("/debts")}
+                icon={CreditCard}
+                onClick={() => setIsSidebarOpen(false)}
+                isCollapsed={isCollapsed}
+                title="Debts"
+              >
+                Debts
+              </SidebarLink>
+
+              <SidebarGroup
+                title="Manage"
+                icon={Settings}
+                isOpen={openGroups.manage}
+                onToggle={() => toggleGroup("manage")}
+                isCollapsed={isCollapsed}
+              >
+                <SidebarLink
+                  to={getPath("/accounts")}
+                  icon={Wallet}
+                  onClick={() => setIsSidebarOpen(false)}
+                >
+                  Accounts
+                </SidebarLink>
+                <SidebarLink
+                  to={getPath("/categories")}
+                  icon={Tags}
+                  onClick={() => setIsSidebarOpen(false)}
+                >
+                  Categories
+                </SidebarLink>
+                <SidebarLink
+                  to={getPath("/persons")}
+                  icon={Users}
+                  onClick={() => setIsSidebarOpen(false)}
+                >
+                  Persons
+                </SidebarLink>
+              </SidebarGroup>
+
+              <SidebarGroup
+                title="Insights"
+                icon={BarChart3}
+                isOpen={openGroups.insights}
+                onToggle={() => toggleGroup("insights")}
+                isCollapsed={isCollapsed}
+              >
+                <SidebarLink
+                  to={getPath("/monthly-summary")}
+                  icon={CalendarDays}
+                  onClick={() => setIsSidebarOpen(false)}
+                >
+                  Monthly Summary
+                </SidebarLink>
+                <SidebarLink
+                  to={getPath("/year-resume")}
+                  icon={PieChart}
+                  onClick={() => setIsSidebarOpen(false)}
+                >
+                  Year Resume
+                </SidebarLink>
+              </SidebarGroup>
+
+              <SidebarLink
+                to={getPath("/chat")}
+                icon={MessageSquare}
+                onClick={() => setIsSidebarOpen(false)}
+                isCollapsed={isCollapsed}
+                title="Assistant"
+              >
+                Assistant
+              </SidebarLink>
+            </nav>
+
+            <div className="p-4 border-t border-border mt-auto overflow-hidden">
+              <SidebarLink
+                to={getPath("/profile")}
+                icon={User}
+                onClick={() => setIsSidebarOpen(false)}
+                isCollapsed={isCollapsed}
+                title="Profile"
+              >
+                {!isCollapsed && (
+                  <div className="flex flex-col gap-1 items-start whitespace-nowrap w-full overflow-hidden">
+                    <span>Profile</span>
+                    <div className="text-xs text-muted-foreground font-normal flex items-center gap-1 w-full overflow-hidden text-ellipsis">
+                      <UserDisplay />
+                      {isOfflineMode && <span>(Free Mode)</span>}
+                    </div>
+                  </div>
+                )}
+              </SidebarLink>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {location.pathname !== "/mode-selection" && (
+          <header className="h-16 border-b border-border bg-background flex items-center px-4 lg:hidden sticky top-0 z-30">
+            <button
+              className="p-2 -ml-2 mr-2 text-muted-foreground hover:text-foreground rounded-md"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <div className="font-bold text-lg text-primary">MyFinance App</div>
+          </header>
+        )}
+
+        <main
+          className={`flex-1 overflow-y-auto ${location.pathname === "/mode-selection" ? "" : "p-4 lg:p-8"}`}
+        >
+          <div className="max-w-7xl mx-auto w-full">
+            {error && (
+              <div className="mb-4 p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-md">
+                {error}
+              </div>
+            )}
+            <Routes>
+              {/* Free routes */}
+              <Route path="/free/onboarding" element={<FreeOnboardingPage />} />
+              <Route path="/free/dashboard" element={<FreeDashboard />} />
+              <Route
+                path="/free/transactions"
+                element={<FreeTransactionsPage />}
+              />
+              {/* Free routes */}
+              <Route path="/free/persons" element={<PersonsPage />} />
+              <Route path="/free/debts" element={<FreeDebtsPage />} />
+              <Route path="/free/categories" element={<CategoriesPage />} />
+              <Route path="/free/accounts" element={<AccountsPage />} />
+              <Route
+                path="/free/monthly-summary"
+                element={<FreeMonthlySummaryPage />}
+              />
+              <Route path="/free/year-resume" element={<FreeYearResume />} />
+              <Route path="/free/chat" element={<ChatPage />} />
+              <Route path="/free/profile" element={<ProfilePage />} />
+              {/* Free routes */}
+              {/* Free routes */}
+              <Route path="/" element={<RootRedirector />} />
+              <Route path="/mode-selection" element={<ModeSelectionPage />} />
+
+              {/* Online Routes - Protected by Amplify */}
+              <Route
+                path="/dashboard"
+                element={
+                  <RequireAuth>
+                    <Dashboard />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/transactions"
+                element={
+                  <RequireAuth>
+                    <TransactionsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/persons"
+                element={
+                  <RequireAuth>
+                    <PersonsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/debts"
+                element={
+                  <RequireAuth>
+                    <DebtsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/categories"
+                element={
+                  <RequireAuth>
+                    <CategoriesPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/accounts"
+                element={
+                  <RequireAuth>
+                    <AccountsPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/year-resume"
+                element={
+                  <RequireAuth>
+                    <YearResume />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/chat"
+                element={
+                  <RequireAuth>
+                    <ChatPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <RequireAuth>
+                    <ProfilePage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/onboarding"
+                element={
+                  <RequireAuth>
+                    <OnboardingPage />
+                  </RequireAuth>
+                }
+              />
+            </Routes>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

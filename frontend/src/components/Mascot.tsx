@@ -8,11 +8,11 @@ export function Mascot() {
   const { isVisible, message, hideMascot, hideMessage } = useMascot(); // Added hideMessage
   const [isHovered, setIsHovered] = useState(false);
   const [animate, setAnimate] = useState(false);
-  const [imageSrc, setImageSrc] = useState("/mascot.jpg");
+  const [imageSrc, setImageSrc] = useState("/mascot.png");
   const [isFading, setIsFading] = useState(false);
   const navigate = useNavigate(); // Initialized navigate
 
-  const DEFAULT_MASCOT = "/mascot.jpg";
+  const DEFAULT_MASCOT = "/mascot.png";
 
   useEffect(() => {
     if (isVisible) {
@@ -100,7 +100,7 @@ export function Mascot() {
                 setImageSrc(DEFAULT_MASCOT);
               }
             }}
-            className={`w-20 h-20 rounded-full border-4 border-white shadow-xl object-cover transform transition-transform duration-300
+            className={`w-24 h-24 object-contain transform transition-transform duration-300
           ${isHovered ? "scale-110 -translate-y-1" : "scale-100"}
           `}
           />
