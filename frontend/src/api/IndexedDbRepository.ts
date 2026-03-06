@@ -1468,14 +1468,11 @@ export class IndexedDbRepository implements ApiRepository {
     }
 
     summary.categories = categorySummaryMap;
-    console.log(summary);
     return summary;
   }
 
   async getDashboardSummary(): Promise<DashboardData> {
     const db = await this.dbPromise;
-    //TODO: Use the same logic as getMonthTransactionsByCategory
-    const transactions = await this._getAll(db, "transactions");
     const accounts = await this._getAll(db, "accounts");
     const categories = await this._getAll(db, "categories");
     const catMap = new Map(categories.map((c) => [c.id, c]));
@@ -1485,15 +1482,25 @@ export class IndexedDbRepository implements ApiRepository {
       0,
     );
 
-    // Filter for current month
+    // Filter for current month using the by-date index natively
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth();
 
-    const currentMonthTx = transactions.filter((t) => {
-      const d = parseLocalDate(t.transaction_date);
-      return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-    });
+    const targetMonthStr = String(currentMonth + 1).padStart(2, "0");
+    // Ensure we capture all times for the month
+    const startDate = `${currentYear}-${targetMonthStr}-01`;
+    const endDate = `${currentYear}-${targetMonthStr}-31T23:59:59`;
+    const range = IDBKeyRange.bound(startDate, endDate);
+
+    const txStore = db.transaction("transactions", "readonly").store;
+    const index = txStore.index("by-date");
+
+    // Natively fetch only records within the date range
+    const encryptedMonthTxs = await index.getAll(range);
+    const currentMonthTx = await Promise.all(
+      encryptedMonthTxs.map((tx) => this.decryptRecord(tx)),
+    );
 
     // Initialize Chart Data
     const numDays = new Date(currentYear, currentMonth + 1, 0).getDate();
