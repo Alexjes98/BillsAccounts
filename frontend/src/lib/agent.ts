@@ -8,14 +8,14 @@ import {
   SystemMessage,
 } from "@langchain/core/messages";
 import { llmFactory } from "./LLMFactory";
-import { createSearchMovementsTool } from "./tools";
+import { createSearchMovementsTool, createGetCategoriesTool } from "./tools";
 
-const getSystemPrompt = (toolName: string) =>
+const getSystemPrompt = (toolName: string, categoryToolName: string) =>
   `
 You are a financial AI agent.
 You have tools available to search the local database for financial transactions.
-You have access to the following tools: ${toolName}.
-That allows you to search for financial transactions. Use it and answer the user's question the best you can.
+You have access to the following tools: ${toolName}, ${categoryToolName}.
+Those allow you to search for financial transactions and fetch category mappings. Use them to answer the user's question the best you can.
 If you don't have the answer, say so.
 Always be helpful, concise, and provide financial insights when possible.
 `.trim();
@@ -37,13 +37,13 @@ export async function runReActAgent(
         const llm = llmFactory.getModel(provider, apiKey);
 
         const searchMovementsTool = createSearchMovementsTool();
-        const tools = [searchMovementsTool];
+        const getCategoriesTool = createGetCategoriesTool();
+        const tools = [searchMovementsTool, getCategoriesTool];
         const toolNode = new ToolNode(tools);
 
         const callModel = async (state: typeof MessagesAnnotation.State) => {
           const modelWithTools = llm.bindTools(tools);
           const response = await modelWithTools.invoke(state.messages);
-          console.log("response", response);
           return { messages: [response] };
         };
 
@@ -75,7 +75,9 @@ export async function runReActAgent(
 
         const agentState = await app.invoke({
           messages: [
-            new SystemMessage(getSystemPrompt(searchMovementsTool.name)),
+            new SystemMessage(
+              getSystemPrompt(searchMovementsTool.name, getCategoriesTool.name),
+            ),
             ...formattedMessages,
           ],
         });
