@@ -12,6 +12,8 @@ import {
   Debt,
   DebtSummary,
   MonthlySummary,
+  MonthCategorySummary,
+  CategorySummary,
   PaginatedResponse,
   Person,
   SavingsGoal,
@@ -361,7 +363,6 @@ export class IndexedDbRepository implements ApiRepository {
   async getTransactions(
     params?: TransactionQueryParams,
   ): Promise<PaginatedResponse<Transaction>> {
-    console.log("getTransactions params:", params);
     const db = await this.dbPromise;
     const maps = await this.getAllMaps();
 
@@ -404,7 +405,6 @@ export class IndexedDbRepository implements ApiRepository {
     );
 
     if (!hasFilters) {
-      console.log("No filters");
       const total = await txStore.count();
 
       // Advance to the correct page
@@ -428,7 +428,6 @@ export class IndexedDbRepository implements ApiRepository {
         pages: Math.ceil(total / per_page),
       };
     } else {
-      console.log("With filters");
       // Filtered Case: We must iterate to find matches
       // Note: Getting total count for filtered items in IDB is hard without iterating all.
       // For now, we unfortunately have to iterate potentially everything to get the TOTAL count for pagination to work correctly (pages count).
@@ -487,10 +486,6 @@ export class IndexedDbRepository implements ApiRepository {
       // Now we have all matches, we can slice for pagination
       const total = allMatches.length;
       const paginatedItems = allMatches.slice(skipCount, skipCount + per_page);
-
-      console.log("total", total);
-
-      console.log("paginatedItems", paginatedItems);
 
       return {
         items: paginatedItems,
@@ -1406,8 +1401,80 @@ export class IndexedDbRepository implements ApiRepository {
     await db.delete("persons", id);
   }
 
+  async getMonthTransactionsByCategory(
+    year: number,
+    month: number,
+  ): Promise<MonthCategorySummary> {
+    const db = await this.dbPromise;
+    const maps = await this.getAllMaps();
+
+    const targetMonthStr = String(month).padStart(2, "0");
+    // Ensure we capture all times for the month
+    const startDate = `${year}-${targetMonthStr}-01`;
+    const endDate = `${year}-${targetMonthStr}-31T23:59:59`;
+    const range = IDBKeyRange.bound(startDate, endDate);
+
+    const txStore = db.transaction("transactions", "readonly").store;
+    const index = txStore.index("by-date");
+
+    // Natively fetch only records within the date range
+    const encryptedMonthTxs = await index.getAll(range);
+    const monthTxs = await Promise.all(
+      encryptedMonthTxs.map((tx) => this.decryptRecord(tx)),
+    );
+
+    const summary: MonthCategorySummary = {
+      month,
+      year,
+      total_expenses: 0,
+      total_income: 0,
+      total_transactions: monthTxs.length,
+      categories: {},
+    };
+
+    const categorySummaryMap: Record<string, CategorySummary> = {};
+
+    for (const tx of monthTxs) {
+      const cat = maps.categoryMap.get(tx.category_id);
+      if (!cat) continue;
+
+      if (!categorySummaryMap[tx.category_id]) {
+        categorySummaryMap[tx.category_id] = {
+          category_id: cat.id,
+          category_name: cat.name,
+          type: cat.type,
+          total_amount: 0,
+          transaction_count: 0,
+          transactions: [],
+        };
+      }
+
+      const catSum = categorySummaryMap[tx.category_id];
+      const hydratedTx = this.hydrateTransaction(tx, maps);
+
+      catSum.transactions.push(hydratedTx);
+      catSum.transaction_count += 1;
+      catSum.total_amount = roundAmount(catSum.total_amount + tx.amount);
+
+      if (cat.type === "EXPENSE") {
+        summary.total_expenses = roundAmount(
+          summary.total_expenses + Math.abs(tx.amount),
+        );
+      } else if (cat.type === "INCOME") {
+        summary.total_income = roundAmount(
+          summary.total_income + Math.abs(tx.amount),
+        );
+      }
+    }
+
+    summary.categories = categorySummaryMap;
+    console.log(summary);
+    return summary;
+  }
+
   async getDashboardSummary(): Promise<DashboardData> {
     const db = await this.dbPromise;
+    //TODO: Use the same logic as getMonthTransactionsByCategory
     const transactions = await this._getAll(db, "transactions");
     const accounts = await this._getAll(db, "accounts");
     const categories = await this._getAll(db, "categories");

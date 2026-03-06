@@ -50,7 +50,6 @@ export async function runReActAgent(
         const shouldContinue = (state: typeof MessagesAnnotation.State) => {
           const messages = state.messages;
           const lastMessage = messages[messages.length - 1] as AIMessage;
-          console.log("lastMessage", lastMessage);
 
           if (lastMessage.tool_calls?.length) {
             return "tools";
@@ -81,8 +80,6 @@ export async function runReActAgent(
             ...formattedMessages,
           ],
         });
-
-        console.log("agentState", agentState);
 
         const lastMessage = agentState.messages[agentState.messages.length - 1];
         llmResponse =

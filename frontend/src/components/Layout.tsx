@@ -14,6 +14,7 @@ import { FreeDashboard } from "@/pages/free/FreeDashboard";
 import { FreeTransactionsPage } from "@/pages/free/FreeTransactionsPage";
 import { FreeDebtsPage } from "@/pages/free/FreeDebtsPage";
 import { FreeYearResume } from "@/pages/free/FreeYearResume";
+import { FreeMonthlySummaryPage } from "@/pages/free/FreeMonthlySummaryPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { ModeSelectionPage } from "@/pages/ModeSelectionPage";
@@ -115,6 +116,9 @@ export function Layout() {
               <NavLink to={getPath("/persons")}>Persons</NavLink>
               <NavLink to={getPath("/categories")}>Categories</NavLink>
               <NavLink to={getPath("/accounts")}>Accounts</NavLink>
+              <NavLink to={getPath("/monthly-summary")}>
+                Monthly Summary
+              </NavLink>
               <NavLink to={getPath("/year-resume")}>Year Resume</NavLink>
               <NavLink to={getPath("/chat")}>Assistant</NavLink>
               <NavLink to={getPath("/profile")}>Profile</NavLink>
@@ -148,6 +152,10 @@ export function Layout() {
           <Route path="/free/debts" element={<FreeDebtsPage />} />
           <Route path="/free/categories" element={<CategoriesPage />} />
           <Route path="/free/accounts" element={<AccountsPage />} />
+          <Route
+            path="/free/monthly-summary"
+            element={<FreeMonthlySummaryPage />}
+          />
           <Route path="/free/year-resume" element={<FreeYearResume />} />
           <Route path="/free/chat" element={<ChatPage />} />
           <Route path="/free/profile" element={<ProfilePage />} />

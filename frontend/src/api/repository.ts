@@ -261,6 +261,28 @@ export interface ApiRepository {
   getAllData?(): Promise<any>;
   loadData?(data: any): Promise<void>;
   getMascotMessage?(context: string): Promise<MascotMessage | null>;
+  getMonthTransactionsByCategory?(
+    year: number,
+    month: number,
+  ): Promise<MonthCategorySummary>;
+}
+
+export interface CategorySummary {
+  category_id: string;
+  category_name: string;
+  type: string;
+  total_amount: number;
+  transaction_count: number;
+  transactions: Transaction[];
+}
+
+export interface MonthCategorySummary {
+  month: number;
+  year: number;
+  total_expenses: number;
+  total_income: number;
+  total_transactions: number;
+  categories: Record<string, CategorySummary>;
 }
 
 export interface CreateUserPayload {
