@@ -22,7 +22,9 @@ interface AppState {
   freeData: FreeModeData | null;
   isLoading: boolean;
   error: string | null;
+  isSidebarAnimating: boolean;
 
+  setIsSidebarAnimating: (animating: boolean) => void;
   setFreeData: (data: FreeModeData) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -34,7 +36,10 @@ export const useAppStore = create<AppState>((set) => ({
   freeData: null,
   isLoading: false,
   error: null,
+  isSidebarAnimating: false,
 
+  setIsSidebarAnimating: (animating: boolean) =>
+    set({ isSidebarAnimating: animating }),
   setFreeData: (data: FreeModeData) => set({ freeData: data, error: null }),
   setLoading: (loading: boolean) => set({ isLoading: loading }),
   setError: (error: string | null) => set({ error }),

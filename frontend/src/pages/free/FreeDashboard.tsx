@@ -28,6 +28,7 @@ import { ArrowUpIcon, ArrowDownIcon, Wallet, Scale } from "lucide-react";
 import { DashboardData } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
 import { useMascot } from "@/context/MascotContext";
+import { useAppStore } from "@/store/useAppStore";
 
 function FreeDashboardContent({
   dataPromise,
@@ -39,6 +40,7 @@ function FreeDashboardContent({
   const [generating, setGenerating] = useState(false);
   const api = useApi();
   const { loadMessageByContext } = useMascot();
+  const { isSidebarAnimating } = useAppStore();
 
   useEffect(() => {
     if (Math.random() < 0.3) {
@@ -207,92 +209,112 @@ function FreeDashboardContent({
             </CardDescription>
           </CardHeader>
           <CardContent className="pl-0">
-            <div className="h-[350px] w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart
-                  data={chart_data}
-                  margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient
-                      id="colorIncome"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient
-                      id="colorExpense"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis
-                    dataKey="day"
-                    axisLine={false}
-                    tickLine={false}
-                    tickMargin={10}
-                  />
-                  <YAxis
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(value) => `$${value}`}
-                  />
-                  <CartesianGrid
-                    vertical={false}
-                    strokeDasharray="3 3"
-                    className="stroke-muted/40"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "none",
-                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                    }}
-                  />
-                  <Legend iconType="circle" />
-                  <Area
-                    type="monotone"
-                    dataKey="income"
-                    stroke="#10b981"
-                    fillOpacity={1}
-                    fill="url(#colorIncome)"
-                    name="Income Area"
-                    strokeWidth={2}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="expenses"
-                    stroke="#ef4444"
-                    fillOpacity={1}
-                    fill="url(#colorExpense)"
-                    name="Expenses Area"
-                    strokeWidth={2}
-                  />
-                  <Bar
-                    dataKey="income"
-                    barSize={20}
-                    fill="#10b981"
-                    opacity={0.3}
-                    name="Income Bar"
-                  />
-                  <Bar
-                    dataKey="expenses"
-                    barSize={20}
-                    fill="#ef4444"
-                    opacity={0.3}
-                    name="Expenses Bar"
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
+            <div className="h-[350px] w-full mt-4 transition-all duration-300 delay-150 ease-in-out origin-left">
+              {isSidebarAnimating ? (
+                <div className="w-full h-full bg-muted/20 animate-pulse rounded-md ml-4" />
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart
+                    data={chart_data}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient
+                        id="colorIncome"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#10b981"
+                          stopOpacity={0.8}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#10b981"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                      <linearGradient
+                        id="colorExpense"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="5%"
+                          stopColor="#ef4444"
+                          stopOpacity={0.8}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor="#ef4444"
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="day"
+                      axisLine={false}
+                      tickLine={false}
+                      tickMargin={10}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(value) => `$${value}`}
+                    />
+                    <CartesianGrid
+                      vertical={false}
+                      strokeDasharray="3 3"
+                      className="stroke-muted/40"
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                      }}
+                    />
+                    <Legend iconType="circle" />
+                    <Area
+                      type="monotone"
+                      dataKey="income"
+                      stroke="#10b981"
+                      fillOpacity={1}
+                      fill="url(#colorIncome)"
+                      name="Income Area"
+                      strokeWidth={2}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="expenses"
+                      stroke="#ef4444"
+                      fillOpacity={1}
+                      fill="url(#colorExpense)"
+                      name="Expenses Area"
+                      strokeWidth={2}
+                    />
+                    <Bar
+                      dataKey="income"
+                      barSize={20}
+                      fill="#10b981"
+                      opacity={0.3}
+                      name="Income Bar"
+                    />
+                    <Bar
+                      dataKey="expenses"
+                      barSize={20}
+                      fill="#ef4444"
+                      opacity={0.3}
+                      name="Expenses Bar"
+                    />
+                  </ComposedChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -308,52 +330,56 @@ function FreeDashboardContent({
               <h4 className="text-sm font-medium text-muted-foreground mb-2">
                 This Month
               </h4>
-              <div className="h-[180px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      {
-                        name: "This Month",
-                        income: month_comparison.current.income,
-                        expenses: month_comparison.current.expenses,
-                      },
-                    ]}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      vertical={false}
-                      className="stroke-muted/40"
-                    />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(value) => `$${value}`}
-                    />
-                    <Tooltip
-                      cursor={{ fill: "transparent" }}
-                      contentStyle={{
-                        borderRadius: "8px",
-                        border: "none",
-                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                      }}
-                    />
-                    <Legend />
-                    <Bar
-                      dataKey="income"
-                      name="Income"
-                      fill="#10b981"
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar
-                      dataKey="expenses"
-                      name="Expenses"
-                      fill="#ef4444"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="h-[180px] w-full transition-all duration-300 delay-150 ease-in-out origin-left">
+                {isSidebarAnimating ? (
+                  <div className="w-full h-full bg-muted/20 animate-pulse rounded-md" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          name: "This Month",
+                          income: month_comparison.current.income,
+                          expenses: month_comparison.current.expenses,
+                        },
+                      ]}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        className="stroke-muted/40"
+                      />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(value) => `$${value}`}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "transparent" }}
+                        contentStyle={{
+                          borderRadius: "8px",
+                          border: "none",
+                          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                        }}
+                      />
+                      <Legend />
+                      <Bar
+                        dataKey="income"
+                        name="Income"
+                        fill="#10b981"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="expenses"
+                        name="Expenses"
+                        fill="#ef4444"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
@@ -361,52 +387,56 @@ function FreeDashboardContent({
               <h4 className="text-sm font-medium text-muted-foreground mb-2">
                 Last Month
               </h4>
-              <div className="h-[180px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={[
-                      {
-                        name: "Last Month",
-                        income: month_comparison.last.income,
-                        expenses: month_comparison.last.expenses,
-                      },
-                    ]}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      vertical={false}
-                      className="stroke-muted/40"
-                    />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                    <YAxis
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(value) => `$${value}`}
-                    />
-                    <Tooltip
-                      cursor={{ fill: "transparent" }}
-                      contentStyle={{
-                        borderRadius: "8px",
-                        border: "none",
-                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                      }}
-                    />
-                    <Legend />
-                    <Bar
-                      dataKey="income"
-                      name="Income"
-                      fill="#10b981"
-                      radius={[4, 4, 0, 0]}
-                    />
-                    <Bar
-                      dataKey="expenses"
-                      name="Expenses"
-                      fill="#ef4444"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="h-[180px] w-full transition-all duration-300 delay-150 ease-in-out origin-left">
+                {isSidebarAnimating ? (
+                  <div className="w-full h-full bg-muted/20 animate-pulse rounded-md" />
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={[
+                        {
+                          name: "Last Month",
+                          income: month_comparison.last.income,
+                          expenses: month_comparison.last.expenses,
+                        },
+                      ]}
+                      margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        vertical={false}
+                        className="stroke-muted/40"
+                      />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tickFormatter={(value) => `$${value}`}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "transparent" }}
+                        contentStyle={{
+                          borderRadius: "8px",
+                          border: "none",
+                          boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                        }}
+                      />
+                      <Legend />
+                      <Bar
+                        dataKey="income"
+                        name="Income"
+                        fill="#10b981"
+                        radius={[4, 4, 0, 0]}
+                      />
+                      <Bar
+                        dataKey="expenses"
+                        name="Expenses"
+                        fill="#ef4444"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
           </CardContent>

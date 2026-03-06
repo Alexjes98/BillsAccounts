@@ -132,6 +132,7 @@ export function Layout() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { setIsSidebarAnimating } = useAppStore();
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
     manage: false,
@@ -141,9 +142,17 @@ export function Layout() {
   const toggleGroup = (group: string) => {
     // If collapsed, automatically expand the sidebar so the group items are visible
     if (isCollapsed) {
-      setIsCollapsed(false);
+      handleToggleCollapse();
     }
     setOpenGroups((prev) => ({ ...prev, [group]: !prev[group] }));
+  };
+
+  const handleToggleCollapse = () => {
+    setIsSidebarAnimating(true);
+    setIsCollapsed((prev) => !prev);
+    setTimeout(() => {
+      setIsSidebarAnimating(false);
+    }, 300); // match CSS duration-300
   };
 
   useEffect(() => {
@@ -223,7 +232,7 @@ export function Layout() {
               {/* Expand/Collapse Toggle Desktop */}
               <button
                 className="hidden lg:flex p-2 text-muted-foreground hover:text-foreground rounded-md transition-colors mx-auto"
-                onClick={() => setIsCollapsed(!isCollapsed)}
+                onClick={handleToggleCollapse}
                 title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
               >
                 {isCollapsed ? (

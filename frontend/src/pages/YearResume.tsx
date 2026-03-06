@@ -16,6 +16,7 @@ import {
   Line,
 } from "recharts";
 import { Loader2, RefreshCw } from "lucide-react";
+import { useAppStore } from "@/store/useAppStore";
 
 export function YearResume() {
   const [year, setYear] = useState<number>(new Date().getFullYear());
@@ -23,6 +24,7 @@ export function YearResume() {
   const api = useApi();
   const [loading, setLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
+  const { isSidebarAnimating } = useAppStore();
   const [recalculatingMonth, setRecalculatingMonth] = useState<number | null>(
     null,
   );
@@ -224,41 +226,49 @@ export function YearResume() {
           <CardHeader>
             <CardTitle>Income vs Expenses</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="income" fill="#22c55e" name="Income" />
-                <Bar dataKey="expense" fill="#ef4444" name="Expenses" />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[300px] transition-all duration-300 delay-150 ease-in-out origin-left">
+            {isSidebarAnimating ? (
+              <div className="w-full h-full bg-muted/20 animate-pulse rounded-md" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="income" fill="#22c55e" name="Income" />
+                  <Bar dataKey="expense" fill="#ef4444" name="Expenses" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
         <Card className="col-span-1">
           <CardHeader>
             <CardTitle>Balance Trend</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="balance"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  name="Closing Balance"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[300px] transition-all duration-300 delay-150 ease-in-out origin-left">
+            {isSidebarAnimating ? (
+              <div className="w-full h-full bg-muted/20 animate-pulse rounded-md" />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="balance"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    name="Closing Balance"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
