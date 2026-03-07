@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useMascot } from "@/context/MascotContext";
-import { useNavigate } from "react-router-dom";
 
 import { EyeOff, MessageCircle } from "lucide-react";
+import { ChatInterface } from "./ChatInterface";
 
 export function Mascot() {
   const { isVisible, message, hideMascot, hideMessage } = useMascot(); // Added hideMessage
@@ -10,7 +10,7 @@ export function Mascot() {
   const [animate, setAnimate] = useState(false);
   const [imageSrc, setImageSrc] = useState("/mascot.png");
   const [isFading, setIsFading] = useState(false);
-  const navigate = useNavigate(); // Initialized navigate
+  const [showChat, setShowChat] = useState(false);
 
   const DEFAULT_MASCOT = "/mascot.png";
 
@@ -59,6 +59,20 @@ export function Mascot() {
       className="fixed bottom-4 right-4 z-50 flex flex-col items-end pointer-events-none group"
       style={{ userSelect: "none" }} // Allow clicks on the mascot itself
     >
+      {/* Embedded Chat Widget */}
+      {showChat && (
+        <div
+          className="absolute bottom-32 right-0 w-80 md:w-96 drop-shadow-2xl z-50 origin-bottom-right transition-all duration-300 animate-in fade-in zoom-in-95"
+          style={{ pointerEvents: "auto", userSelect: "auto" }}
+        >
+          <ChatInterface
+            className="h-[450px] border border-border/50 rounded-2xl overflow-hidden bg-background"
+            isWidget={true}
+            onClose={() => setShowChat(false)}
+          />
+        </div>
+      )}
+
       {/* Message Bubble - Only show if message exists */}
       {message && ( // Conditional rendering for message bubble
         <div
@@ -120,7 +134,7 @@ export function Mascot() {
             <EyeOff size={16} />
           </button>
           <button
-            onClick={() => navigate("/chat")}
+            onClick={() => setShowChat(!showChat)}
             className="bg-primary text-primary-foreground text-xs p-2 rounded-full shadow-md hover:bg-primary/90 transition-colors"
           >
             <MessageCircle size={16} />
