@@ -4,12 +4,32 @@ import { MonthCategorySummary } from "@/api/repository";
 import {
   ChevronLeft,
   ChevronRight,
-  PieChart,
+  PieChart as PieChartIcon,
   TrendingUp,
   TrendingDown,
   Receipt,
 } from "lucide-react";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
+
+const COLORS = [
+  "#ef4444",
+  "#f97316",
+  "#f59e0b",
+  "#84cc16",
+  "#22c55e",
+  "#10b981",
+  "#14b8a6",
+  "#06b6d4",
+  "#0ea5e9",
+  "#3b82f6",
+  "#6366f1",
+  "#8b5cf6",
+  "#a855f7",
+  "#d946ef",
+  "#ec4899",
+  "#f43f5e",
+];
 
 export function FreeMonthlySummaryPage() {
   const api = useApi();
@@ -81,10 +101,21 @@ export function FreeMonthlySummaryPage() {
   const expenses = categoriesList.filter((c) => c.type === "EXPENSE");
   const incomes = categoriesList.filter((c) => c.type === "INCOME");
 
+  const expenseChartData = expenses.map((cat) => ({
+    name: cat.category_name,
+    value: Math.abs(cat.total_amount),
+  }));
+
+  const incomeChartData = incomes.map((cat) => ({
+    name: cat.category_name,
+    value: cat.total_amount,
+  }));
+
   const renderCategoryCard = (
     cat: any,
     totalReference: number,
     isExpense: boolean,
+    colorOverride?: string,
   ) => {
     const percentage =
       totalReference > 0 ? (cat.total_amount / totalReference) * 100 : 0;
@@ -100,7 +131,8 @@ export function FreeMonthlySummaryPage() {
             <span className="font-medium text-sm">{cat.category_name}</span>
           </div>
           <span
-            className={`font-semibold ${isExpense ? "text-red-500" : "text-green-500"}`}
+            className={`font-semibold ${!colorOverride ? (isExpense ? "text-red-500" : "text-green-500") : ""}`}
+            style={colorOverride ? { color: colorOverride } : undefined}
           >
             $
             {Math.abs(cat.total_amount).toLocaleString(undefined, {
@@ -117,8 +149,11 @@ export function FreeMonthlySummaryPage() {
 
         <div className="w-full bg-secondary h-2.5 rounded-full overflow-hidden mt-1">
           <div
-            className={`h-full rounded-full transition-all duration-500 ease-out ${isExpense ? "bg-red-500/80" : "bg-green-500/80"}`}
-            style={{ width: `${Math.min(100, percentage)}%` }}
+            className={`h-full rounded-full transition-all duration-500 ease-out ${!colorOverride ? (isExpense ? "bg-red-500/80" : "bg-green-500/80") : ""}`}
+            style={{
+              width: `${Math.min(100, percentage)}%`,
+              backgroundColor: colorOverride,
+            }}
           />
         </div>
       </div>
@@ -206,7 +241,7 @@ export function FreeMonthlySummaryPage() {
             <div className="bg-card rounded-xl p-6 border shadow-sm flex flex-col space-y-2">
               <div className="flex items-center justify-between text-muted-foreground">
                 <span className="text-sm font-medium">Net Balance</span>
-                <PieChart className="h-4 w-4 text-primary" />
+                <PieChartIcon className="h-4 w-4 text-primary" />
               </div>
               <span
                 className={`text-2xl font-bold ${summary.total_income - Math.abs(summary.total_expenses) >= 0 ? "text-primary" : "text-red-500"}`}
@@ -251,13 +286,50 @@ export function FreeMonthlySummaryPage() {
                     No expenses this month.
                   </div>
                 ) : (
-                  expenses.map((cat) =>
-                    renderCategoryCard(
-                      cat,
-                      Math.abs(summary.total_expenses),
-                      true,
-                    ),
-                  )
+                  <>
+                    <div className="h-48 md:h-64 mb-6">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={expenseChartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={2}
+                            dataKey="value"
+                            stroke="none"
+                          >
+                            {expenseChartData.map((_entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={COLORS[index % COLORS.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value: any) =>
+                              `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            }
+                            contentStyle={{
+                              borderRadius: "8px",
+                              border: "1px solid hsl(var(--border))",
+                              backgroundColor: "hsl(var(--card))",
+                              color: "hsl(var(--card-foreground))",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    {expenses.map((cat, index) =>
+                      renderCategoryCard(
+                        cat,
+                        Math.abs(summary.total_expenses),
+                        true,
+                        COLORS[index % COLORS.length],
+                      ),
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -276,9 +348,54 @@ export function FreeMonthlySummaryPage() {
                     No income this month.
                   </div>
                 ) : (
-                  incomes.map((cat) =>
-                    renderCategoryCard(cat, summary.total_income, false),
-                  )
+                  <>
+                    <div className="h-48 md:h-64 mb-6">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={incomeChartData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={80}
+                            paddingAngle={2}
+                            dataKey="value"
+                            stroke="none"
+                          >
+                            {incomeChartData.map((_entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={
+                                  COLORS[
+                                    (index + COLORS.length / 2) % COLORS.length
+                                  ]
+                                }
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            formatter={(value: any) =>
+                              `$${Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                            }
+                            contentStyle={{
+                              borderRadius: "8px",
+                              border: "1px solid hsl(var(--border))",
+                              backgroundColor: "hsl(var(--card))",
+                              color: "hsl(var(--card-foreground))",
+                            }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    {incomes.map((cat, index) =>
+                      renderCategoryCard(
+                        cat,
+                        summary.total_income,
+                        false,
+                        COLORS[(index + COLORS.length / 2) % COLORS.length],
+                      ),
+                    )}
+                  </>
                 )}
               </div>
             </div>
