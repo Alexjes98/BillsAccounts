@@ -1,5 +1,5 @@
 import { LLMProviderType } from "@/context/LLMContext";
-import { Message } from "@/pages/ChatPage";
+import { Message } from "@/hooks/useChat";
 import { StateGraph, MessagesAnnotation } from "@langchain/langgraph/web";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import {
