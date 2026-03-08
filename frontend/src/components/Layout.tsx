@@ -30,6 +30,8 @@ import {
 } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { FreeOnboardingPage } from "@/pages/free/FreeOnboardingPage";
+import { driver } from "driver.js";
+import "driver.js/dist/driver.css";
 import {
   LayoutDashboard,
   ArrowRightLeft,
@@ -58,6 +60,7 @@ function SidebarGroup({
   isOpen,
   onToggle,
   isCollapsed,
+  id,
 }: {
   title: string;
   icon: React.ElementType;
@@ -65,9 +68,10 @@ function SidebarGroup({
   isOpen: boolean;
   onToggle: () => void;
   isCollapsed: boolean;
+  id?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" id={id}>
       <button
         onClick={onToggle}
         className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors hover:bg-accent/50 hover:text-foreground text-muted-foreground w-full cursor-pointer ${isCollapsed ? "justify-center" : "justify-between"}`}
@@ -100,6 +104,7 @@ function SidebarLink({
   onClick,
   isCollapsed,
   title,
+  id,
 }: {
   to: string;
   icon?: React.ElementType;
@@ -107,6 +112,7 @@ function SidebarLink({
   onClick?: () => void;
   isCollapsed?: boolean;
   title?: string;
+  id?: string;
 }) {
   const location = useLocation();
   const isActive = location.pathname === to;
@@ -114,6 +120,7 @@ function SidebarLink({
     <Link
       to={to}
       onClick={onClick}
+      id={id}
       className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${isActive ? "bg-primary/10 text-primary" : "hover:bg-accent/50 hover:text-foreground text-muted-foreground"} ${isCollapsed ? "justify-center" : ""}`}
       title={isCollapsed ? title : undefined}
     >
@@ -138,6 +145,99 @@ export function Layout() {
     manage: false,
     insights: false,
   });
+
+  useEffect(() => {
+    const hasSeenTour = localStorage.getItem("has-seen-tour");
+
+    // Only run the tour if the user is fully logged in and hasn't seen it yet
+    // Skip running on onboarding / mode-selection
+    const path = location.pathname;
+    const isSpecialPage =
+      path === "/mode-selection" || path.includes("/onboarding");
+    const isOnlineLoading = !isOfflineMode && loading;
+    const isReady = !isSpecialPage && !isOnlineLoading && user != null;
+
+    if (!hasSeenTour && isReady) {
+      const driverObj = driver({
+        showProgress: true,
+        steps: [
+          {
+            element: "#tour-dashboard",
+            popover: {
+              title: "Dashboard",
+              description: "Get a quick overview of your finances here.",
+              side: "right",
+              align: "start",
+            },
+          },
+          {
+            element: "#tour-transactions",
+            popover: {
+              title: "Transactions",
+              description: "View and manage all your income and expenses.",
+              side: "right",
+              align: "start",
+            },
+          },
+          {
+            element: "#tour-manage",
+            popover: {
+              title: "Manage",
+              description:
+                "Organize your accounts, categories, and people here.",
+              side: "right",
+              align: "start",
+            },
+          },
+          {
+            element: "#tour-insights",
+            popover: {
+              title: "Insights",
+              description:
+                "Analyze your financial trends and summaries over time.",
+              side: "right",
+              align: "start",
+            },
+          },
+          {
+            element: "#tour-assistant",
+            popover: {
+              title: "Assistant",
+              description:
+                "Chat with your AI financial assistant for personalized help.",
+              side: "right",
+              align: "start",
+            },
+          },
+          {
+            element: "#tour-profile",
+            popover: {
+              title: "Profile",
+              description: "Manage your settings and preferences.",
+              side: "right",
+              align: "start",
+            },
+          },
+        ],
+        onDestroyStarted: () => {
+          if (
+            !driverObj.hasNextStep() ||
+            confirm("Are you sure you want to skip the tour?")
+          ) {
+            localStorage.setItem("has-seen-tour", "true");
+            driverObj.destroy();
+          }
+        },
+      });
+
+      // Small delay to ensure DOM is ready and sidebar is rendered
+      const timer = setTimeout(() => {
+        driverObj.drive();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [loading, user, isOfflineMode, location.pathname]);
 
   const toggleGroup = (group: string) => {
     // If collapsed, automatically expand the sidebar so the group items are visible
@@ -257,6 +357,7 @@ export function Layout() {
                 onClick={() => setIsSidebarOpen(false)}
                 isCollapsed={isCollapsed}
                 title="Dashboard"
+                id="tour-dashboard"
               >
                 Dashboard
               </SidebarLink>
@@ -266,6 +367,7 @@ export function Layout() {
                 onClick={() => setIsSidebarOpen(false)}
                 isCollapsed={isCollapsed}
                 title="Transactions"
+                id="tour-transactions"
               >
                 Transactions
               </SidebarLink>
@@ -285,6 +387,7 @@ export function Layout() {
                 isOpen={openGroups.manage}
                 onToggle={() => toggleGroup("manage")}
                 isCollapsed={isCollapsed}
+                id="tour-manage"
               >
                 <SidebarLink
                   to={getPath("/accounts")}
@@ -315,6 +418,7 @@ export function Layout() {
                 isOpen={openGroups.insights}
                 onToggle={() => toggleGroup("insights")}
                 isCollapsed={isCollapsed}
+                id="tour-insights"
               >
                 <SidebarLink
                   to={getPath("/monthly-summary")}
@@ -338,6 +442,7 @@ export function Layout() {
                 onClick={() => setIsSidebarOpen(false)}
                 isCollapsed={isCollapsed}
                 title="Assistant"
+                id="tour-assistant"
               >
                 Assistant
               </SidebarLink>
@@ -350,6 +455,7 @@ export function Layout() {
                 onClick={() => setIsSidebarOpen(false)}
                 isCollapsed={isCollapsed}
                 title="Profile"
+                id="tour-profile"
               >
                 {!isCollapsed && (
                   <div className="flex flex-col gap-1 items-start whitespace-nowrap w-full overflow-hidden">
