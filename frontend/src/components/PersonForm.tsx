@@ -3,6 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CreatePersonPayload, Person } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
+import { z } from "zod";
+
+const personSchema = z.object({
+  name: z.string().min(1, "Name is required."),
+  contactInfo: z.string().optional(),
+});
+
+type PersonFormData = z.infer<typeof personSchema>;
 
 export function PersonForm({
   onSuccess,
@@ -13,10 +21,10 @@ export function PersonForm({
   onCancel: () => void;
   initialData?: Person;
 }) {
-  const [name, setName] = useState(initialData?.name || "");
-  const [contactInfo, setContactInfo] = useState(
-    initialData?.contact_info || "",
-  );
+  const [formData, setFormData] = useState<PersonFormData>({
+    name: initialData?.name || "",
+    contactInfo: initialData?.contact_info || "",
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const api = useApi();
@@ -26,16 +34,17 @@ export function PersonForm({
     setError(null);
     setIsSubmitting(true);
 
-    if (!name) {
-      setError("Name is required.");
+    const validation = personSchema.safeParse(formData);
+    if (!validation.success) {
+      setError(validation.error.issues[0].message);
       setIsSubmitting(false);
       return;
     }
 
     try {
       const payload: CreatePersonPayload = {
-        name,
-        contact_info: contactInfo || undefined,
+        name: formData.name,
+        contact_info: formData.contactInfo || undefined,
       };
 
       if (initialData) {
@@ -66,8 +75,8 @@ export function PersonForm({
         </label>
         <Input
           id="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="e.g. John Doe"
           required
         />
@@ -79,8 +88,10 @@ export function PersonForm({
         </label>
         <Input
           id="contactInfo"
-          value={contactInfo}
-          onChange={(e) => setContactInfo(e.target.value)}
+          value={formData.contactInfo}
+          onChange={(e) =>
+            setFormData({ ...formData, contactInfo: e.target.value })
+          }
           placeholder="e.g. email@example.com or +123456789"
         />
       </div>

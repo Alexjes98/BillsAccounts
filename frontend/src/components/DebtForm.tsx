@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Person, CreateDebtPayload, Category, Account } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
 import { useUser } from "@/context/UserContext";
+import { z } from "zod";
 
 interface DebtFormProps {
   onSuccess: () => void;
@@ -12,25 +13,60 @@ interface DebtFormProps {
 
 type DebtType = "DELAYED_PAYMENT" | "PASSIVE_DEBT" | "LOAN";
 
+const debtSchema = z
+  .object({
+    activeTab: z.enum(["DELAYED_PAYMENT", "PASSIVE_DEBT", "LOAN"]),
+    description: z.string().optional(),
+    amount: z.string().min(1, "Amount is required"),
+    dueDate: z.string().optional(),
+    selectedPersonId: z.string().min(1, "Person is required"),
+    selectedCategoryId: z.string().optional(),
+    selectedAccountId: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.activeTab === "DELAYED_PAYMENT" && !data.selectedCategoryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Category is required for Delayed Payment.",
+        path: ["selectedCategoryId"],
+      });
+    }
+    if (data.activeTab === "PASSIVE_DEBT" && !data.selectedCategoryId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Expense Category is required for Passive Debt.",
+        path: ["selectedCategoryId"],
+      });
+    }
+    if (data.activeTab === "LOAN" && !data.selectedAccountId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Source Account is required for Loan.",
+        path: ["selectedAccountId"],
+      });
+    }
+  });
+
+type DebtFormData = z.infer<typeof debtSchema>;
+
 export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
   const { user } = useUser();
   const api = useApi();
-  const [activeTab, setActiveTab] = useState<DebtType>("DELAYED_PAYMENT");
+
+  const [formData, setFormData] = useState<DebtFormData>({
+    activeTab: "DELAYED_PAYMENT",
+    description: "",
+    amount: "",
+    dueDate: new Date().toISOString().split("T")[0],
+    selectedPersonId: "",
+    selectedCategoryId: "",
+    selectedAccountId: "",
+  });
 
   const [persons, setPersons] = useState<Person[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
-
-  // Form State
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [dueDate, setDueDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
-  const [selectedPersonId, setSelectedPersonId] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState("");
-  const [selectedAccountId, setSelectedAccountId] = useState("");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,26 +98,9 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
     setError(null);
     setIsSubmitting(true);
 
-    if (!amount || !selectedPersonId) {
-      setError("Please fill in required fields.");
-      setIsSubmitting(false);
-      return;
-    }
-
-    // Type Specific Validation
-    if (activeTab === "DELAYED_PAYMENT" && !selectedCategoryId) {
-      setError("Category is required for Delayed Payment.");
-      setIsSubmitting(false);
-      return;
-    }
-    if (activeTab === "PASSIVE_DEBT" && !selectedCategoryId) {
-      // Enforce category for Passive Debt (Expense Tracking)
-      setError("Expense Category is required for Passive Debt.");
-      setIsSubmitting(false);
-      return;
-    }
-    if (activeTab === "LOAN" && !selectedAccountId) {
-      setError("Source Account is required for Loan.");
+    const validation = debtSchema.safeParse(formData);
+    if (!validation.success) {
+      setError(validation.error.issues[0].message);
       setIsSubmitting(false);
       return;
     }
@@ -90,33 +109,29 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
     let creditor_id = "";
     let debtor_id = "";
 
-    if (activeTab === "DELAYED_PAYMENT") {
-      // Income that person owes user.
-      // User is Creditor. Person is Debtor.
-      creditor_id = user?.person_id || "local-user"; // Fallback if no user person
-      debtor_id = selectedPersonId;
-    } else if (activeTab === "PASSIVE_DEBT") {
-      // User owes Person.
-      // User is Debtor. Person is Creditor.
-      creditor_id = selectedPersonId;
-      debtor_id = user?.person_id || "local-user";
-    } else if (activeTab === "LOAN") {
-      // User gave money.
-      // User is Creditor. Person is Debtor.
+    if (formData.activeTab === "DELAYED_PAYMENT") {
       creditor_id = user?.person_id || "local-user";
-      debtor_id = selectedPersonId;
+      debtor_id = formData.selectedPersonId;
+    } else if (formData.activeTab === "PASSIVE_DEBT") {
+      creditor_id = formData.selectedPersonId;
+      debtor_id = user?.person_id || "local-user";
+    } else if (formData.activeTab === "LOAN") {
+      creditor_id = user?.person_id || "local-user";
+      debtor_id = formData.selectedPersonId;
     }
 
     try {
       const payload: CreateDebtPayload = {
         creditor_id,
         debtor_id,
-        total_amount: parseFloat(amount),
-        description: description || undefined,
-        due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
-        type: activeTab,
-        category_id: selectedCategoryId || undefined,
-        account_id: selectedAccountId || undefined,
+        total_amount: parseFloat(formData.amount),
+        description: formData.description || undefined,
+        due_date: formData.dueDate
+          ? new Date(formData.dueDate).toISOString()
+          : undefined,
+        type: formData.activeTab,
+        category_id: formData.selectedCategoryId || undefined,
+        account_id: formData.selectedAccountId || undefined,
       };
 
       await api.createDebt(payload);
@@ -153,10 +168,18 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
       <div className="flex space-x-1 rounded-lg bg-muted p-1">
         {tabs.map((tab) => (
           <button
+            type="button"
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() =>
+              setFormData({
+                ...formData,
+                activeTab: tab.id,
+                selectedCategoryId: "",
+                selectedAccountId: "",
+              })
+            }
             className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-all ${
-              activeTab === tab.id
+              formData.activeTab === tab.id
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:bg-background/50"
             }`}
@@ -167,7 +190,7 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
       </div>
 
       <p className="text-sm text-muted-foreground px-1">
-        {tabs.find((t) => t.id === activeTab)?.desc}
+        {tabs.find((t) => t.id === formData.activeTab)?.desc}
       </p>
 
       <form
@@ -185,8 +208,10 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
           <label className="text-sm font-medium">Person *</label>
           <select
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={selectedPersonId}
-            onChange={(e) => setSelectedPersonId(e.target.value)}
+            value={formData.selectedPersonId}
+            onChange={(e) =>
+              setFormData({ ...formData, selectedPersonId: e.target.value })
+            }
             disabled={isLoadingData}
             required
           >
@@ -205,8 +230,10 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
         <div className="space-y-2">
           <label className="text-sm font-medium">Description</label>
           <Input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            value={formData.description}
+            onChange={(e) =>
+              setFormData({ ...formData, description: e.target.value })
+            }
             placeholder="e.g. Dinner, Project X"
           />
         </div>
@@ -216,8 +243,10 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
           <Input
             type="number"
             step="0.01"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+            value={formData.amount}
+            onChange={(e) =>
+              setFormData({ ...formData, amount: e.target.value })
+            }
             placeholder="0.00"
             required
           />
@@ -227,29 +256,34 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
           <label className="text-sm font-medium">Due Date</label>
           <Input
             type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
+            value={formData.dueDate}
+            onChange={(e) =>
+              setFormData({ ...formData, dueDate: e.target.value })
+            }
           />
         </div>
 
         {/* Conditional Fields */}
-        {(activeTab === "DELAYED_PAYMENT" || activeTab === "PASSIVE_DEBT") && (
+        {(formData.activeTab === "DELAYED_PAYMENT" ||
+          formData.activeTab === "PASSIVE_DEBT") && (
           <div className="space-y-2">
             <label className="text-sm font-medium">
-              {activeTab === "DELAYED_PAYMENT"
+              {formData.activeTab === "DELAYED_PAYMENT"
                 ? "Income Category *"
                 : "Expense Category *"}
             </label>
             <select
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={selectedCategoryId}
-              onChange={(e) => setSelectedCategoryId(e.target.value)}
+              value={formData.selectedCategoryId}
+              onChange={(e) =>
+                setFormData({ ...formData, selectedCategoryId: e.target.value })
+              }
               required
             >
               <option value="">Select Category</option>
               {categories
                 .filter((c) =>
-                  activeTab === "DELAYED_PAYMENT"
+                  formData.activeTab === "DELAYED_PAYMENT"
                     ? c.type === "INCOME"
                     : c.type === "EXPENSE",
                 )
@@ -262,29 +296,25 @@ export function DebtForm({ onSuccess, onCancel }: DebtFormProps) {
           </div>
         )}
 
-        {activeTab === "LOAN" && (
+        {formData.activeTab === "LOAN" && (
           <div className="space-y-2">
             <label className="text-sm font-medium">
               Source Account (Equity) *
             </label>
             <select
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={selectedAccountId}
-              onChange={(e) => setSelectedAccountId(e.target.value)}
+              value={formData.selectedAccountId}
+              onChange={(e) =>
+                setFormData({ ...formData, selectedAccountId: e.target.value })
+              }
               required
             >
               <option value="">Select Account</option>
-              {accounts
-                // .filter(a => a.classification === "EQUITY" || a.type === "ASSET") // Assuming user pays from Asset or Equity
-                // Prompt said "User Equity Account".
-                // But mostly users pay from "Bank" (Asset).
-                // I'll allow All Accounts to be safe, or filter if 'classification' is strictly used.
-                // I'll show all accounts for flexibility.
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name} (${a.current_balance})
-                  </option>
-                ))}
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} (${a.current_balance})
+                </option>
+              ))}
             </select>
           </div>
         )}

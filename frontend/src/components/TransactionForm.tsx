@@ -11,12 +11,25 @@ import {
 import { useApi } from "@/contexts/ApiContext";
 import { useUser } from "@/context/UserContext";
 import { CategorySelector } from "@/components/CategorySelector";
+import { z } from "zod";
 
 interface TransactionFormProps {
   initialData?: Transaction;
   onSuccess: () => void;
   onCancel: () => void;
 }
+
+const transactionSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  description: z.string().optional(),
+  amount: z.string().min(1, "Amount is required"),
+  date: z.string().min(1, "Date is required"),
+  categoryId: z.string().min(1, "Category is required"),
+  accountId: z.string().optional(),
+  savingsGoalId: z.string().optional(),
+});
+
+type TransactionFormData = z.infer<typeof transactionSchema>;
 
 export function TransactionForm({
   initialData,
@@ -25,26 +38,26 @@ export function TransactionForm({
 }: TransactionFormProps) {
   const { user } = useUser();
   const api = useApi();
+
+  const [formData, setFormData] = useState<TransactionFormData>({
+    name: "",
+    description: "",
+    amount: "",
+    date: new Date().toLocaleDateString("en-CA"),
+    categoryId: "",
+    accountId: "default-account-id",
+    savingsGoalId: "",
+  });
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
-
   const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
   const [isLoadingSavingsGoals, setIsLoadingSavingsGoals] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Form State
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState(""); // keeping as string for input
-  const [date, setDate] = useState(new Date().toLocaleDateString("en-CA"));
-  const [categoryId, setCategoryId] = useState("");
-  const [accountId, setAccountId] = useState("default-account-id"); // Placeholder
-
-  const [savingsGoalId, setSavingsGoalId] = useState("");
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -53,7 +66,7 @@ export function TransactionForm({
         const data = await api.getCategories();
         setCategories(data);
         if (data.length > 0 && !initialData) {
-          setCategoryId(data[0].id);
+          setFormData((prev) => ({ ...prev, categoryId: data[0].id }));
         }
       } catch (err) {
         console.error("Failed to load categories", err);
@@ -65,14 +78,13 @@ export function TransactionForm({
     const fetchAccounts = async () => {
       setIsLoadingAccounts(true);
       try {
-        //TODO: Modify this to filter in the function not the frontend
         const data = await api.getAccounts();
         const equityAccounts = data.filter(
           (acc) => acc.classification === "EQUITY",
         );
         setAccounts(equityAccounts);
         if (equityAccounts.length > 0 && !initialData) {
-          setAccountId(equityAccounts[0].id);
+          setFormData((prev) => ({ ...prev, accountId: equityAccounts[0].id }));
         }
       } catch (err) {
         console.error("Failed to load accounts", err);
@@ -96,27 +108,22 @@ export function TransactionForm({
     };
     fetchCategories();
     fetchAccounts();
-
     fetchSavingsGoals();
-  }, []);
+  }, [api, initialData]);
 
-  // Populate form if initialData is provided
   useEffect(() => {
     if (initialData) {
-      setName(initialData.name);
-      setDescription("");
-
-      const desc = (initialData as any).description || "";
-      setDescription(desc);
-
-      setAmount(initialData.amount.toString());
-      setDate(
-        new Date(initialData.transaction_date).toISOString().split("T")[0],
-      );
-      setCategoryId(initialData.category_id);
-      setAccountId(initialData.account_id || "default-account-id");
-
-      setSavingsGoalId(initialData.savings_goal_id || "");
+      setFormData({
+        name: initialData.name,
+        description: (initialData as any).description || "",
+        amount: initialData.amount.toString(),
+        date: new Date(initialData.transaction_date)
+          .toISOString()
+          .split("T")[0],
+        categoryId: initialData.category_id,
+        accountId: initialData.account_id || "default-account-id",
+        savingsGoalId: initialData.savings_goal_id || "",
+      });
     }
   }, [initialData]);
 
@@ -128,16 +135,14 @@ export function TransactionForm({
       const newCategory = await api.createCategory({
         name,
         type,
-        icon: type === "INCOME" ? "💰" : "💸", // Default icons
-        color: type === "INCOME" ? "green" : "red", // Default colors
+        icon: type === "INCOME" ? "💰" : "💸",
+        color: type === "INCOME" ? "green" : "red",
       });
       setCategories((prev) => [...prev, newCategory]);
-      setCategoryId(newCategory.id);
+      setFormData((prev) => ({ ...prev, categoryId: newCategory.id }));
     } catch (error) {
       console.error("Failed to create category", error);
-      // Optional: set error state if you want to show it in the form error block
-      // setError("Failed to create category");
-      throw error; // Re-throw so CategorySelector knows it failed
+      throw error;
     }
   };
 
@@ -146,8 +151,9 @@ export function TransactionForm({
     setError(null);
     setIsSubmitting(true);
 
-    if (!name || !amount || !categoryId || !date) {
-      setError("Please fill in all required fields.");
+    const validation = transactionSchema.safeParse(formData);
+    if (!validation.success) {
+      setError(validation.error.issues[0].message);
       setIsSubmitting(false);
       return;
     }
@@ -158,18 +164,18 @@ export function TransactionForm({
       return;
     }
 
-    // Debt Validation Logic
-
     try {
       const payload: CreateTransactionPayload = {
-        name,
-        description: description || undefined,
-        amount: parseFloat(amount),
-        transaction_date: new Date(`${date}T12:00:00`).toISOString(),
-        category_id: categoryId,
-        account_id: accountId === "default-account-id" ? null : accountId, // Handle placeholder logic
-
-        savings_goal_id: savingsGoalId || null,
+        name: formData.name,
+        description: formData.description || undefined,
+        amount: parseFloat(formData.amount),
+        transaction_date: new Date(`${formData.date}T12:00:00`).toISOString(),
+        category_id: formData.categoryId,
+        account_id:
+          formData.accountId === "default-account-id"
+            ? null
+            : formData.accountId,
+        savings_goal_id: formData.savingsGoalId || null,
         person_id: user?.person_id || "",
       };
 
@@ -201,8 +207,8 @@ export function TransactionForm({
         </label>
         <Input
           id="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="e.g. Grocery Shopping"
           required
         />
@@ -216,11 +222,11 @@ export function TransactionForm({
           id="amount"
           type="number"
           step="0.01"
-          value={amount}
+          value={formData.amount}
           onChange={(e) => {
             const val = e.target.value;
             if (val === "" || parseFloat(val) <= 1000000000) {
-              setAmount(val);
+              setFormData({ ...formData, amount: val });
             }
           }}
           onKeyDown={(e) => {
@@ -240,8 +246,8 @@ export function TransactionForm({
         <Input
           id="date"
           type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
+          value={formData.date}
+          onChange={(e) => setFormData({ ...formData, date: e.target.value })}
           required
         />
       </div>
@@ -252,8 +258,8 @@ export function TransactionForm({
         </label>
         <CategorySelector
           categories={categories}
-          value={categoryId}
-          onChange={setCategoryId}
+          value={formData.categoryId}
+          onChange={(val) => setFormData({ ...formData, categoryId: val })}
           onCreate={handleCreateCategory}
         />
       </div>
@@ -264,13 +270,14 @@ export function TransactionForm({
         </label>
         <Input
           id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          value={formData.description}
+          onChange={(e) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
           placeholder="Optional notes"
         />
       </div>
 
-      {/* Placeholders for other relationships */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
           <label
@@ -282,8 +289,10 @@ export function TransactionForm({
           <select
             autoComplete="off"
             id="account"
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
+            value={formData.accountId}
+            onChange={(e) =>
+              setFormData({ ...formData, accountId: e.target.value })
+            }
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
           >
             {isLoadingAccounts ? (
@@ -308,8 +317,10 @@ export function TransactionForm({
           <select
             autoComplete="off"
             id="savings"
-            value={savingsGoalId}
-            onChange={(e) => setSavingsGoalId(e.target.value)}
+            value={formData.savingsGoalId}
+            onChange={(e) =>
+              setFormData({ ...formData, savingsGoalId: e.target.value })
+            }
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground"
           >
             <option value="">None</option>

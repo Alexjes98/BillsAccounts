@@ -5,6 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Category, CategoryCreate } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
 import EmojiPicker from "emoji-picker-react";
+import { z } from "zod";
+
+const categorySchema = z.object({
+  name: z.string().min(1, "Name is required."),
+  type: z.enum(["EXPENSE", "INCOME"]),
+  icon: z.string().optional(),
+  color: z.string().optional(),
+});
+
+type CategoryFormData = z.infer<typeof categorySchema>;
 
 interface CategoryFormProps {
   onSuccess: () => void;
@@ -17,10 +27,12 @@ export function CategoryForm({
   onCancel,
   category,
 }: CategoryFormProps) {
-  const [name, setName] = useState("");
-  const [type, setType] = useState("EXPENSE");
-  const [icon, setIcon] = useState("");
-  const [color, setColor] = useState("#e5e7eb");
+  const [formData, setFormData] = useState<CategoryFormData>({
+    name: "",
+    type: "EXPENSE",
+    icon: "",
+    color: "#e5e7eb",
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -30,10 +42,12 @@ export function CategoryForm({
 
   useEffect(() => {
     if (category) {
-      setName(category.name);
-      setType(category.type);
-      setIcon(category.icon || "");
-      setColor(category.color || "#e5e7eb");
+      setFormData({
+        name: category.name,
+        type: category.type as "EXPENSE" | "INCOME",
+        icon: category.icon || "",
+        color: category.color || "#e5e7eb",
+      });
     }
   }, [category]);
 
@@ -42,18 +56,19 @@ export function CategoryForm({
     setError(null);
     setIsSubmitting(true);
 
-    if (!name) {
-      setError("Name is required.");
+    const validation = categorySchema.safeParse(formData);
+    if (!validation.success) {
+      setError(validation.error.issues[0].message);
       setIsSubmitting(false);
       return;
     }
 
     try {
       const payload: CategoryCreate = {
-        name,
-        type,
-        icon: icon || undefined,
-        color: color || undefined,
+        name: formData.name,
+        type: formData.type,
+        icon: formData.icon || undefined,
+        color: formData.color || undefined,
       };
 
       if (category) {
@@ -87,8 +102,8 @@ export function CategoryForm({
         </label>
         <Input
           id="name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           placeholder="e.g. Groceries"
           required
         />
@@ -101,8 +116,13 @@ export function CategoryForm({
         <select
           autoComplete="off"
           id="type"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
+          value={formData.type}
+          onChange={(e) =>
+            setFormData({
+              ...formData,
+              type: e.target.value as "EXPENSE" | "INCOME",
+            })
+          }
           disabled={!!category}
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50"
         >
@@ -133,7 +153,7 @@ export function CategoryForm({
                 setShowEmojiPicker(!showEmojiPicker);
               }}
             >
-              {icon || "😀"}
+              {formData.icon || "😀"}
             </Button>
           </div>
           {showEmojiPicker &&
@@ -153,7 +173,7 @@ export function CategoryForm({
                 >
                   <EmojiPicker
                     onEmojiClick={(emojiObject) => {
-                      setIcon(emojiObject.emoji);
+                      setFormData({ ...formData, icon: emojiObject.emoji });
                       setShowEmojiPicker(false);
                     }}
                   />
@@ -171,13 +191,17 @@ export function CategoryForm({
             <Input
               id="color"
               type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
+              value={formData.color}
+              onChange={(e) =>
+                setFormData({ ...formData, color: e.target.value })
+              }
               className="h-10 w-12 p-1 cursor-pointer flex-none"
             />
             <Input
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
+              value={formData.color}
+              onChange={(e) =>
+                setFormData({ ...formData, color: e.target.value })
+              }
               className="flex-1"
               placeholder="#RRGGBB"
             />

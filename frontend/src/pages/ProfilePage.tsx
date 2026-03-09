@@ -13,7 +13,7 @@ import { Download } from "lucide-react";
 import { useLocation } from "react-router-dom";
 
 export function ProfilePage() {
-  const { user, loading } = useUser();
+  const { user, loading, refreshUser } = useUser();
   const api = useApi();
   const location = useLocation();
   const isOffline = location.pathname.includes("/free");
@@ -45,6 +45,14 @@ export function ProfilePage() {
 
     try {
       setDownloading(true);
+      if (api.updateUser && dbUser) {
+        await api.updateUser(dbUser.id, {
+          lastBackupDate: new Date().toISOString(),
+        });
+        if (refreshUser) {
+          await refreshUser();
+        }
+      }
       const data = await api.getAllData();
       const blob = new Blob([JSON.stringify(data, null, 2)], {
         type: "application/json",
@@ -100,6 +108,36 @@ export function ProfilePage() {
     }
   };
 
+  const getLastBackupText = () => {
+    if (!dbUser?.lastBackupDate) {
+      return (
+        <span className="text-muted-foreground text-sm">
+          No backup recorded
+        </span>
+      );
+    }
+    const lastBackup = new Date(dbUser.lastBackupDate);
+    const today = new Date();
+    // Use setHours(0,0,0,0) to compare calendar days
+    today.setHours(0, 0, 0, 0);
+    lastBackup.setHours(0, 0, 0, 0);
+    const diffTime = Math.abs(today.getTime() - lastBackup.getTime());
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 15) {
+      return (
+        <span className="text-red-500 font-medium text-sm">
+          {diffDays} days without a backup
+        </span>
+      );
+    }
+    return (
+      <span className="text-muted-foreground text-sm">
+        {diffDays} days without a backup
+      </span>
+    );
+  };
+
   if (loading) {
     return <div className="p-4">Loading profile...</div>;
   }
@@ -153,14 +191,17 @@ export function ProfilePage() {
                   Download a copy of your local data in JSON format. This file
                   includes all your transactions, debts, and settings.
                 </p>
-                <Button
-                  onClick={handleDownload}
-                  disabled={downloading}
-                  className="w-fit"
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  {downloading ? "Exporting..." : "Download Data (JSON)"}
-                </Button>
+                <div className="flex items-center gap-4">
+                  <Button
+                    onClick={handleDownload}
+                    disabled={downloading}
+                    className="w-fit"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    {downloading ? "Exporting..." : "Download Data (JSON)"}
+                  </Button>
+                  {getLastBackupText()}
+                </div>
               </div>
             ) : (
               <div className="text-sm text-muted-foreground">

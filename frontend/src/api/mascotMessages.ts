@@ -62,6 +62,12 @@ export const FALLBACK_MESSAGES: MascotMessage[] = [
     type: "info",
   },
   {
+    id: "generic-3",
+    text: "Remember to backup your data from time to time. You can do it in your profile settings.",
+    context: "generic",
+    type: "info",
+  },
+  {
     id: "offline-1",
     text: "You seem to be offline. Don't worry, you can still add transactions!",
     context: "offline",

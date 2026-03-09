@@ -289,6 +289,7 @@ export interface CreateUserPayload {
   name: string;
   email?: string;
   base_currency: string;
+  lastBackupDate?: string;
 }
 
 export interface User {
@@ -298,6 +299,7 @@ export interface User {
   base_currency: string;
   person_id?: string;
   created_at: string;
+  lastBackupDate?: string;
   person?: {
     name: string;
     contact_info?: string;

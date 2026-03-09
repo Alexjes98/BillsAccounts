@@ -1803,6 +1803,8 @@ export class IndexedDbRepository implements ApiRepository {
     if (data.name !== undefined) user.name = data.name;
     if (data.base_currency !== undefined)
       user.base_currency = data.base_currency;
+    if (data.lastBackupDate !== undefined)
+      user.lastBackupDate = data.lastBackupDate;
 
     await this._put(db, "user", user);
 
