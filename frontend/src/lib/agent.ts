@@ -8,17 +8,31 @@ import {
   SystemMessage,
 } from "@langchain/core/messages";
 import { llmFactory } from "./LLMFactory";
-import { createSearchMovementsTool, createGetCategoriesTool } from "./tools";
+import {
+  createSearchMovementsTool,
+  createGetCategoriesTool,
+  createGetAppInfoTool,
+  createGetMonthCategorySummaryTool,
+} from "./tools";
 
-const getSystemPrompt = (toolName: string, categoryToolName: string) =>
-  `
+const getSystemPrompt = (tools: string[]) => {
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+
+  return `
 You are a financial AI agent.
+The current date is ${currentDate}.
 You have tools available to search the local database for financial transactions.
-You have access to the following tools: ${toolName}, ${categoryToolName}.
-Those allow you to search for financial transactions and fetch category mappings. Use them to answer the user's question the best you can.
+You have access to the following tools: ${tools.join(", ")}.
+These tools allow you to search for financial transactions, fetch category mappings, and get app information. Use them to answer the user's question the best you can.
 If you don't have the answer, say so.
 Always be helpful, concise, and provide financial insights when possible.
 `.trim();
+};
 
 export async function runReActAgent(
   provider: LLMProviderType,
@@ -38,7 +52,14 @@ export async function runReActAgent(
 
         const searchMovementsTool = createSearchMovementsTool();
         const getCategoriesTool = createGetCategoriesTool();
-        const tools = [searchMovementsTool, getCategoriesTool];
+        const getAppInfo = createGetAppInfoTool();
+        const getMonthCategorySummaryTool = createGetMonthCategorySummaryTool();
+        const tools = [
+          searchMovementsTool,
+          getCategoriesTool,
+          getAppInfo,
+          getMonthCategorySummaryTool,
+        ];
         const toolNode = new ToolNode(tools);
 
         const callModel = async (state: typeof MessagesAnnotation.State) => {
@@ -75,7 +96,12 @@ export async function runReActAgent(
         const agentState = await app.invoke({
           messages: [
             new SystemMessage(
-              getSystemPrompt(searchMovementsTool.name, getCategoriesTool.name),
+              getSystemPrompt([
+                searchMovementsTool.name,
+                getCategoriesTool.name,
+                getAppInfo.name,
+                getMonthCategorySummaryTool.name,
+              ]),
             ),
             ...formattedMessages,
           ],

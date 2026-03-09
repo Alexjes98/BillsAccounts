@@ -104,3 +104,56 @@ export const createGetAppInfoTool = () => {
     },
   );
 };
+
+export const createGetMonthCategorySummaryTool = () => {
+  return tool(
+    async ({ year, month }) => {
+      try {
+        const repo = IndexedDbRepository.getInstance();
+        const summary = await repo.getMonthTransactionsByCategory(year, month);
+
+        const mappedCategories: Record<string, any> = {};
+        for (const [catId, catData] of Object.entries(summary.categories)) {
+          mappedCategories[catId] = {
+            category_name: catData.category_name,
+            total_amount: catData.total_amount,
+            transaction_count: catData.transaction_count,
+            transactions: catData.transactions.slice(0, 50).map((t) => ({
+              name: t.name,
+              description: t.description,
+              amount: t.amount,
+              category_name: t.category?.name || catData.category_name,
+            })),
+          };
+        }
+
+        const mappedSummary = {
+          month: summary.month,
+          year: summary.year,
+          total_expenses: summary.total_expenses,
+          total_income: summary.total_income,
+          total_transactions: summary.total_transactions,
+          categories: mappedCategories,
+        };
+
+        return JSON.stringify(mappedSummary);
+      } catch (error) {
+        console.error("Error fetching month category summary:", error);
+        return "Failed to fetch month category summary. Please try again.";
+      }
+    },
+    {
+      name: "get_month_category_summary",
+      description:
+        "Get a summary of transactions for a specific month grouped by category. Use this to answer questions like 'What are my most common transactions this month?' or to analyze monthly spending/income patterns.",
+      schema: z.object({
+        year: z
+          .number()
+          .describe("The year to retrieve the summary for (e.g., 2024)."),
+        month: z
+          .number()
+          .describe("The month to retrieve the summary for (1-12)."),
+      }),
+    },
+  );
+};
