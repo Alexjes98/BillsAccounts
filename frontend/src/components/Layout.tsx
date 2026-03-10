@@ -17,7 +17,7 @@ import { FreeYearResume } from "@/pages/free/FreeYearResume";
 import { FreeMonthlySummaryPage } from "@/pages/free/FreeMonthlySummaryPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { ProfilePage } from "@/pages/ProfilePage";
-import { ModeSelectionPage } from "@/pages/ModeSelectionPage";
+
 
 import { useAppStore } from "@/store/useAppStore";
 import { useUser } from "@/context/UserContext";
@@ -266,31 +266,22 @@ export function Layout() {
     // Allow RootRedirector to handle the root path
     if (path === "/") return;
 
-    if (isOfflineMode) {
-      // Offline Mode Logic
-      if (!user) {
-        // No user found in IndexedDB -> Go to Onboarding
-        if (path !== "/free/onboarding") {
-          navigate("/free/onboarding");
-        }
-      } else {
-        // User found -> Go to Dashboard (if currently on onboarding)
-        if (path === "/free/onboarding") {
-          navigate("/free/dashboard");
-        }
+    // Force offline mode for all other routes
+    if (!isOfflineMode) {
+      navigate("/free/dashboard", { replace: true });
+      return;
+    }
+
+    // Offline Mode Logic
+    if (!user) {
+      // No user found in IndexedDB -> Go to Onboarding
+      if (path !== "/free/onboarding") {
+        navigate("/free/onboarding");
       }
     } else {
-      // Online Mode Logic
-      if (!user) {
-        // No user found in Backend -> Go to Onboarding
-        if (path !== "/onboarding") {
-          navigate("/onboarding");
-        }
-      } else {
-        // User found -> Go to Dashboard (if currently on onboarding)
-        if (path === "/onboarding") {
-          navigate("/dashboard");
-        }
+      // User found -> Go to Dashboard (if currently on onboarding)
+      if (path === "/free/onboarding") {
+        navigate("/free/dashboard");
       }
     }
   }, [loading, user, isOfflineMode, location.pathname, navigate]);
@@ -518,7 +509,7 @@ export function Layout() {
               {/* Free routes */}
               {/* Free routes */}
               <Route path="/" element={<RootRedirector />} />
-              <Route path="/mode-selection" element={<ModeSelectionPage />} />
+              <Route path="/mode-selection" element={<RootRedirector />} />
 
               {/* Online Routes - Protected by Amplify */}
               <Route
@@ -613,15 +604,7 @@ function RootRedirector() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const preference = localStorage.getItem("mode-preference");
-
-    if (preference === "online") {
-      navigate("/dashboard");
-    } else if (preference === "offline") {
-      navigate("/free/dashboard");
-    } else {
-      navigate("/mode-selection");
-    }
+    navigate("/free/dashboard");
   }, [navigate]);
 
   return null;
