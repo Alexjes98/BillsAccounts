@@ -1,4 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import CryptoJS from "crypto-js";
+
+// This prevents plain-text keys from sitting in localStorage, adding a basic layer of obfuscation.
+const ENCRYPTION_KEY =
+  import.meta.env.VITE_ENCRYPTION_KEY || "public-bc-finance-local-key";
 
 export type LLMProviderType =
   | "OpenAI"
@@ -35,7 +40,19 @@ export function LLMProvider({ children }: { children: React.ReactNode }) {
       setProviderState(storedProvider);
     }
     if (storedKey) {
-      setApiKeyState(storedKey);
+      try {
+        const bytes = CryptoJS.AES.decrypt(storedKey, ENCRYPTION_KEY);
+        const decryptedKey = bytes.toString(CryptoJS.enc.Utf8);
+        if (decryptedKey) {
+          setApiKeyState(decryptedKey);
+        } else {
+          // Fallback if the key was stored plainly before encryption was added
+          setApiKeyState(storedKey);
+        }
+      } catch (e) {
+        // Fallback for non-encrypted keys
+        setApiKeyState(storedKey);
+      }
     }
   }, []);
 
@@ -46,7 +63,12 @@ export function LLMProvider({ children }: { children: React.ReactNode }) {
 
   const setApiKey = (key: string) => {
     setApiKeyState(key);
-    localStorage.setItem("llm-api-key", key);
+    if (key) {
+      const encryptedKey = CryptoJS.AES.encrypt(key, ENCRYPTION_KEY).toString();
+      localStorage.setItem("llm-api-key", encryptedKey);
+    } else {
+      localStorage.setItem("llm-api-key", "");
+    }
   };
 
   const clearConfig = () => {
