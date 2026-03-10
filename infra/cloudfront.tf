@@ -24,6 +24,8 @@ resource "aws_cloudfront_distribution" "frontend" {
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = "frontend-s3-origin"
 
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.frontend_security_headers.id
+
     forwarded_values {
       query_string = false
 
@@ -65,5 +67,42 @@ resource "aws_cloudfront_distribution" "frontend" {
 
   tags = {
     Name = "finance-app-frontend-distribution"
+  }
+}
+
+resource "aws_cloudfront_response_headers_policy" "frontend_security_headers" {
+  name    = "frontend-security-headers"
+  comment = "Security headers for frontend including CSP"
+
+  security_headers_config {
+    content_security_policy {
+      # Adjust the CSP below according to what your React app needs!
+      # We allow cognito-idp for Cognito auth if needed.
+      content_security_policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cognito-idp.*.amazonaws.com;"
+      override                = true
+    }
+
+    content_type_options {
+      override = true
+    }
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+    xss_protection {
+      mode_block = true
+      protection = true
+      override   = true
+    }
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
   }
 }
