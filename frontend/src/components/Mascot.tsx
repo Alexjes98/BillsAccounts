@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useMascot } from "@/context/MascotContext";
 
-import { EyeOff, MessageCircle } from "lucide-react";
+import { EyeOff, MessageCircle, CircleQuestionMark } from "lucide-react";
 import { ChatInterface } from "./ChatInterface";
 
 export function Mascot() {
-  const { isVisible, message, hideMascot, hideMessage } = useMascot(); // Added hideMessage
+  const { isVisible, message, hideMascot, showMascot, hideMessage } =
+    useMascot();
   const [isHovered, setIsHovered] = useState(false);
   const [animate, setAnimate] = useState(false);
   const [imageSrc, setImageSrc] = useState("/mascot.png");
@@ -49,16 +50,23 @@ export function Mascot() {
     }
   }, [isFading, hideMessage]);
 
-  if (!isVisible) {
-    // Changed condition
-    return null;
-  }
-
   return (
     <div
-      className="fixed bottom-4 right-4 z-50 flex flex-col items-end pointer-events-none group"
+      className={`fixed bottom-4 right-4 z-50 flex flex-col items-end pointer-events-none group transition-transform duration-500 ease-in-out ${
+        isVisible ? "translate-x-0" : "translate-x-[calc(100%+1rem)]"
+      }`}
       style={{ userSelect: "none" }} // Allow clicks on the mascot itself
     >
+      {/* Eye icon to show mascot when hidden */}
+      {!isVisible && (
+        <button
+          onClick={() => showMascot()}
+          className="absolute right-full bottom-0 bg-gray-800 text-white p-3 rounded-l-xl shadow-lg hover:bg-gray-700 transition-colors pointer-events-auto flex items-center justify-center border border-r-0 border-gray-700"
+          aria-label="Show Mascot"
+        >
+          <CircleQuestionMark size={20} />
+        </button>
+      )}
       {/* Embedded Chat Widget */}
       {showChat && (
         <div

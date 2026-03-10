@@ -11,7 +11,7 @@ import { useApi } from "@/contexts/ApiContext";
 interface MascotContextType {
   isVisible: boolean;
   message: MascotMessage | null;
-  showMascot: (msg: string | MascotMessage) => void;
+  showMascot: (msg?: string | MascotMessage) => void;
   hideMascot: () => void;
   hideMessage: () => void;
   loadMessageByContext: (context: string) => void;
@@ -25,23 +25,24 @@ export function MascotProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<MascotMessage | null>(null);
   const api = useApi();
 
-  const showMascot = useCallback((msg: string | MascotMessage) => {
-    if (typeof msg === "string") {
-      setMessage({
-        id: crypto.randomUUID(),
-        text: msg,
-        context: "custom",
-        type: "info",
-      });
-    } else {
-      setMessage(msg);
+  const showMascot = useCallback((msg?: string | MascotMessage) => {
+    if (msg) {
+      if (typeof msg === "string") {
+        setMessage({
+          id: crypto.randomUUID(),
+          text: msg,
+          context: "custom",
+          type: "info",
+        });
+      } else {
+        setMessage(msg);
+      }
     }
     setIsVisible(true);
   }, []);
 
   const hideMascot = useCallback(() => {
     setIsVisible(false);
-    setMessage(null);
   }, []);
 
   const hideMessage = useCallback(() => {
