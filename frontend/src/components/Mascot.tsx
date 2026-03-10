@@ -62,11 +62,11 @@ export function Mascot() {
       {/* Embedded Chat Widget */}
       {showChat && (
         <div
-          className="absolute bottom-32 right-0 w-80 md:w-96 drop-shadow-2xl z-50 origin-bottom-right transition-all duration-300 animate-in fade-in zoom-in-95"
+          className="absolute bottom-32 right-0 w-80 md:w-[550px] drop-shadow-2xl z-50 origin-bottom-right transition-all duration-300 animate-in fade-in zoom-in-95"
           style={{ pointerEvents: "auto", userSelect: "auto" }}
         >
           <ChatInterface
-            className="h-[450px] border border-border/50 rounded-2xl overflow-hidden bg-background"
+            className="h-[500px] border border-border/50 rounded-2xl overflow-hidden bg-background"
             isWidget={true}
             onClose={() => setShowChat(false)}
           />

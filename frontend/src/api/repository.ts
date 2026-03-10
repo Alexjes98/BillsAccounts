@@ -1,5 +1,18 @@
 import { MascotMessage } from "./mascotMessages";
 
+export interface ChatMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  messages: ChatMessage[];
+  updated_at: string;
+  created_at: string;
+}
+
 export interface Transaction {
   id: string;
   transaction_date: string;
@@ -265,6 +278,13 @@ export interface ApiRepository {
     year: number,
     month: number,
   ): Promise<MonthCategorySummary>;
+
+  // Chat History
+  getChatSessions?(page?: number, search?: string): Promise<PaginatedResponse<ChatSession>>;
+  getChatSession?(id: string): Promise<ChatSession | null>;
+  createChatSession?(title: string, messages: ChatMessage[]): Promise<ChatSession>;
+  updateChatSession?(id: string, messages: ChatMessage[]): Promise<ChatSession>;
+  deleteChatSession?(id: string): Promise<void>;
 }
 
 export interface CategorySummary {

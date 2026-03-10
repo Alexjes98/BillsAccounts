@@ -1,7 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { IndexedDbRepository } from "@/api/IndexedDbRepository";
-import { profile } from "console";
 
 export const createSearchMovementsTool = () => {
   return tool(

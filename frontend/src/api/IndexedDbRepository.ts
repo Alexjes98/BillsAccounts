@@ -23,6 +23,8 @@ import {
   User,
   CreateUserPayload,
   GroupedDebts,
+  ChatSession,
+  ChatMessage,
 } from "./repository";
 import { MascotMessage, FALLBACK_MESSAGES } from "./mascotMessages";
 import { encryptObject, decryptObject } from "@/lib/crypto";
@@ -104,13 +106,18 @@ interface MyDB extends DBSchema {
     key: string;
     value: User;
   };
+  chat_sessions: {
+    key: string;
+    value: ChatSession;
+    indexes: { "by-updated": string };
+  };
 }
 
 export class IndexedDbRepository implements ApiRepository {
   private static instance: IndexedDbRepository;
   private dbPromise!: Promise<IDBPDatabase<MyDB>>;
   private readonly DB_NAME = "finance_app_db";
-  private readonly DB_VERSION = 1;
+  private readonly DB_VERSION = 2;
   private cryptoKey: CryptoKey | null = null;
 
   private static readonly INDEX_FIELDS: Record<string, string[]> = {
@@ -130,6 +137,7 @@ export class IndexedDbRepository implements ApiRepository {
     savings_goals: ["id"],
     monthly_summaries: ["id", "year", "month"],
     user: ["id", "person_id"],
+    chat_sessions: ["id", "updated_at"],
   };
 
   private async encryptRecord(record: any, storeName: string): Promise<any> {
@@ -224,6 +232,7 @@ export class IndexedDbRepository implements ApiRepository {
       "savings_goals",
       "monthly_summaries",
       "user",
+      "chat_sessions",
     ];
 
     const tx = db.transaction(stores as any, "readwrite");
@@ -264,36 +273,45 @@ export class IndexedDbRepository implements ApiRepository {
     }
 
     this.dbPromise = openDB<MyDB>(this.DB_NAME, this.DB_VERSION, {
-      upgrade(db) {
-        // Transactions
-        const txStore = db.createObjectStore("transactions", { keyPath: "id" });
-        txStore.createIndex("by-date", "transaction_date");
-        txStore.createIndex("by-account", "account_id");
-        txStore.createIndex("by-category", "category_id");
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          // Transactions
+          const txStore = db.createObjectStore("transactions", { keyPath: "id" });
+          txStore.createIndex("by-date", "transaction_date");
+          txStore.createIndex("by-account", "account_id");
+          txStore.createIndex("by-category", "category_id");
 
-        // Categories
-        db.createObjectStore("categories", { keyPath: "id" });
+          // Categories
+          db.createObjectStore("categories", { keyPath: "id" });
 
-        // Accounts
-        db.createObjectStore("accounts", { keyPath: "id" });
+          // Accounts
+          db.createObjectStore("accounts", { keyPath: "id" });
 
-        // Debts
-        db.createObjectStore("debts", { keyPath: "id" });
+          // Debts
+          db.createObjectStore("debts", { keyPath: "id" });
 
-        // Persons
-        db.createObjectStore("persons", { keyPath: "id" });
+          // Persons
+          db.createObjectStore("persons", { keyPath: "id" });
 
-        // Savings Goals
-        db.createObjectStore("savings_goals", { keyPath: "id" });
+          // Savings Goals
+          db.createObjectStore("savings_goals", { keyPath: "id" });
 
-        // Monthly Summaries
-        const summaryStore = db.createObjectStore("monthly_summaries", {
-          keyPath: "id",
-        });
-        summaryStore.createIndex("by-year", "year");
+          // Monthly Summaries
+          const summaryStore = db.createObjectStore("monthly_summaries", {
+            keyPath: "id",
+          });
+          summaryStore.createIndex("by-year", "year");
 
-        // User
-        db.createObjectStore("user", { keyPath: "id" });
+          // User
+          db.createObjectStore("user", { keyPath: "id" });
+        }
+        if (oldVersion < 2) {
+          // Chat Sessions
+          const chatStore = db.createObjectStore("chat_sessions", {
+            keyPath: "id",
+          });
+          chatStore.createIndex("by-updated", "updated_at");
+        }
       },
     });
     this.seedInitialData();
@@ -1830,6 +1848,7 @@ export class IndexedDbRepository implements ApiRepository {
     const savings_goals = await this._getAll(db, "savings_goals");
     const monthly_summaries = await this._getAll(db, "monthly_summaries");
     const user = await this._getAll(db, "user");
+    const chat_sessions = await this._getAll(db, "chat_sessions");
 
     return {
       transactions,
@@ -1840,6 +1859,7 @@ export class IndexedDbRepository implements ApiRepository {
       savings_goals,
       monthly_summaries,
       user,
+      chat_sessions,
       export_date: new Date().toISOString(),
     };
   }
@@ -1857,6 +1877,7 @@ export class IndexedDbRepository implements ApiRepository {
       "savings_goals",
       "user",
     ];
+    // chat_sessions not strictly required for old backups
     for (const store of requiredStores) {
       if (!data[store] || !Array.isArray(data[store])) {
         throw new Error(`Invalid data format: missing or invalid ${store}`);
@@ -1873,6 +1894,7 @@ export class IndexedDbRepository implements ApiRepository {
         "savings_goals",
         "monthly_summaries",
         "user",
+        "chat_sessions",
       ],
       "readwrite",
     );
@@ -1887,9 +1909,9 @@ export class IndexedDbRepository implements ApiRepository {
       tx.objectStore("savings_goals").clear(),
       tx.objectStore("monthly_summaries").clear(),
       tx.objectStore("user").clear(),
+      tx.objectStore("chat_sessions").clear(),
     ]);
 
-    // Insert new data
     // Insert new data
     const stores = [
       "transactions",
@@ -1900,6 +1922,7 @@ export class IndexedDbRepository implements ApiRepository {
       "savings_goals",
       "monthly_summaries",
       "user",
+      "chat_sessions",
     ];
 
     for (const storeName of stores) {
@@ -1914,5 +1937,72 @@ export class IndexedDbRepository implements ApiRepository {
     }
 
     await tx.done;
+  }
+
+  // --- Chat History API ---
+  async getChatSessions(page: number = 1, search?: string): Promise<PaginatedResponse<ChatSession>> {
+    const db = await this.dbPromise;
+    const per_page = 20;
+    const skipCount = (page - 1) * per_page;
+
+    const tx = db.transaction("chat_sessions", "readonly");
+    const index = tx.store.index("by-updated");
+    let cursor = await index.openCursor(null, "prev"); // newest first
+
+    const allMatches: ChatSession[] = [];
+    while (cursor) {
+      const session = await this.decryptRecord(cursor.value) as ChatSession;
+      if (!search || session.title.toLowerCase().includes(search.toLowerCase())) {
+        allMatches.push(session);
+      }
+      cursor = await cursor.continue();
+    }
+
+    const total = allMatches.length;
+    const items = allMatches.slice(skipCount, skipCount + per_page);
+
+    return {
+      items,
+      total,
+      page,
+      per_page,
+      pages: Math.ceil(total / per_page),
+    };
+  }
+
+  async getChatSession(id: string): Promise<ChatSession | null> {
+    const db = await this.dbPromise;
+    const session = await this._get(db, "chat_sessions", id);
+    return session || null;
+  }
+
+  async createChatSession(title: string, messages: ChatMessage[]): Promise<ChatSession> {
+    const db = await this.dbPromise;
+    const now = new Date().toISOString();
+    const session: ChatSession = {
+      id: crypto.randomUUID(),
+      title,
+      messages,
+      created_at: now,
+      updated_at: now,
+    };
+    await this._put(db, "chat_sessions", session);
+    return session;
+  }
+
+  async updateChatSession(id: string, messages: ChatMessage[]): Promise<ChatSession> {
+    const db = await this.dbPromise;
+    const session = await this._get(db, "chat_sessions", id);
+    if (!session) throw new Error("Chat session not found");
+    
+    session.messages = messages;
+    session.updated_at = new Date().toISOString();
+    await this._put(db, "chat_sessions", session);
+    return session;
+  }
+
+  async deleteChatSession(id: string): Promise<void> {
+    const db = await this.dbPromise;
+    await db.delete("chat_sessions", id as any);
   }
 }
