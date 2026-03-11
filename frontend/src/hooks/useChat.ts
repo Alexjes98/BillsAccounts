@@ -67,6 +67,25 @@ export function useChat() {
     setMessageLimit(20);
   }, []);
 
+  const deleteSession = useCallback(async (id: string) => {
+    const repo = IndexedDbRepository.getInstance();
+    if (repo.deleteChatSession) {
+      await repo.deleteChatSession(id);
+      
+      // If we are deleting the currently active session, clear it
+      setSessionId((currentId) => {
+        if (currentId === id) {
+          clearSession();
+          return null;
+        }
+        return currentId;
+      });
+
+      // Refresh history list
+      fetchChatHistory(1, historySearch);
+    }
+  }, [clearSession, fetchChatHistory, historySearch]);
+
   const saveSession = async (newMessages: Message[], currentSessionId: string | null) => {
     const repo = IndexedDbRepository.getInstance();
     if (!repo.createChatSession || !repo.updateChatSession) return currentSessionId;
@@ -158,6 +177,7 @@ export function useChat() {
     fetchChatHistory,
     loadSession,
     clearSession,
+    deleteSession,
     sessionId,
   };
 }

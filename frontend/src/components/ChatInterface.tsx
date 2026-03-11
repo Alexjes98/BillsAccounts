@@ -9,7 +9,7 @@ import {
   CardTitle,
   CardFooter,
 } from "@/components/ui/card";
-import { History, Plus, Search, ChevronUp } from "lucide-react";
+import { History, Plus, Search, ChevronUp, Trash2 } from "lucide-react";
 
 interface ChatInterfaceProps {
   className?: string;
@@ -36,6 +36,7 @@ export function ChatInterface({
     setHistorySearch,
     loadSession,
     clearSession,
+    deleteSession,
     sessionId,
   } = useChat();
 
@@ -105,24 +106,39 @@ export function ChatInterface({
                 </div>
               ) : (
                 chatHistory.map((session) => (
-                  <Button
-                    key={session.id}
-                    variant={session.id === sessionId ? "secondary" : "ghost"}
-                    className="justify-start text-left h-auto py-3"
-                    onClick={() => {
-                      loadSession(session.id);
-                      setIsHistoryOpen(false);
-                    }}
-                  >
-                    <div className="flex flex-col items-start gap-1 w-full overflow-hidden">
-                      <span className="font-medium truncate w-full">
-                        {session.title}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(session.updated_at).toLocaleString()}
-                      </span>
-                    </div>
-                  </Button>
+                  <div key={session.id} className="flex gap-2 items-center w-full">
+                    <Button
+                      variant={session.id === sessionId ? "secondary" : "ghost"}
+                      className="justify-start text-left h-auto py-3 flex-1 overflow-hidden"
+                      onClick={() => {
+                        loadSession(session.id);
+                        setIsHistoryOpen(false);
+                      }}
+                    >
+                      <div className="flex flex-col items-start gap-1 w-full overflow-hidden">
+                        <span className="font-medium truncate w-full">
+                          {session.title}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(session.updated_at).toLocaleString()}
+                        </span>
+                      </div>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (confirm("Are you sure you want to delete this conversation?")) {
+                          deleteSession(session.id);
+                        }
+                      }}
+                      title="Delete Conversation"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 ))
               )}
             </div>
