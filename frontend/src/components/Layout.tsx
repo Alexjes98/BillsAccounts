@@ -17,7 +17,7 @@ import { FreeYearResume } from "@/pages/free/FreeYearResume";
 import { FreeMonthlySummaryPage } from "@/pages/free/FreeMonthlySummaryPage";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { ProfilePage } from "@/pages/ProfilePage";
-
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useAppStore } from "@/store/useAppStore";
 import { useUser } from "@/context/UserContext";
@@ -318,7 +318,7 @@ export function Layout() {
               <div
                 className={`font-bold text-xl text-primary transition-opacity duration-300 ${isCollapsed ? "opacity-0 w-0 hidden" : "opacity-100 px-2"}`}
               >
-                MyFinance App
+                Purrfect Finance
               </div>
               {/* Expand/Collapse Toggle Desktop */}
               <button
@@ -458,6 +458,13 @@ export function Layout() {
                   </div>
                 )}
               </SidebarLink>
+              {isCollapsed && (
+                <div
+                  className={`mt-2 flex ${isCollapsed ? "justify-center" : "justify-start px-2"}`}
+                >
+                  <ThemeToggle />
+                </div>
+              )}
             </div>
           </aside>
         </>
@@ -466,14 +473,19 @@ export function Layout() {
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {location.pathname !== "/mode-selection" && (
-          <header className="h-16 border-b border-border bg-background flex items-center px-4 lg:hidden sticky top-0 z-30">
-            <button
-              className="p-2 -ml-2 mr-2 text-muted-foreground hover:text-foreground rounded-md"
-              onClick={() => setIsSidebarOpen(true)}
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-            <div className="font-bold text-lg text-primary">MyFinance App</div>
+          <header className="h-16 border-b border-border bg-background flex items-center px-4 lg:hidden sticky top-0 z-30 justify-between">
+            <div className="flex items-center">
+              <button
+                className="p-2 -ml-2 mr-2 text-muted-foreground hover:text-foreground rounded-md"
+                onClick={() => setIsSidebarOpen(true)}
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+              <ThemeToggle />
+              <div className="font-bold text-lg text-primary">
+                Purrfect Finance
+              </div>
+            </div>
           </header>
         )}
 

@@ -1,5 +1,6 @@
 import { UserProvider } from "@/context/UserContext";
 import { BrowserRouter as Router, useLocation } from "react-router-dom";
+import { ThemeProvider } from "@/components/ThemeProvider";
 import { ApiProvider } from "@/contexts/ApiContext";
 import { Layout } from "@/components/Layout";
 import { MascotProvider } from "@/context/MascotContext";
@@ -10,20 +11,22 @@ import { LockScreen } from "@/components/LockScreen";
 
 function App() {
   return (
-    <Router>
-      <CryptoProvider>
-        <ApiWrapper>
-          <UserProvider>
-            <LLMProvider>
-              <MascotProvider>
-                <Layout />
-                <Mascot />
-              </MascotProvider>
-            </LLMProvider>
-          </UserProvider>
-        </ApiWrapper>
-      </CryptoProvider>
-    </Router>
+    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      <Router>
+        <CryptoProvider>
+          <ApiWrapper>
+            <UserProvider>
+              <LLMProvider>
+                <MascotProvider>
+                  <Layout />
+                  <Mascot />
+                </MascotProvider>
+              </LLMProvider>
+            </UserProvider>
+          </ApiWrapper>
+        </CryptoProvider>
+      </Router>
+    </ThemeProvider>
   );
 }
 

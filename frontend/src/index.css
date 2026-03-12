@@ -4,65 +4,73 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* 
+      Bright Mode - High Contrast
+      Subtle grays and blues to stand out from pure white backgrounds
+    */
+    --background: 210 20% 98%; /* Light grayish-blue almost white */
+    --foreground: 222.2 47.4% 11.2%; /* Deep dark blue-gray */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%; /* Pure white to pop on the grayish bg */
+    --card-foreground: 222.2 47.4% 11.2%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222.2 47.4% 11.2%;
 
-    --primary: 221.2 83.2% 53.3%;
+    --primary: 221.2 83.2% 53.3%; /* Vibrant standard blue */
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
+    --secondary: 214.3 31.8% 91.4%; /* Light gray-blue */
     --secondary-foreground: 222.2 47.4% 11.2%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 214.3 31.8% 91.4%;
+    --muted-foreground: 215.4 16.3% 46.9%; /* Slate gray */
 
-    --accent: 210 40% 96.1%;
+    --accent: 214.3 31.8% 91.4%;
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 214.3 31.8% 85%; /* Subtly darker border for contrast */
+    --input: 214.3 31.8% 85%;
     --ring: 221.2 83.2% 53.3%;
 
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* 
+      Dark Mode - Black-Dark-Blue Palette
+      Inspired by Paycent UI references
+    */
+    --background: 224 71% 4%; /* Very deep night blue / almost black */
+    --foreground: 213 31% 91%; /* Light slate for text */
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 222 47% 11%; /* Deep navy blue, lighter than bg to stand out */
+    --card-foreground: 213 31% 91%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 213 31% 91%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 217 91% 60%; /* Bright, popping neon-ish blue */
+    --primary-foreground: 222.2 47.4% 1.2%; /* Near black */
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 222 47% 20%; /* Medium dark blue for secondary elements */
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
+    --muted: 222 47% 15%; /* Muted deep blue */
     --muted-foreground: 215 20.2% 65.1%;
 
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 222 47% 20%;
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 222 47% 20%; /* Visible borders against the dark card/bg */
+    --input: 222 47% 20%;
+    --ring: 217 91% 60%;
   }
 }
 
