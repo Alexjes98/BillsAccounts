@@ -13,6 +13,8 @@ import {
   createGetCategoriesTool,
   createGetAppInfoTool,
   createGetMonthCategorySummaryTool,
+  createPrepareTransactionTool,
+  createCreateTransactionTool,
 } from "./tools";
 
 const getSystemPrompt = (tools: string[]) => {
@@ -54,12 +56,18 @@ export async function runReActAgent(
         const getCategoriesTool = createGetCategoriesTool();
         const getAppInfo = createGetAppInfoTool();
         const getMonthCategorySummaryTool = createGetMonthCategorySummaryTool();
+        const prepareTransactionTool = createPrepareTransactionTool();
+        const createTransactionTool = createCreateTransactionTool();
         const tools = [
           searchMovementsTool,
           getCategoriesTool,
           getAppInfo,
           getMonthCategorySummaryTool,
+          prepareTransactionTool,
+          createTransactionTool,
         ];
+
+        // Define toolNode with basic error handling
         const toolNode = new ToolNode(tools);
 
         const callModel = async (state: typeof MessagesAnnotation.State) => {
@@ -72,18 +80,54 @@ export async function runReActAgent(
           const messages = state.messages;
           const lastMessage = messages[messages.length - 1] as AIMessage;
 
-          if (lastMessage.tool_calls?.length) {
-            return "tools";
+          // If there is no tool call, then we finish
+          if (!lastMessage.tool_calls?.length) {
+            return "__end__";
           }
-          return "__end__";
+
+          return "tools";
+        };
+
+        // Add a Reflection Node to inspect Tool messages and help the agent recover
+        const reflectionNode = async (
+          state: typeof MessagesAnnotation.State,
+        ) => {
+          const messages = state.messages;
+          const lastMessage = messages[messages.length - 1]; // This is usually a ToolMessage
+
+          // Check if the last message indicates an error (e.g. "Failed to create transaction:" from our tool)
+          // or if the tool call inherently failed. ToolNode sometimes outputs string errors.
+          if (
+            typeof lastMessage.content === "string" &&
+            (lastMessage.content.includes("Failed to prepare") ||
+              lastMessage.content.includes("Failed to create") ||
+              lastMessage.content.includes("Error"))
+          ) {
+            // It's an error. Guide the agent to reflect.
+            return {
+              messages: [
+                new SystemMessage(
+                  "The previous tool call failed or returned an error. Please carefully review the error message. " +
+                    "Reflect on what went wrong (e.g., did you use a category name instead of a category UUID?). " +
+                    "Make sure you have used the correct IDs (use get_categories to find correct UUIDs). " +
+                    "Try the tool call again with corrected parameters.",
+                ),
+              ],
+            };
+          }
+
+          // If no error, just return to agent
+          return { messages: [] };
         };
 
         const workflow = new StateGraph(MessagesAnnotation)
           .addNode("agent", callModel)
           .addNode("tools", toolNode)
+          .addNode("reflection", reflectionNode)
           .addEdge("__start__", "agent")
           .addConditionalEdges("agent", shouldContinue)
-          .addEdge("tools", "agent");
+          .addEdge("tools", "reflection")
+          .addEdge("reflection", "agent");
 
         const app = workflow.compile();
 
