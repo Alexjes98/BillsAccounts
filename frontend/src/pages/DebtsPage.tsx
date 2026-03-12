@@ -25,6 +25,7 @@ import {
 } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
 import { useUser } from "@/context/UserContext";
+import Loading from "@/components/ui/loading";
 
 // Component for expandable debt row
 function DebtRow({
@@ -201,7 +202,7 @@ export function DebtsPage() {
   if (!dataPromise) return null;
 
   return (
-    <Suspense fallback={<div>Loading debts dashboard...</div>}>
+    <Suspense fallback={<Loading isPage />}>
       <DebtsDashboardContent
         dataPromise={dataPromise}
         onRefresh={() => setRefreshKey((prev) => prev + 1)}
@@ -371,7 +372,7 @@ function DebtsDashboardContent({
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fade-in-up">
         <h1 className="text-3xl font-bold tracking-tight">Debts Dashboard</h1>
         <Button onClick={() => setIsModalOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
@@ -380,7 +381,7 @@ function DebtsDashboardContent({
       </div>
 
       {/* Summary Section */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 animate-fade-in-up delay-100">
         {summary.map((item, index) => {
           const isUserCreditor = user?.person_id === item.creditor_id;
           const isUserDebtor = user?.person_id === item.debtor_id;
@@ -543,7 +544,7 @@ function DebtsDashboardContent({
         </div>
       </Modal>
       {/* Active Debts Section */}
-      <div className="space-y-8">
+      <div className="space-y-8 animate-fade-in-up delay-200">
         {delayed_payments.length > 0 && (
           <div>
             <h2 className="text-xl font-semibold mb-4 text-green-700">
@@ -586,7 +587,7 @@ function DebtsDashboardContent({
       </div>
 
       {/* Settled Debts Section */}
-      <div>
+      <div className="animate-fade-in-up delay-300">
         <h2 className="text-xl font-semibold mb-4">Settled Debts</h2>
         {settledDebts.length === 0 ? (
           <p className="text-muted-foreground">No settled debts.</p>

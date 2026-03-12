@@ -82,3 +82,87 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  
+  /* Fallbacks for standard delays to perfectly match FreeDashboard */
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+  .delay-600 { animation-delay: 600ms; }
+}
+
+@keyframes fade-in-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* --- Orbital Loader --- */
+.orbital-loader {
+  width: 80px;
+  height: 80px;
+  position: relative;
+}
+
+.orbital-ring {
+  position: absolute;
+  border: 3px solid transparent;
+  border-radius: 50%;
+}
+
+.orbital-ring:nth-child(1) {
+  width: 80px;
+  height: 80px;
+  border-top-color: #005cfc;
+  animation: orbit 1.5s linear infinite;
+}
+
+.orbital-ring:nth-child(2) {
+  width: 60px;
+  height: 60px;
+  top: 10px;
+  left: 10px;
+  border-right-color: #0011ff;
+  animation: orbit 1.2s linear infinite reverse;
+}
+
+.orbital-ring:nth-child(3) {
+  width: 40px;
+  height: 40px;
+  top: 20px;
+  left: 20px;
+  border-bottom-color: #003cff;
+  animation: orbit 0.9s linear infinite;
+}
+
+.orbital-center {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 32px;
+  left: 32px;
+  background: linear-gradient(45deg, #0066ff, #085bff);
+  border-radius: 50%;
+  animation: pulse-glow 1s ease-in-out infinite;
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 10px rgba(3, 217, 255, 0.5); }
+  50% { transform: scale(1.2); box-shadow: 0 0 20px rgba(72, 219, 251, 0.8); }
+}

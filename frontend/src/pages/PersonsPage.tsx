@@ -111,7 +111,7 @@ export function PersonsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fade-in-up">
         <h1 className="text-3xl font-bold tracking-tight">Persons</h1>
         <Button
           onClick={() => {
@@ -131,11 +131,11 @@ export function PersonsPage() {
       )}
 
       {persons.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
+        <div className="text-center py-12 text-muted-foreground animate-fade-in-up delay-100">
           No persons found.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-up delay-100">
           {persons.map((person) => (
             <PersonCard
               key={person.id}

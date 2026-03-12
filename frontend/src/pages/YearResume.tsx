@@ -16,7 +16,6 @@ import {
   Line,
 } from "recharts";
 import { Loader2, RefreshCw } from "lucide-react";
-import { useAppStore } from "@/store/useAppStore";
 
 export function YearResume() {
   const [year, setYear] = useState<number>(new Date().getFullYear());
@@ -24,7 +23,6 @@ export function YearResume() {
   const api = useApi();
   const [loading, setLoading] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
-  const { isSidebarAnimating } = useAppStore();
   const [recalculatingMonth, setRecalculatingMonth] = useState<number | null>(
     null,
   );
@@ -138,7 +136,7 @@ export function YearResume() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 animate-fade-in-up">
         <h1 className="text-3xl font-bold tracking-tight">Year Resume</h1>
         <div className="flex items-center gap-2">
           <select
@@ -172,7 +170,7 @@ export function YearResume() {
       </div>
 
       {/* Yearly Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-3 animate-fade-in-up delay-100">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Income</CardTitle>
@@ -221,59 +219,51 @@ export function YearResume() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2 animate-fade-in-up delay-200">
         <Card className="col-span-1">
           <CardHeader>
             <CardTitle>Income vs Expenses</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px] transition-all duration-300 delay-150 ease-in-out origin-left">
-            {isSidebarAnimating ? (
-              <div className="w-full h-full bg-muted/20 animate-pulse rounded-md" />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="income" fill="#22c55e" name="Income" />
-                  <Bar dataKey="expense" fill="#ef4444" name="Expenses" />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="income" fill="#22c55e" name="Income" />
+                <Bar dataKey="expense" fill="#ef4444" name="Expenses" />
+              </BarChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
         <Card className="col-span-1">
           <CardHeader>
             <CardTitle>Balance Trend</CardTitle>
           </CardHeader>
-          <CardContent className="h-[300px] transition-all duration-300 delay-150 ease-in-out origin-left">
-            {isSidebarAnimating ? (
-              <div className="w-full h-full bg-muted/20 animate-pulse rounded-md" />
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="balance"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    name="Closing Balance"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
+          <CardContent className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Line
+                  type="monotone"
+                  dataKey="balance"
+                  stroke="#3b82f6"
+                  strokeWidth={2}
+                  name="Closing Balance"
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
       {/* Month Status Indicators */}
-      <div className="flex flex-wrap gap-2 pb-2">
+      <div className="flex flex-wrap gap-2 pb-2 animate-fade-in-up delay-300">
         {allMonths.map((m) => {
           let badgeClass =
             "bg-secondary text-secondary-foreground hover:bg-secondary/80";
@@ -323,7 +313,7 @@ export function YearResume() {
         })}
       </div>
       {/* Monthly Detail Cards */}
-      <div className="space-y-4">
+      <div className="space-y-4 animate-fade-in-up delay-400">
         <h2 className="text-xl font-semibold">Monthly Breakdown</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {summaries.map((summary) => {

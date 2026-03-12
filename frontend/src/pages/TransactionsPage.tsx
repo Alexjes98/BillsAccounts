@@ -156,7 +156,7 @@ export function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in-up">
         <h1 className="text-3xl font-bold tracking-tight">My Transactions</h1>
         <Button
           onClick={() => {
@@ -170,7 +170,7 @@ export function TransactionsPage() {
       </div>
 
       {/* Filters Section */}
-      <div className="bg-card text-card-foreground rounded-lg border p-4 shadow-sm space-y-4">
+      <div className="bg-card text-card-foreground rounded-lg border p-4 shadow-sm space-y-4 animate-fade-in-up delay-100">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -260,17 +260,19 @@ export function TransactionsPage() {
         </div>
       )}
 
-      <TransactionsList
-        transactions={transactions}
-        isLoading={isLoading}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onView={handleView}
-      />
+      <div className="animate-fade-in-up delay-200">
+        <TransactionsList
+          transactions={transactions}
+          isLoading={isLoading}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          onView={handleView}
+        />
+      </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between animate-fade-in-up delay-300">
           <div className="text-sm text-muted-foreground">
             Showing {(currentPage - 1) * 12 + 1} to{" "}
             {Math.min(currentPage * 12, totalItems)} of {totalItems} results

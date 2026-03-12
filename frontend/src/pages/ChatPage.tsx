@@ -5,7 +5,7 @@ export function ChatPage() {
   const { provider } = useLLM();
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto space-y-4">
+    <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto space-y-4 animate-fade-in-up">
       <ChatInterface className="flex-1" />
 
       {provider === "None" && (

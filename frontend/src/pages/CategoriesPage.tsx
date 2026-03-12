@@ -92,7 +92,7 @@ export function CategoriesPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-fade-in-up">
         <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
         <Button onClick={() => setIsModalOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
@@ -101,7 +101,7 @@ export function CategoriesPage() {
       </div>
 
       <div className="space-y-6">
-        <div>
+        <div className="animate-fade-in-up delay-100">
           <h2 className="text-xl font-semibold mb-4">Income</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {incomeCategories.map((category) => (
@@ -120,7 +120,7 @@ export function CategoriesPage() {
           </div>
         </div>
 
-        <div>
+        <div className="animate-fade-in-up delay-200">
           <h2 className="text-xl font-semibold mb-4">Expenses</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {expenseCategories.map((category) => (

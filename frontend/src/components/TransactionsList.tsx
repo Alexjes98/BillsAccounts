@@ -123,7 +123,7 @@ export function TransactionsList({
   }
 
   return (
-    <div className="border rounded-md relative">
+    <div className="border rounded-md relative animate-fade-in-up">
       {isLoading && transactions.length > 0 && (
         <div className="absolute inset-0 z-10 bg-background/50 flex items-center justify-center backdrop-blur-[1px]">
           <div className="bg-background border rounded-md px-4 py-2 text-sm font-medium shadow-sm">

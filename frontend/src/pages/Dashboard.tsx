@@ -1,6 +1,4 @@
-import { Suspense, use, useMemo, useState, useEffect } from "react";
-// import { useAppStore } from "@/store/useAppStore";
-// import { FileUpload } from "@/components/FileUpload";
+import { Suspense, use, useMemo, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -8,9 +6,6 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/modal";
-import { FileText } from "lucide-react";
 import {
   XAxis,
   YAxis,
@@ -23,7 +18,7 @@ import {
   BarChart,
   Bar,
 } from "recharts";
-// import { RefreshCcw } from "lucide-react";
+import Loading from "@/components/ui/loading";
 import { ArrowUpIcon, ArrowDownIcon, Wallet, Scale } from "lucide-react";
 import { DashboardData } from "@/api/repository";
 import { useApi } from "@/contexts/ApiContext";
@@ -36,9 +31,6 @@ function DashboardContent({
   dataPromise: Promise<DashboardData>;
 }) {
   const data = use(dataPromise);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const api = useApi();
   const { loadMessageByContext } = useMascot();
   const { isSidebarAnimating } = useAppStore();
 
@@ -48,30 +40,11 @@ function DashboardContent({
     }
   }, [loadMessageByContext]);
 
-  const handleGenerateResume = async () => {
-    if (!data) return;
-    setGenerating(true);
-    try {
-      const { current_date } = data;
-      await api.recalculateSingleMonthSummary(
-        current_date.year,
-        current_date.month_int,
-      );
-      setShowConfirm(false);
-      alert(`Resume for ${current_date.month} generated successfully!`);
-    } catch (err) {
-      console.error("Error generating resume:", err);
-      alert("Failed to generate resume.");
-    } finally {
-      setGenerating(false);
-    }
-  };
-
   const { current_date, cards, month_comparison, chart_data } = data;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
-      <div className="flex justify-between items-end border-b pb-4">
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex justify-between items-end border-b pb-4 animate-fade-in-up">
         <div>
           <h2 className="text-muted-foreground font-medium uppercase tracking-wider text-sm">
             Overview
@@ -87,48 +60,12 @@ function DashboardContent({
           <div className="text-3xl font-bold">
             ${cards.balance.toLocaleString()}
           </div>
-          <div className="mt-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowConfirm(true)}
-              className="gap-2"
-            >
-              <FileText className="h-4 w-4" />
-              Generate {current_date.month} Resume
-            </Button>
-          </div>
         </div>
       </div>
 
-      <Modal
-        isOpen={showConfirm}
-        onClose={() => setShowConfirm(false)}
-        title="Generate Monthly Resume"
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            This will generate a resume for{" "}
-            <strong>{current_date.month}</strong>.
-            <br />
-            <br />
-            It is recommended to have all transactions for this month closed
-            before proceeding. This action mimics closing the month.
-          </p>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowConfirm(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleGenerateResume} disabled={generating}>
-              {generating ? "Generating..." : "Confirm & Generate"}
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
       {/* Top Cards */}
       <div className="grid gap-6 md:grid-cols-4">
-        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-shadow">
+        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-blue-100 dark:border-blue-900 shadow-sm hover:shadow-md transition-shadow animate-fade-in-up delay-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">
               Total Balance
@@ -145,7 +82,7 @@ function DashboardContent({
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-100 dark:border-purple-900 shadow-sm hover:shadow-md transition-shadow">
+        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-100 dark:border-purple-900 shadow-sm hover:shadow-md transition-shadow animate-fade-in-up delay-100">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-purple-700 dark:text-purple-300">
               Month Balance
@@ -163,7 +100,7 @@ function DashboardContent({
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-100 dark:border-emerald-900 shadow-sm hover:shadow-md transition-shadow">
+        <Card className="bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/20 dark:to-green-900/20 border-emerald-100 dark:border-emerald-900 shadow-sm hover:shadow-md transition-shadow animate-fade-in-up delay-200">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
               Income This Month
@@ -181,7 +118,7 @@ function DashboardContent({
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-red-100 dark:border-red-900 shadow-sm hover:shadow-md transition-shadow">
+        <Card className="bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-red-100 dark:border-red-900 shadow-sm hover:shadow-md transition-shadow animate-fade-in-up delay-300">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-red-700 dark:text-red-300">
               Expenses This Month
@@ -201,7 +138,7 @@ function DashboardContent({
 
       <div className="grid gap-6 md:grid-cols-7">
         {/* Main Chart */}
-        <Card className="md:col-span-5 shadow-sm">
+        <Card className="md:col-span-5 shadow-sm animate-fade-in-up delay-500">
           <CardHeader>
             <CardTitle>Income vs Expenses</CardTitle>
             <CardDescription>
@@ -320,7 +257,7 @@ function DashboardContent({
         </Card>
 
         {/* Comparison Side Panel */}
-        <Card className="md:col-span-2 shadow-sm bg-muted/20">
+        <Card className="md:col-span-2 shadow-sm bg-muted/20 animate-fade-in-up delay-300">
           <CardHeader>
             <CardTitle className="text-lg">Monthly Comparison</CardTitle>
             <CardDescription>Income vs Expenses</CardDescription>
@@ -451,9 +388,7 @@ export function Dashboard() {
   const dataPromise = useMemo(() => api.getDashboardSummary(), [api]);
 
   return (
-    <Suspense
-      fallback={<div className="p-10 text-center">Loading dashboard...</div>}
-    >
+    <Suspense fallback={<Loading isPage />}>
       <DashboardContent dataPromise={dataPromise} />
     </Suspense>
   );

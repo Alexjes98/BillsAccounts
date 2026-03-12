@@ -1,21 +1,11 @@
-import { Dashboard } from "@/pages/Dashboard";
 import { RequireAuth } from "@/components/RequireAuth";
-import { TransactionsPage } from "@/pages/TransactionsPage";
+
 import { PersonsPage } from "@/pages/PersonsPage";
-import { DebtsPage } from "@/pages/DebtsPage";
 import { CategoriesPage } from "@/pages/CategoriesPage";
 import { AccountsPage } from "@/pages/AccountsPage";
-import { YearResume } from "@/pages/YearResume";
 import { ChatPage } from "@/pages/ChatPage";
-/*
- * Free Mode Pages
- */
-import { FreeDashboard } from "@/pages/free/FreeDashboard";
-import { FreeTransactionsPage } from "@/pages/free/FreeTransactionsPage";
-import { FreeDebtsPage } from "@/pages/free/FreeDebtsPage";
-import { FreeYearResume } from "@/pages/free/FreeYearResume";
-import { FreeMonthlySummaryPage } from "@/pages/free/FreeMonthlySummaryPage";
-import { OnboardingPage } from "@/pages/OnboardingPage";
+
+import { MonthlySummaryPage } from "@/pages/MonthlySummaryPage";
 import { ProfilePage } from "@/pages/ProfilePage";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -29,7 +19,6 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { FreeOnboardingPage } from "@/pages/free/FreeOnboardingPage";
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import {
@@ -52,6 +41,11 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { OnboardingPage } from "@/pages/OnboardingPage";
+import { Dashboard } from "@/pages/Dashboard";
+import { TransactionsPage } from "@/pages/TransactionsPage";
+import { DebtsPage } from "@/pages/DebtsPage";
+import { YearResume } from "@/pages/YearResume";
 
 function SidebarGroup({
   title,
@@ -453,7 +447,7 @@ export function Layout() {
                     <span>Profile</span>
                     <div className="text-xs text-muted-foreground font-normal flex items-center gap-1 w-full overflow-hidden text-ellipsis">
                       <UserDisplay />
-                      {isOfflineMode && <span>(Free Mode)</span>}
+                      {isOfflineMode && <span>( Mode)</span>}
                     </div>
                   </div>
                 )}
@@ -499,27 +493,24 @@ export function Layout() {
               </div>
             )}
             <Routes>
-              {/* Free routes */}
-              <Route path="/free/onboarding" element={<FreeOnboardingPage />} />
-              <Route path="/free/dashboard" element={<FreeDashboard />} />
-              <Route
-                path="/free/transactions"
-                element={<FreeTransactionsPage />}
-              />
-              {/* Free routes */}
+              {/*  routes */}
+              <Route path="/free/onboarding" element={<OnboardingPage />} />
+              <Route path="/free/dashboard" element={<Dashboard />} />
+              <Route path="/free/transactions" element={<TransactionsPage />} />
+              {/*  routes */}
               <Route path="/free/persons" element={<PersonsPage />} />
-              <Route path="/free/debts" element={<FreeDebtsPage />} />
+              <Route path="/free/debts" element={<DebtsPage />} />
               <Route path="/free/categories" element={<CategoriesPage />} />
               <Route path="/free/accounts" element={<AccountsPage />} />
               <Route
                 path="/free/monthly-summary"
-                element={<FreeMonthlySummaryPage />}
+                element={<MonthlySummaryPage />}
               />
-              <Route path="/free/year-resume" element={<FreeYearResume />} />
+              <Route path="/free/year-resume" element={<YearResume />} />
               <Route path="/free/chat" element={<ChatPage />} />
               <Route path="/free/profile" element={<ProfilePage />} />
-              {/* Free routes */}
-              {/* Free routes */}
+              {/*  routes */}
+              {/*  routes */}
               <Route path="/" element={<RootRedirector />} />
               <Route path="/mode-selection" element={<RootRedirector />} />
 

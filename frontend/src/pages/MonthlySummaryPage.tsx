@@ -31,7 +31,7 @@ const COLORS = [
   "#f43f5e",
 ];
 
-export function FreeMonthlySummaryPage() {
+export function MonthlySummaryPage() {
   const api = useApi();
   const today = new Date();
 
@@ -161,8 +161,8 @@ export function FreeMonthlySummaryPage() {
   };
 
   return (
-    <div className="space-y-6 pb-12 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 pb-12">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in-up">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Monthly Summary</h1>
           <p className="text-muted-foreground mt-1">Category breakdown</p>
@@ -209,7 +209,7 @@ export function FreeMonthlySummaryPage() {
       ) : summary ? (
         <>
           {/* Top Indicator Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in-up delay-100">
             <div className="bg-card rounded-xl p-6 border shadow-sm flex flex-col space-y-2">
               <div className="flex items-center justify-between text-muted-foreground">
                 <span className="text-sm font-medium">Total Income</span>
@@ -273,7 +273,7 @@ export function FreeMonthlySummaryPage() {
           {/* Detailed Lists */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
             {/* Expenses Column */}
-            <div className="bg-card rounded-xl border shadow-sm overflow-hidden flex flex-col">
+            <div className="bg-card rounded-xl border shadow-sm overflow-hidden flex flex-col animate-fade-in-up delay-200">
               <div className="px-6 py-4 border-b bg-muted/20">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   <TrendingDown className="h-5 w-5 text-red-500" /> Expenses
@@ -335,7 +335,7 @@ export function FreeMonthlySummaryPage() {
             </div>
 
             {/* Income Column */}
-            <div className="bg-card rounded-xl border shadow-sm overflow-hidden flex flex-col">
+            <div className="bg-card rounded-xl border shadow-sm overflow-hidden flex flex-col animate-fade-in-up delay-300">
               <div className="px-6 py-4 border-b bg-muted/20">
                 <h2 className="text-lg font-semibold flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-green-500" /> Income

@@ -148,9 +148,9 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">User Profile</h1>
+      <h1 className="text-3xl font-bold tracking-tight animate-fade-in-up">User Profile</h1>
 
-      <Card>
+      <Card className="animate-fade-in-up delay-100">
         <CardHeader>
           <CardTitle>Personal Information</CardTitle>
         </CardHeader>
@@ -180,7 +180,7 @@ export function ProfilePage() {
         </CardContent>
       </Card>
 
-      <div className="space-y-4">
+      <div className="space-y-4 animate-fade-in-up delay-200">
         <h2 className="text-xl font-semibold">Data Management</h2>
         <Card>
           <CardContent className="pt-6">
@@ -242,7 +242,7 @@ export function ProfilePage() {
         </Card>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 animate-fade-in-up delay-300">
         <h2 className="text-xl font-semibold">Application Settings</h2>
         <Card>
           <CardContent className="pt-6">
@@ -267,7 +267,7 @@ export function ProfilePage() {
         </Card>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 animate-fade-in-up delay-400">
         <h2 className="text-xl font-semibold">AI Assistant Configuration</h2>
         <Card>
           <CardContent className="pt-6 space-y-4">

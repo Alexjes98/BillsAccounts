@@ -181,7 +181,7 @@ export function AccountsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center animate-fade-in-up">
         <h1 className="text-3xl font-bold tracking-tight">Accounts</h1>
         <div className="flex gap-2">
           <Button
@@ -197,7 +197,7 @@ export function AccountsPage() {
         </div>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-8 animate-fade-in-up delay-100">
         {["ASSET", "LIABILITY", "EQUITY"].map((classification) => {
           const filteredAccounts = accounts.filter(
             (a) => (a.classification || "ASSET") === classification,
