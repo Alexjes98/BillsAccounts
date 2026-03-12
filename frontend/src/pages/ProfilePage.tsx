@@ -238,6 +238,43 @@ export function ProfilePage() {
                 </div>
               </div>
             )}
+
+            {isOffline && (
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-sm font-medium mb-1 text-destructive">Danger Zone</h3>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Permanently delete all your local data. This action cannot be undone.
+                </p>
+                <Button
+                  variant="destructive"
+                  className="w-fit"
+                  disabled={downloading}
+                  onClick={async () => {
+                    if (
+                      window.confirm(
+                        "Are you absolutely sure you want to delete all your data? This action cannot be undone."
+                      )
+                    ) {
+                      try {
+                        if (api.clearAllData) {
+                          await api.clearAllData();
+                          // Clear localStorage and force reload to clear all states and contextual data
+                          localStorage.clear();
+                          window.location.href = "/";
+                        } else {
+                          alert("Delete functionality is not available.");
+                        }
+                      } catch (error) {
+                        console.error("Delete failed:", error);
+                        alert("Failed to delete data.");
+                      }
+                    }
+                  }}
+                >
+                  Delete All Data
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

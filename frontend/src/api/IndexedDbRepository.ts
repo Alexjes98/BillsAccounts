@@ -1864,6 +1864,38 @@ export class IndexedDbRepository implements ApiRepository {
     };
   }
 
+  async clearAllData(): Promise<void> {
+    const db = await this.dbPromise;
+    const tx = db.transaction(
+      [
+        "transactions",
+        "categories",
+        "accounts",
+        "debts",
+        "persons",
+        "savings_goals",
+        "monthly_summaries",
+        "user",
+        "chat_sessions",
+      ],
+      "readwrite",
+    );
+
+    await Promise.all([
+      tx.objectStore("transactions").clear(),
+      tx.objectStore("categories").clear(),
+      tx.objectStore("accounts").clear(),
+      tx.objectStore("debts").clear(),
+      tx.objectStore("persons").clear(),
+      tx.objectStore("savings_goals").clear(),
+      tx.objectStore("monthly_summaries").clear(),
+      tx.objectStore("user").clear(),
+      tx.objectStore("chat_sessions").clear(),
+    ]);
+
+    await tx.done;
+  }
+
   async loadData(data: any): Promise<void> {
     const db = await this.dbPromise;
 

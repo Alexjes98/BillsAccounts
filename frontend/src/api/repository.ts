@@ -273,6 +273,7 @@ export interface ApiRepository {
   updateUser?(id: string, data: Partial<CreateUserPayload>): Promise<User>;
   getAllData?(): Promise<any>;
   loadData?(data: any): Promise<void>;
+  clearAllData?(): Promise<void>;
   getMascotMessage?(context: string): Promise<MascotMessage | null>;
   getMonthTransactionsByCategory?(
     year: number,
