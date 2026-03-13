@@ -1,5 +1,8 @@
 import { LLMProviderType } from "@/context/LLMContext";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { ChatOpenAI } from "@langchain/openai";
+import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatDeepSeek } from "@langchain/deepseek";
 
 class LLMFactory {
   private static instance: LLMFactory;
@@ -37,7 +40,33 @@ class LLMFactory {
           temperature: 1.0,
         });
         break;
-      // Add other providers here in the future
+
+      case "OpenAI":
+        model = new ChatOpenAI({
+          model: "gpt-4o",
+          apiKey: apiKey,
+          maxRetries: 2,
+          temperature: 1.0,
+        });
+        break;
+
+      case "Anthropic":
+        model = new ChatAnthropic({
+          model: "claude-opus-4-5",
+          apiKey: apiKey,
+          maxRetries: 2,
+          temperature: 1.0,
+        });
+        break;
+
+      case "DeepSeek":
+        model = new ChatDeepSeek({
+          model: "deepseek-chat",
+          apiKey: apiKey,
+          maxRetries: 2,
+          temperature: 1.0,
+        });
+        break;
     }
 
     this.currentModel = model;

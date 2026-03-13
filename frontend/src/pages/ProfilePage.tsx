@@ -319,6 +319,7 @@ export function ProfilePage() {
                 <option value="OpenAI">OpenAI</option>
                 <option value="Anthropic">Anthropic</option>
                 <option value="Gemini">Gemini</option>
+                <option value="DeepSeek">DeepSeek</option>
                 <option value="WebLLM">WebLLM (Local Engine)</option>
               </select>
             </div>

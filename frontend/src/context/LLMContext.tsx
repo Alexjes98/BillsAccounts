@@ -9,6 +9,7 @@ export type LLMProviderType =
   | "OpenAI"
   | "Anthropic"
   | "Gemini"
+  | "DeepSeek"
   | "WebLLM"
   | "None";
 
