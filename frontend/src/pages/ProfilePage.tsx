@@ -342,6 +342,10 @@ export function ProfilePage() {
                 </label>
                 <input
                   type="password"
+                  name="api-key"
+                  id="api-key"
+                  autoComplete="new-password"
+                  data-1p-ignore
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder={`Enter your ${provider} API Key`}
                   value={tempKey}
@@ -382,6 +386,10 @@ export function ProfilePage() {
                   </label>
                   <input
                     type="text"
+                    name="ollamaModel"
+                    id="ollamaModel"
+                    autoComplete="off"
+                    data-1p-ignore
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
                     placeholder={ollamaModel || "llama3.1"}
                     value={tempModelName}
