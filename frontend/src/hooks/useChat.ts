@@ -7,7 +7,7 @@ import { ChatSession, ChatMessage } from "@/api/repository";
 export type Message = ChatMessage;
 
 export function useChat() {
-  const { provider, apiKey } = useLLM();
+  const { provider, apiKey, ollamaModel } = useLLM();
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
@@ -127,7 +127,8 @@ export function useChat() {
     const newSessionId = await saveSession(historyMsg, sessionId);
 
     try {
-      const response = await runReActAgent(provider, apiKey, historyMsg);
+      const activeKey = provider === "Ollama" ? ollamaModel : apiKey;
+      const response = await runReActAgent(provider, activeKey, historyMsg);
 
       const updatedHistory = [
         ...historyMsg,

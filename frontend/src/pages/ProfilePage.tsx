@@ -20,8 +20,11 @@ export function ProfilePage() {
   const [downloading, setDownloading] = useState(false);
   const [dbUser, setDbUser] = useState<any>(null);
 
-  const { provider, apiKey, setProvider, setApiKey, clearConfig } = useLLM();
-  const [tempKey, setTempKey] = useState(apiKey);
+  const { provider, ollamaModel, setProvider, setApiKey, setOllamaModel, clearConfig } = useLLM();
+  // Start empty — never pre-fill the input with the stored/decrypted key to avoid leaking it.
+  const [tempKey, setTempKey] = useState("");
+  // Separate state for the Ollama model name so it never shares state with the API key field.
+  const [tempModelName, setTempModelName] = useState("");
 
   useEffect(() => {
     // If we need to fetch user details that might not be in context fully or refreshed
@@ -380,15 +383,17 @@ export function ProfilePage() {
                   <input
                     type="text"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                    placeholder="llama3.1"
-                    value={tempKey}
-                    onChange={(e) => setTempKey(e.target.value)}
+                    placeholder={ollamaModel || "llama3.1"}
+                    value={tempModelName}
+                    onChange={(e) => setTempModelName(e.target.value)}
                   />
                   <div className="flex gap-2 mt-1">
                     <Button
                       onClick={() => {
-                        setApiKey(tempKey || "llama3.1");
-                        alert(`Ollama model "${tempKey || "llama3.1"}" saved!`);
+                        const modelToSave = tempModelName || ollamaModel || "llama3.1";
+                        setOllamaModel(modelToSave);
+                        setTempModelName("");
+                        alert(`Ollama model "${modelToSave}" saved!`);
                       }}
                     >
                       Save Model
@@ -398,6 +403,7 @@ export function ProfilePage() {
                       onClick={() => {
                         setApiKey("");
                         setTempKey("");
+                        setTempModelName("");
                         clearConfig();
                         alert("Configuration cleared!");
                       }}
@@ -434,28 +440,6 @@ export function ProfilePage() {
                     create entries.{" "}
                     <strong>Not all Ollama models support tool-calling</strong>{" "}
                     — using an incompatible model will cause the agent to fail.
-                  </p>
-                  <p className="text-yellow-700 dark:text-yellow-500 mt-1">
-                    ✅ Compatible models:{" "}
-                    <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-1 py-0.5 rounded">
-                      llama3.1
-                    </code>{" "}
-                    ·{" "}
-                    <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-1 py-0.5 rounded">
-                      llama3.2
-                    </code>{" "}
-                    ·{" "}
-                    <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-1 py-0.5 rounded">
-                      qwen2.5
-                    </code>{" "}
-                    ·{" "}
-                    <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-1 py-0.5 rounded">
-                      mistral-nemo
-                    </code>{" "}
-                    ·{" "}
-                    <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-1 py-0.5 rounded">
-                      command-r
-                    </code>
                   </p>
                 </div>
               </div>

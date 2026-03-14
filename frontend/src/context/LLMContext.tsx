@@ -17,11 +17,13 @@ export type LLMProviderType =
 interface LLMContextState {
   provider: LLMProviderType;
   apiKey: string;
+  ollamaModel: string;
 }
 
 interface LLMContextValue extends LLMContextState {
   setProvider: (provider: LLMProviderType) => void;
   setApiKey: (key: string) => void;
+  setOllamaModel: (model: string) => void;
   clearConfig: () => void;
 }
 
@@ -30,6 +32,7 @@ const LLMContext = createContext<LLMContextValue | undefined>(undefined);
 export function LLMProvider({ children }: { children: React.ReactNode }) {
   const [provider, setProviderState] = useState<LLMProviderType>("None");
   const [apiKey, setApiKeyState] = useState<string>("");
+  const [ollamaModel, setOllamaModelState] = useState<string>("llama3.1");
 
   useEffect(() => {
     // Load config from localStorage
@@ -37,9 +40,13 @@ export function LLMProvider({ children }: { children: React.ReactNode }) {
       "llm-provider",
     ) as LLMProviderType;
     const storedKey = localStorage.getItem("llm-api-key");
+    const storedOllamaModel = localStorage.getItem("llm-ollama-model");
 
     if (storedProvider) {
       setProviderState(storedProvider);
+    }
+    if (storedOllamaModel) {
+      setOllamaModelState(storedOllamaModel);
     }
     if (storedKey) {
       try {
@@ -73,11 +80,18 @@ export function LLMProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const setOllamaModel = (model: string) => {
+    setOllamaModelState(model);
+    localStorage.setItem("llm-ollama-model", model);
+  };
+
   const clearConfig = () => {
     setProviderState("None");
     setApiKeyState("");
+    setOllamaModelState("llama3.1");
     localStorage.removeItem("llm-provider");
     localStorage.removeItem("llm-api-key");
+    localStorage.removeItem("llm-ollama-model");
   };
 
   return (
@@ -85,8 +99,10 @@ export function LLMProvider({ children }: { children: React.ReactNode }) {
       value={{
         provider,
         apiKey,
+        ollamaModel,
         setProvider,
         setApiKey,
+        setOllamaModel,
         clearConfig,
       }}
     >
