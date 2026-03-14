@@ -142,7 +142,7 @@ export async function runReActAgent(
   apiKey: string,
   messages: Message[],
 ): Promise<string> {
-  if (provider !== "WebLLM" && !apiKey) {
+  if (provider !== "WebLLM" && provider !== "Ollama" && !apiKey) {
     throw new Error(`API Key is missing for provider: ${provider}`);
   }
 
@@ -150,7 +150,8 @@ export async function runReActAgent(
     case "Gemini":
     case "OpenAI":
     case "Anthropic":
-    case "DeepSeek": {
+    case "DeepSeek":
+    case "Ollama": {
       try {
         const llm = llmFactory.getModel(provider, apiKey);
         return await runReActGraph(llm, messages);

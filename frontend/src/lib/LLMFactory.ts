@@ -3,6 +3,7 @@ import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { ChatDeepSeek } from "@langchain/deepseek";
+import { ChatOllama } from "@langchain/ollama";
 
 class LLMFactory {
   private static instance: LLMFactory;
@@ -64,6 +65,15 @@ class LLMFactory {
           model: "deepseek-chat",
           apiKey: apiKey,
           maxRetries: 2,
+          temperature: 1.0,
+        });
+        break;
+
+      case "Ollama":
+        // apiKey is repurposed as the Ollama model name (e.g. "llama3.1", "qwen2.5")
+        model = new ChatOllama({
+          model: apiKey || "llama3.1",
+          baseUrl: "http://localhost:11434",
           temperature: 1.0,
         });
         break;

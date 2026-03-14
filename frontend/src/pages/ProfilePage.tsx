@@ -148,7 +148,9 @@ export function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight animate-fade-in-up">User Profile</h1>
+      <h1 className="text-3xl font-bold tracking-tight animate-fade-in-up">
+        User Profile
+      </h1>
 
       <Card className="animate-fade-in-up delay-100">
         <CardHeader>
@@ -241,9 +243,12 @@ export function ProfilePage() {
 
             {isOffline && (
               <div className="border-t pt-4 mt-4">
-                <h3 className="text-sm font-medium mb-1 text-destructive">Danger Zone</h3>
+                <h3 className="text-sm font-medium mb-1 text-destructive">
+                  Danger Zone
+                </h3>
                 <p className="text-sm text-muted-foreground mb-2">
-                  Permanently delete all your local data. This action cannot be undone.
+                  Permanently delete all your local data. This action cannot be
+                  undone.
                 </p>
                 <Button
                   variant="destructive"
@@ -252,7 +257,7 @@ export function ProfilePage() {
                   onClick={async () => {
                     if (
                       window.confirm(
-                        "Are you absolutely sure you want to delete all your data? This action cannot be undone."
+                        "Are you absolutely sure you want to delete all your data? This action cannot be undone.",
                       )
                     ) {
                       try {
@@ -320,11 +325,11 @@ export function ProfilePage() {
                 <option value="Anthropic">Anthropic</option>
                 <option value="Gemini">Gemini</option>
                 <option value="DeepSeek">DeepSeek</option>
-                <option value="WebLLM">WebLLM (Local Engine)</option>
+                <option value="Ollama">Ollama (Local)</option>
               </select>
             </div>
 
-            {provider !== "None" && provider !== "WebLLM" && (
+            {provider !== "None" && provider !== "Ollama" && (
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium">
                   API Key{" "}
@@ -363,16 +368,96 @@ export function ProfilePage() {
               </div>
             )}
 
-            {provider === "WebLLM" && (
-              <div className="flex flex-col gap-2 p-3 bg-muted rounded-md text-sm text-foreground my-2">
-                <p>
-                  <strong>WebLLM mode</strong> runs entirely offline in your
-                  browser.
-                </p>
-                <p className="text-muted-foreground">
-                  It requires downloading a large model (2GB+) the first time
-                  and uses your device's GPU. No API key is needed.
-                </p>
+            {provider === "Ollama" && (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">
+                    Ollama Model Name{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (e.g. llama3.1, qwen2.5, mistral-nemo)
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                    placeholder="llama3.1"
+                    value={tempKey}
+                    onChange={(e) => setTempKey(e.target.value)}
+                  />
+                  <div className="flex gap-2 mt-1">
+                    <Button
+                      onClick={() => {
+                        setApiKey(tempKey || "llama3.1");
+                        alert(`Ollama model "${tempKey || "llama3.1"}" saved!`);
+                      }}
+                    >
+                      Save Model
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setApiKey("");
+                        setTempKey("");
+                        clearConfig();
+                        alert("Configuration cleared!");
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1 p-3 bg-muted rounded-md text-sm">
+                  <p>
+                    <strong>Ollama (Local)</strong> connects to your Ollama
+                    instance running at{" "}
+                    <code className="text-xs bg-background px-1 py-0.5 rounded">
+                      http://localhost:11434
+                    </code>
+                    . No data is sent to the cloud.
+                  </p>
+                  <p className="text-muted-foreground mt-1">
+                    Make sure Ollama is running before using the assistant (run{" "}
+                    <code className="text-xs bg-background px-1 py-0.5 rounded">
+                      ollama serve
+                    </code>{" "}
+                    in your terminal).
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-1 p-3 bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800 rounded-md text-sm">
+                  <p className="font-medium text-yellow-800 dark:text-yellow-400">
+                    ⚠️ Tool-Calling Compatibility
+                  </p>
+                  <p className="text-yellow-700 dark:text-yellow-500">
+                    The AI assistant uses tools to search your transactions and
+                    create entries.{" "}
+                    <strong>Not all Ollama models support tool-calling</strong>{" "}
+                    — using an incompatible model will cause the agent to fail.
+                  </p>
+                  <p className="text-yellow-700 dark:text-yellow-500 mt-1">
+                    ✅ Compatible models:{" "}
+                    <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-1 py-0.5 rounded">
+                      llama3.1
+                    </code>{" "}
+                    ·{" "}
+                    <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-1 py-0.5 rounded">
+                      llama3.2
+                    </code>{" "}
+                    ·{" "}
+                    <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-1 py-0.5 rounded">
+                      qwen2.5
+                    </code>{" "}
+                    ·{" "}
+                    <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-1 py-0.5 rounded">
+                      mistral-nemo
+                    </code>{" "}
+                    ·{" "}
+                    <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-1 py-0.5 rounded">
+                      command-r
+                    </code>
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>

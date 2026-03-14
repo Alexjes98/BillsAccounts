@@ -11,6 +11,7 @@ export type LLMProviderType =
   | "Gemini"
   | "DeepSeek"
   | "WebLLM"
+  | "Ollama"
   | "None";
 
 interface LLMContextState {
