@@ -430,53 +430,132 @@ export function ProfilePage() {
                 </div>
                 <div className="flex flex-col gap-2 p-3 bg-muted rounded-md text-sm">
                   <p>
-                    <strong>Ollama (Local)</strong> connects to your Ollama
-                    instance.
+                    <strong>Ollama (Local)</strong> connects directly to your
+                    machine. Because this site is hosted online, cross-origin
+                    requests (CORS) are blocked by default. You{" "}
+                    <strong>must</strong> configure Ollama to allow CORS to use
+                    it here.
                   </p>
-                  <div className="text-muted-foreground space-y-3">
-                    <p>
-                      <strong>Important:</strong> Because this site is hosted
-                      online, cross-origin requests (CORS) are blocked by
-                      default. You <strong>must</strong> start Ollama with CORS
-                      allowed for it to work.
-                    </p>
 
-                    <div className="space-y-1">
-                      <p className="font-semibold text-foreground">
-                        Windows (PowerShell)
+                  <div className="text-muted-foreground space-y-4 mt-2">
+                    <div className="space-y-2">
+                      <p className="font-semibold text-foreground text-base border-b pb-1">
+                        Permanent Setup (Recommended)
                       </p>
-                      <p>Run these two commands exactly as shown:</p>
-                      <code className="block bg-background px-2 py-1.5 rounded border text-xs">
-                        $env:OLLAMA_ORIGINS="*"
-                        <br />
-                        ollama serve
-                      </code>
-                      <p className="text-xs italic mt-1">
-                        Note: You must fully close the Ollama system tray app
-                        first.
+                      <p>
+                        Configure this once, and you can just use the normal
+                        Ollama desktop app seamlessly.
                       </p>
+
+                      <div className="space-y-1">
+                        <p className="font-medium text-foreground">Windows:</p>
+                        <ol className="list-decimal list-inside space-y-1 ml-1 text-xs sm:text-sm">
+                          <li>Quit the Ollama app from the system tray.</li>
+                          <li>
+                            Open Windows Start menu, search for{" "}
+                            <strong>"Environment Variables"</strong>.
+                          </li>
+                          <li>
+                            Click "Edit environment variables for your account".
+                          </li>
+                          <li>
+                            Click <strong>New...</strong> under User variables.
+                          </li>
+                          <li>
+                            Name:{" "}
+                            <code className="bg-background px-1 rounded border">
+                              OLLAMA_ORIGINS
+                            </code>{" "}
+                            | Value:{" "}
+                            <code className="bg-background px-1 rounded border">
+                              *
+                            </code>
+                          </li>
+                          <li>Click OK, then open the Ollama app normally.</li>
+                        </ol>
+                      </div>
+                      <div className="space-y-1 pt-2">
+                        <p className="font-medium text-foreground">Mac:</p>
+                        <ol className="list-decimal list-inside space-y-1 ml-1 text-xs sm:text-sm">
+                          <li>Quit the Ollama app (from the menu bar).</li>
+                          <li>
+                            Open Terminal and run:{" "}
+                            <code className="bg-background px-1 rounded border">
+                              launchctl setenv OLLAMA_ORIGINS "*"
+                            </code>
+                          </li>
+                          <li>Restart the Ollama app.</li>
+                        </ol>
+                      </div>
+
+                      <div className="space-y-1 pt-2">
+                        <p className="font-medium text-foreground">
+                          Linux (Systemd):
+                        </p>
+                        <ol className="list-decimal list-inside space-y-1 ml-1 text-xs sm:text-sm">
+                          <li>
+                            Run:{" "}
+                            <code className="bg-background px-1 rounded border">
+                              sudo systemctl edit ollama.service
+                            </code>
+                          </li>
+                          <li>
+                            Add:{" "}
+                            <code className="bg-background px-1 rounded border">
+                              Environment="OLLAMA_ORIGINS=*"
+                            </code>{" "}
+                            under{" "}
+                            <code className="bg-background px-1 rounded border">
+                              [Service]
+                            </code>
+                          </li>
+                          <li>
+                            Run:{" "}
+                            <code className="bg-background px-1 rounded border">
+                              sudo systemctl daemon-reload
+                            </code>{" "}
+                            &amp;{" "}
+                            <code className="bg-background px-1 rounded border">
+                              sudo systemctl restart ollama
+                            </code>
+                          </li>
+                        </ol>
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <p className="font-semibold text-foreground">
-                        Mac / Linux (Terminal)
+                    <div className="space-y-2 pt-2 border-t">
+                      <p className="font-semibold text-foreground text-base pb-1">
+                        Temporary Setup (Terminal)
                       </p>
-                      <p>Run this command:</p>
-                      <code className="block bg-background px-2 py-1.5 rounded border text-xs">
-                        OLLAMA_ORIGINS="*" ollama serve
-                      </code>
+                      <p>
+                        If you prefer running{" "}
+                        <code className="bg-background px-1 rounded border">
+                          ollama serve
+                        </code>{" "}
+                        manually via terminal instead of using the background
+                        app, you must set the variable every time:
+                      </p>
+                      <div className="grid grid-cols-1 gap-2 pt-1 text-xs sm:text-sm">
+                        <div>
+                          <p className="font-medium text-foreground">
+                            Windows (PowerShell):
+                          </p>
+                          <code className="block bg-background px-2 py-1.5 rounded border mt-1">
+                            $env:OLLAMA_ORIGINS="*"
+                            <br />
+                            ollama serve
+                          </code>
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">
+                            Mac / Linux:
+                          </p>
+                          <code className="block bg-background px-2 py-1.5 rounded border mt-1">
+                            OLLAMA_ORIGINS="*" ollama serve
+                          </code>
+                        </div>
+                      </div>
                     </div>
-
-                    <p className="text-xs pt-1 border-t">
-                      Alternatively, if you prefer using the desktop app instead
-                      of the terminal, you can permanently set{" "}
-                      <code className="bg-background px-1 rounded">
-                        OLLAMA_ORIGINS
-                      </code>{" "}
-                      to <code className="bg-background px-1 rounded">*</code>{" "}
-                      in your system Environment Variables, then restart the
-                      Ollama app.
-                    </p>
                   </div>
                 </div>
                 <div className="flex flex-col gap-1 p-3 bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800 rounded-md text-sm">
