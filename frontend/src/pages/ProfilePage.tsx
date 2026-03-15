@@ -20,7 +20,14 @@ export function ProfilePage() {
   const [downloading, setDownloading] = useState(false);
   const [dbUser, setDbUser] = useState<any>(null);
 
-  const { provider, ollamaModel, setProvider, setApiKey, setOllamaModel, clearConfig } = useLLM();
+  const {
+    provider,
+    ollamaModel,
+    setProvider,
+    setApiKey,
+    setOllamaModel,
+    clearConfig,
+  } = useLLM();
   // Start empty — never pre-fill the input with the stored/decrypted key to avoid leaking it.
   const [tempKey, setTempKey] = useState("");
   // Separate state for the Ollama model name so it never shares state with the API key field.
@@ -398,7 +405,8 @@ export function ProfilePage() {
                   <div className="flex gap-2 mt-1">
                     <Button
                       onClick={() => {
-                        const modelToSave = tempModelName || ollamaModel || "llama3.1";
+                        const modelToSave =
+                          tempModelName || ollamaModel || "llama3.1";
                         setOllamaModel(modelToSave);
                         setTempModelName("");
                         alert(`Ollama model "${modelToSave}" saved!`);
@@ -420,7 +428,6 @@ export function ProfilePage() {
                     </Button>
                   </div>
                 </div>
-
                 <div className="flex flex-col gap-2 p-3 bg-muted rounded-md text-sm">
                   <p>
                     <strong>Ollama (Local)</strong> connects to your Ollama
@@ -428,21 +435,32 @@ export function ProfilePage() {
                   </p>
                   <div className="text-muted-foreground space-y-3">
                     <p>
-                      <strong>Important:</strong> Because this site is hosted online, cross-origin requests (CORS) are blocked by default. You <strong>must</strong> start Ollama with CORS allowed for it to work.
+                      <strong>Important:</strong> Because this site is hosted
+                      online, cross-origin requests (CORS) are blocked by
+                      default. You <strong>must</strong> start Ollama with CORS
+                      allowed for it to work.
                     </p>
-                    
+
                     <div className="space-y-1">
-                      <p className="font-semibold text-foreground">Windows (PowerShell)</p>
+                      <p className="font-semibold text-foreground">
+                        Windows (PowerShell)
+                      </p>
                       <p>Run these two commands exactly as shown:</p>
                       <code className="block bg-background px-2 py-1.5 rounded border text-xs">
-                        $env:OLLAMA_ORIGINS="*"<br/>
+                        $env:OLLAMA_ORIGINS="*"
+                        <br />
                         ollama serve
                       </code>
-                      <p className="text-xs italic mt-1">Note: You must fully close the Ollama system tray app first.</p>
+                      <p className="text-xs italic mt-1">
+                        Note: You must fully close the Ollama system tray app
+                        first.
+                      </p>
                     </div>
 
                     <div className="space-y-1">
-                      <p className="font-semibold text-foreground">Mac / Linux (Terminal)</p>
+                      <p className="font-semibold text-foreground">
+                        Mac / Linux (Terminal)
+                      </p>
                       <p>Run this command:</p>
                       <code className="block bg-background px-2 py-1.5 rounded border text-xs">
                         OLLAMA_ORIGINS="*" ollama serve
@@ -450,11 +468,17 @@ export function ProfilePage() {
                     </div>
 
                     <p className="text-xs pt-1 border-t">
-                      Alternatively, if you prefer using the desktop app instead of the terminal, you can permanently set <code className="bg-background px-1 rounded">OLLAMA_ORIGINS</code> to <code className="bg-background px-1 rounded">*</code> in your system Environment Variables, then restart the Ollama app.
+                      Alternatively, if you prefer using the desktop app instead
+                      of the terminal, you can permanently set{" "}
+                      <code className="bg-background px-1 rounded">
+                        OLLAMA_ORIGINS
+                      </code>{" "}
+                      to <code className="bg-background px-1 rounded">*</code>{" "}
+                      in your system Environment Variables, then restart the
+                      Ollama app.
                     </p>
                   </div>
                 </div>
-
                 <div className="flex flex-col gap-1 p-3 bg-yellow-50 border border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800 rounded-md text-sm">
                   <p className="font-medium text-yellow-800 dark:text-yellow-400">
                     ⚠️ Tool-Calling Compatibility
