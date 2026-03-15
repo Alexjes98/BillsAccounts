@@ -73,7 +73,7 @@ class LLMFactory {
         // apiKey is repurposed as the Ollama model name (e.g. "llama3.1", "qwen2.5")
         model = new ChatOllama({
           model: apiKey || "llama3.1",
-          baseUrl: "http://localhost:11434",
+          baseUrl: "http://127.0.0.1:11434",
           temperature: 1.0,
         });
         break;
