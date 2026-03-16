@@ -44,6 +44,7 @@
       Dark Mode - Black-Dark-Blue Palette
       Inspired by Paycent UI references
     */
+    color-scheme: dark;
     --background: 224 71% 4%; /* Very deep night blue / almost black */
     --foreground: 213 31% 91%; /* Light slate for text */
 
