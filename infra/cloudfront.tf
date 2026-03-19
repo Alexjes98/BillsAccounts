@@ -78,7 +78,7 @@ resource "aws_cloudfront_response_headers_policy" "frontend_security_headers" {
     content_security_policy {
       # Adjust the CSP below according to what your React app needs!
       # We allow cognito-idp for Cognito auth if needed.
-      content_security_policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cognito-idp.*.amazonaws.com;"
+      content_security_policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://cognito-idp.*.amazonaws.com https://api.openai.com https://api.anthropic.com https://generativelanguage.googleapis.com https://api.deepseek.com http://127.0.0.1:11434;"
       override                = true
     }
 
