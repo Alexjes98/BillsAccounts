@@ -1,4 +1,5 @@
 import { useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { useChat } from "@/hooks/useChat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -162,8 +163,8 @@ export function ChatInterface({
                     : "bg-muted text-foreground self-start mr-auto"
                 }`}
               >
-                <div className="text-sm break-words whitespace-pre-wrap">
-                  {msg.content}
+                <div className="text-sm break-words prose prose-sm dark:prose-invert max-w-none">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
               </div>
             ))}
