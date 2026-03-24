@@ -235,16 +235,29 @@ export class IndexedDbRepository implements ApiRepository {
       "chat_sessions",
     ];
 
-    const tx = db.transaction(stores as any, "readwrite");
-
+    // 1. Fetch all records that need encryption first (outside of main update transaction)
+    const recordsToUpdate: Record<string, any[]> = {};
     for (const storeName of stores) {
-      const store = tx.objectStore(storeName as any);
-      const records = await store.getAll();
-      for (const record of records) {
+      const allRecords = await db.getAll(storeName as any);
+      const toEncrypt = [];
+      for (const record of allRecords) {
         if (!record._encryptedData) {
-          const encryptedRecord = await this.encryptRecord(record, storeName);
-          await store.put(encryptedRecord);
+          toEncrypt.push(await this.encryptRecord(record, storeName));
         }
+      }
+      if (toEncrypt.length > 0) {
+        recordsToUpdate[storeName] = toEncrypt;
+      }
+    }
+
+    if (Object.keys(recordsToUpdate).length === 0) return;
+
+    // 2. Open a single transaction to batch update all encrypted records
+    const tx = db.transaction(Object.keys(recordsToUpdate) as any, "readwrite");
+    for (const storeName in recordsToUpdate) {
+      const store = tx.objectStore(storeName as any);
+      for (const encryptedRecord of recordsToUpdate[storeName]) {
+        await store.put(encryptedRecord);
       }
     }
 
@@ -432,10 +445,15 @@ export class IndexedDbRepository implements ApiRepository {
         await cursor?.advance(skipCount);
       }
 
-      while (cursor && items.length < per_page) {
-        const decryptedTx = await this.decryptRecord(cursor.value);
-        items.push(this.hydrateTransaction(decryptedTx, maps));
+      const rawItems = [];
+      while (cursor && rawItems.length < per_page) {
+        rawItems.push(cursor.value);
         cursor = await cursor.continue();
+      }
+
+      for (const raw of rawItems) {
+        const decryptedTx = await this.decryptRecord(raw);
+        items.push(this.hydrateTransaction(decryptedTx, maps));
       }
 
       return {
@@ -455,8 +473,12 @@ export class IndexedDbRepository implements ApiRepository {
       const MAX_MATCHES_LIMIT = 2000; // Cap at 100 pages of 20 items
       const allMatches: Transaction[] = [];
 
-      while (cursor) {
-        const tx = await this.decryptRecord(cursor.value);
+      // To avoid transaction auto-commit in Firefox during non-IDB awaits (decryption),
+      // we fetch all raw records first.
+      const allRaw = await index.getAll();
+
+      for (const raw of allRaw) {
+        const tx = await this.decryptRecord(raw);
         let isMatch = true;
 
         if (categoryId && tx.category_id !== categoryId) isMatch = false;
@@ -497,8 +519,6 @@ export class IndexedDbRepository implements ApiRepository {
             break;
           }
         }
-
-        cursor = await cursor.continue();
       }
 
       // Now we have all matches, we can slice for pagination
@@ -1916,20 +1936,32 @@ export class IndexedDbRepository implements ApiRepository {
       }
     }
 
-    const tx = db.transaction(
-      [
-        "transactions",
-        "categories",
-        "accounts",
-        "debts",
-        "persons",
-        "savings_goals",
-        "monthly_summaries",
-        "user",
-        "chat_sessions",
-      ],
-      "readwrite",
-    );
+    const stores = [
+      "transactions",
+      "categories",
+      "accounts",
+      "debts",
+      "persons",
+      "savings_goals",
+      "monthly_summaries",
+      "user",
+      "chat_sessions",
+    ];
+
+    // 1. Pre-encrypt all data outside the transaction
+    const encryptedData: Record<string, any[]> = {};
+    for (const storeName of stores) {
+      if (data[storeName] && Array.isArray(data[storeName])) {
+        const encryptedItems = [];
+        for (const item of data[storeName]) {
+          encryptedItems.push(await this.encryptRecord(item, storeName));
+        }
+        encryptedData[storeName] = encryptedItems;
+      }
+    }
+
+    // 2. Open a single transaction to clear and insert everything
+    const tx = db.transaction(stores as any, "readwrite");
 
     // Clear all stores
     await Promise.all([
@@ -1944,25 +1976,11 @@ export class IndexedDbRepository implements ApiRepository {
       tx.objectStore("chat_sessions").clear(),
     ]);
 
-    // Insert new data
-    const stores = [
-      "transactions",
-      "categories",
-      "accounts",
-      "debts",
-      "persons",
-      "savings_goals",
-      "monthly_summaries",
-      "user",
-      "chat_sessions",
-    ];
-
+    // Insert new data from our pre-encrypted cache
     for (const storeName of stores) {
-      // Check if data for this store exists in the import file
-      if (data[storeName] && Array.isArray(data[storeName])) {
+      if (encryptedData[storeName]) {
         const store = tx.objectStore(storeName as any);
-        for (const item of data[storeName]) {
-          const encryptedItem = await this.encryptRecord(item, storeName);
+        for (const encryptedItem of encryptedData[storeName]) {
           await store.put(encryptedItem);
         }
       }
@@ -1979,15 +1997,13 @@ export class IndexedDbRepository implements ApiRepository {
 
     const tx = db.transaction("chat_sessions", "readonly");
     const index = tx.store.index("by-updated");
-    let cursor = await index.openCursor(null, "prev"); // newest first
-
+    const allRaw = await index.getAll();
     const allMatches: ChatSession[] = [];
-    while (cursor) {
-      const session = await this.decryptRecord(cursor.value) as ChatSession;
+    for (const raw of allRaw) {
+      const session = await this.decryptRecord(raw) as ChatSession;
       if (!search || session.title.toLowerCase().includes(search.toLowerCase())) {
         allMatches.push(session);
       }
-      cursor = await cursor.continue();
     }
 
     const total = allMatches.length;
