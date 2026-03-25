@@ -29,6 +29,8 @@ export function TransferModal({
     description: "",
   });
 
+  const equityAccounts = accounts.filter((acc) => acc.classification === "EQUITY");
+
   const handleTransfer = async () => {
     try {
       if (!transferData.from_account_id || !transferData.to_account_id) {
@@ -76,7 +78,7 @@ export function TransferModal({
               <option value="" disabled>
                 Select account
               </option>
-              {accounts.map((acc) => (
+              {equityAccounts.map((acc) => (
                 <option
                   key={acc.id}
                   value={acc.id}
@@ -104,7 +106,7 @@ export function TransferModal({
               <option value="" disabled>
                 Select account
               </option>
-              {accounts.map((acc) => (
+              {equityAccounts.map((acc) => (
                 <option
                   key={acc.id}
                   value={acc.id}

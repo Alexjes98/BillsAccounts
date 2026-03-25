@@ -903,6 +903,14 @@ export class IndexedDbRepository implements ApiRepository {
     }
 
     if (!fromAccount || !toAccount) throw new Error("Account not found");
+
+    if (
+      fromAccount.classification !== "EQUITY" ||
+      toAccount.classification !== "EQUITY"
+    ) {
+      throw new Error("Transfers are only allowed between EQUITY accounts");
+    }
+
     if (!category) throw new Error("Category not found");
     if (category.type !== "TRANSFER")
       throw new Error("Category must be of type TRANSFER");
