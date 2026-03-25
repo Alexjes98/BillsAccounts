@@ -1,7 +1,7 @@
 import { UserProvider } from "@/context/UserContext";
 import { BrowserRouter as Router, useLocation } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { ApiProvider } from "@/contexts/ApiContext";
+import { ApiProvider } from "@/context/ApiContext";
 import { Layout } from "@/components/Layout";
 import { MascotProvider } from "@/context/MascotContext";
 import { Mascot } from "@/components/Mascot";

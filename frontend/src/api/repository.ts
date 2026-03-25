@@ -104,7 +104,7 @@ export interface TransferPayload {
   from_account_id: string;
   to_account_id: string;
   amount: number;
-  category_id: string;
+  category_id?: string;
   transaction_date: string;
   description?: string;
   debt_id?: string;

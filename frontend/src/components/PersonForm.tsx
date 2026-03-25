@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CreatePersonPayload, Person } from "@/api/repository";
-import { useApi } from "@/contexts/ApiContext";
+import { useApi } from "@/context/ApiContext";
 import { z } from "zod";
 
 const personSchema = z.object({

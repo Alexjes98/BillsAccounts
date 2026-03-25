@@ -6,7 +6,7 @@ import {
   ReactNode,
 } from "react";
 import { User } from "@/api/repository";
-import { useApi } from "@/contexts/ApiContext";
+import { useApi } from "@/context/ApiContext";
 
 interface UserContextType {
   user: User | null;

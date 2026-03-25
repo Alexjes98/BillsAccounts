@@ -6,7 +6,7 @@ import {
   useCallback,
 } from "react";
 import { FALLBACK_MESSAGES, MascotMessage } from "@/api/mascotMessages";
-import { useApi } from "@/contexts/ApiContext";
+import { useApi } from "@/context/ApiContext";
 
 interface MascotContextType {
   isVisible: boolean;

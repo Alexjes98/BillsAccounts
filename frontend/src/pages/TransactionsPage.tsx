@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { Plus, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Transaction, Category, Account } from "@/api/repository";
-import { useApi } from "@/contexts/ApiContext";
+import { useApi } from "@/context/ApiContext";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";

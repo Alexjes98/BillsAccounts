@@ -21,7 +21,7 @@ import {
 import Loading from "@/components/ui/loading";
 import { ArrowUpIcon, ArrowDownIcon, Wallet, Scale } from "lucide-react";
 import { DashboardData } from "@/api/repository";
-import { useApi } from "@/contexts/ApiContext";
+import { useApi } from "@/context/ApiContext";
 import { useMascot } from "@/context/MascotContext";
 import { useAppStore } from "@/store/useAppStore";
 

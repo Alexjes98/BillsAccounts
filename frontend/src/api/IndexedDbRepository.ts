@@ -884,7 +884,23 @@ export class IndexedDbRepository implements ApiRepository {
     const db = await this.dbPromise;
     const fromAccount = await this._get(db, "accounts", data.from_account_id);
     const toAccount = await this._get(db, "accounts", data.to_account_id);
-    const category = await this._get(db, "categories", data.category_id);
+
+    let category;
+    if (data.category_id) {
+      category = await this._get(db, "categories", data.category_id);
+    } else {
+      // Find or create TRANSFER category
+      const categories = await this._getAll(db, "categories");
+      category = categories.find((c) => c.type === "TRANSFER");
+      if (!category) {
+        category = await this.createCategory({
+          name: "Transfer",
+          type: "TRANSFER",
+          icon: "🔄",
+          color: "#808080",
+        });
+      }
+    }
 
     if (!fromAccount || !toAccount) throw new Error("Account not found");
     if (!category) throw new Error("Category not found");

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Person, CreateDebtPayload, Category, Account } from "@/api/repository";
-import { useApi } from "@/contexts/ApiContext";
+import { useApi } from "@/context/ApiContext";
 import { useUser } from "@/context/UserContext";
 import { z } from "zod";
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { PersonForm } from "@/components/PersonForm";
 import { Person } from "@/api/repository";
-import { useApi } from "@/contexts/ApiContext";
+import { useApi } from "@/context/ApiContext";
 
 export function PersonsPage() {
   const [persons, setPersons] = useState<Person[]>([]);

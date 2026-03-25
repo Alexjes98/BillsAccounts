@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { CategoryForm } from "@/components/CategoryForm";
 import { Category } from "@/api/repository";
-import { useApi } from "@/contexts/ApiContext";
+import { useApi } from "@/context/ApiContext";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function CategoriesPage() {

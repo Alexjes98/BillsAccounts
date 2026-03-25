@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useUser } from "../context/UserContext";
-import { useApi } from "../contexts/ApiContext";
+import { useApi } from "../context/ApiContext";
 import { useLLM } from "../context/LLMContext";
 import {
   Card,
