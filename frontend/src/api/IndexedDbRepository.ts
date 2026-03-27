@@ -475,7 +475,7 @@ export class IndexedDbRepository implements ApiRepository {
 
       // To avoid transaction auto-commit in Firefox during non-IDB awaits (decryption),
       // we fetch all raw records first.
-      const allRaw = await index.getAll();
+      const allRaw = (await index.getAll()).reverse(); // getAll() is ascending; reverse for newest-first
 
       for (const raw of allRaw) {
         const tx = await this.decryptRecord(raw);
