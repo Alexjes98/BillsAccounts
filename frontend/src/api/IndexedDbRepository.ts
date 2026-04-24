@@ -289,7 +289,9 @@ export class IndexedDbRepository implements ApiRepository {
       upgrade(db, oldVersion) {
         if (oldVersion < 1) {
           // Transactions
-          const txStore = db.createObjectStore("transactions", { keyPath: "id" });
+          const txStore = db.createObjectStore("transactions", {
+            keyPath: "id",
+          });
           txStore.createIndex("by-date", "transaction_date");
           txStore.createIndex("by-account", "account_id");
           txStore.createIndex("by-category", "category_id");
@@ -903,13 +905,6 @@ export class IndexedDbRepository implements ApiRepository {
     }
 
     if (!fromAccount || !toAccount) throw new Error("Account not found");
-
-    if (
-      fromAccount.classification !== "EQUITY" ||
-      toAccount.classification !== "EQUITY"
-    ) {
-      throw new Error("Transfers are only allowed between EQUITY accounts");
-    }
 
     if (!category) throw new Error("Category not found");
     if (category.type !== "TRANSFER")
@@ -2014,7 +2009,10 @@ export class IndexedDbRepository implements ApiRepository {
   }
 
   // --- Chat History API ---
-  async getChatSessions(page: number = 1, search?: string): Promise<PaginatedResponse<ChatSession>> {
+  async getChatSessions(
+    page: number = 1,
+    search?: string,
+  ): Promise<PaginatedResponse<ChatSession>> {
     const db = await this.dbPromise;
     const per_page = 20;
     const skipCount = (page - 1) * per_page;
@@ -2024,8 +2022,11 @@ export class IndexedDbRepository implements ApiRepository {
     const allRaw = await index.getAll();
     const allMatches: ChatSession[] = [];
     for (const raw of allRaw) {
-      const session = await this.decryptRecord(raw) as ChatSession;
-      if (!search || session.title.toLowerCase().includes(search.toLowerCase())) {
+      const session = (await this.decryptRecord(raw)) as ChatSession;
+      if (
+        !search ||
+        session.title.toLowerCase().includes(search.toLowerCase())
+      ) {
         allMatches.push(session);
       }
     }
@@ -2048,7 +2049,10 @@ export class IndexedDbRepository implements ApiRepository {
     return session || null;
   }
 
-  async createChatSession(title: string, messages: ChatMessage[]): Promise<ChatSession> {
+  async createChatSession(
+    title: string,
+    messages: ChatMessage[],
+  ): Promise<ChatSession> {
     const db = await this.dbPromise;
     const now = new Date().toISOString();
     const session: ChatSession = {
@@ -2062,11 +2066,14 @@ export class IndexedDbRepository implements ApiRepository {
     return session;
   }
 
-  async updateChatSession(id: string, messages: ChatMessage[]): Promise<ChatSession> {
+  async updateChatSession(
+    id: string,
+    messages: ChatMessage[],
+  ): Promise<ChatSession> {
     const db = await this.dbPromise;
     const session = await this._get(db, "chat_sessions", id);
     if (!session) throw new Error("Chat session not found");
-    
+
     session.messages = messages;
     session.updated_at = new Date().toISOString();
     await this._put(db, "chat_sessions", session);
