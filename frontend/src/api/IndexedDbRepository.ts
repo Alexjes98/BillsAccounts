@@ -25,6 +25,8 @@ import {
   GroupedDebts,
   ChatSession,
   ChatMessage,
+  AllTimeResumeData,
+  YearlyResume,
 } from "./repository";
 import { MascotMessage, FALLBACK_MESSAGES } from "./mascotMessages";
 import { encryptObject, decryptObject } from "@/lib/crypto";
@@ -1658,6 +1660,179 @@ export class IndexedDbRepository implements ApiRepository {
       year,
     );
     return summaries.sort((a, b) => a.month - b.month);
+  }
+
+  async getAllTimeResume(): Promise<AllTimeResumeData> {
+    const db = await this.dbPromise;
+
+    // 1. Fetch Accounts to calculate main net balance, assets, liabilities
+    const accounts = (await this._getAll(db, "accounts")) as Account[];
+
+    let total_assets = 0;
+    let total_liabilities = 0;
+    let total_balance = 0;
+
+    accounts.forEach((a) => {
+      const bal = a.current_balance || 0;
+      total_balance = roundAmount(total_balance + bal);
+
+      if (a.classification === "LIABILITY") {
+        total_liabilities = roundAmount(total_liabilities + Math.abs(bal));
+      } else if (a.classification === "ASSET") {
+        total_assets = roundAmount(total_assets + bal);
+      } else {
+        // Equity or unspecified
+        if (bal < 0) {
+          total_liabilities = roundAmount(total_liabilities + Math.abs(bal));
+        } else {
+          total_assets = roundAmount(total_assets + bal);
+        }
+      }
+    });
+
+    const net_worth = roundAmount(total_assets - total_liabilities);
+
+    // 2. Fetch Transactions & Categories for historical income, expense and net balance
+    const transactions = (await this._getAll(db, "transactions")) as Transaction[];
+    const categories = (await this._getAll(db, "categories")) as Category[];
+    const catMap = new Map(categories.map((c) => [c.id, c]));
+
+    // Map to accumulate totals by year
+    interface YearAcc {
+      year: number;
+      total_income: number;
+      total_expense: number;
+      months: Set<number>;
+    }
+    const yearMap = new Map<number, YearAcc>();
+
+    // 3. Populate from raw transactions
+    transactions.forEach((tx) => {
+      if (!tx.transaction_date) return;
+      const d = parseLocalDate(tx.transaction_date);
+      const y = d.getFullYear();
+      if (isNaN(y)) return;
+
+      const cat = catMap.get(tx.category_id);
+      const type = cat?.type;
+      if (type === "TRANSFER") return;
+
+      if (!yearMap.has(y)) {
+        yearMap.set(y, {
+          year: y,
+          total_income: 0,
+          total_expense: 0,
+          months: new Set<number>(),
+        });
+      }
+
+      const acc = yearMap.get(y)!;
+      acc.months.add(d.getMonth() + 1);
+      const amount = Math.abs(tx.amount || 0);
+
+      if (type === "INCOME") {
+        acc.total_income = roundAmount(acc.total_income + amount);
+      } else if (type === "EXPENSE") {
+        acc.total_expense = roundAmount(acc.total_expense + amount);
+      }
+    });
+
+    // 4. Also check monthly_summaries in case summaries were imported/cached for years with no raw transactions
+    const existingSummaries = (await this._getAll(db, "monthly_summaries")) as MonthlySummary[];
+    existingSummaries.forEach((s) => {
+      if (s.year && !isNaN(s.year)) {
+        if (!yearMap.has(s.year)) {
+          yearMap.set(s.year, {
+            year: s.year,
+            total_income: 0,
+            total_expense: 0,
+            months: new Set<number>(),
+          });
+        }
+        const acc = yearMap.get(s.year)!;
+        if (acc.months.size === 0) {
+          acc.total_income = roundAmount(acc.total_income + (s.total_income || 0));
+          acc.total_expense = roundAmount(acc.total_expense + (s.total_expense || 0));
+          if (s.month) acc.months.add(s.month);
+        }
+      }
+    });
+
+    // Ensure at least current year is represented if empty
+    const currentYear = new Date().getFullYear();
+    if (!yearMap.has(currentYear)) {
+      yearMap.set(currentYear, {
+        year: currentYear,
+        total_income: 0,
+        total_expense: 0,
+        months: new Set<number>(),
+      });
+    }
+
+    // 5. Sort years ascending for chronological cumulative progression
+    const sortedYears = Array.from(yearMap.keys()).sort((a, b) => a - b);
+
+    let cumulative = 0;
+    const yearlyTrend: AllTimeResumeData["yearly_trend"] = [];
+    const yearsList: YearlyResume[] = [];
+    let allTimeIncome = 0;
+    let allTimeExpense = 0;
+
+    for (const y of sortedYears) {
+      const entry = yearMap.get(y)!;
+      const net_balance = roundAmount(entry.total_income - entry.total_expense);
+      const savings_rate =
+        entry.total_income > 0
+          ? roundAmount(((entry.total_income - entry.total_expense) / entry.total_income) * 100)
+          : 0;
+
+      cumulative = roundAmount(cumulative + net_balance);
+
+      yearsList.push({
+        year: y,
+        total_income: entry.total_income,
+        total_expense: entry.total_expense,
+        net_balance,
+        savings_rate,
+        month_count: entry.months.size,
+        closing_balance: cumulative,
+      });
+
+      yearlyTrend.push({
+        year: y,
+        income: entry.total_income,
+        expense: entry.total_expense,
+        net_flow: net_balance,
+        cumulative_balance: cumulative,
+      });
+
+      allTimeIncome = roundAmount(allTimeIncome + entry.total_income);
+      allTimeExpense = roundAmount(allTimeExpense + entry.total_expense);
+    }
+
+    const allTimeNetSavings = roundAmount(allTimeIncome - allTimeExpense);
+    const allTimeSavingsRate =
+      allTimeIncome > 0
+        ? roundAmount((allTimeNetSavings / allTimeIncome) * 100)
+        : 0;
+
+    return {
+      years: yearsList,
+      totals: {
+        total_income: allTimeIncome,
+        total_expense: allTimeExpense,
+        net_savings: allTimeNetSavings,
+        savings_rate: allTimeSavingsRate,
+      },
+      accounts: {
+        total_balance,
+        total_assets,
+        total_liabilities,
+        net_worth,
+        account_list: accounts,
+      },
+      yearly_trend: yearlyTrend,
+    };
   }
 
   async recalculateMonthlySummaries(): Promise<{

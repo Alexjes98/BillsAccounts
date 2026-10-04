@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MonthlySummary } from "@/api/repository";
 import { useApi } from "@/context/ApiContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +19,19 @@ import {
 import { Loader2, RefreshCw } from "lucide-react";
 
 export function YearResume() {
-  const [year, setYear] = useState<number>(new Date().getFullYear());
+  const [searchParams] = useSearchParams();
+  const paramYear = searchParams.get("year");
+  const [year, setYear] = useState<number>(
+    paramYear ? parseInt(paramYear) : new Date().getFullYear(),
+  );
+
+  useEffect(() => {
+    if (paramYear) {
+      const parsed = parseInt(paramYear);
+      if (!isNaN(parsed)) setYear(parsed);
+    }
+  }, [paramYear]);
+
   const [summaries, setSummaries] = useState<MonthlySummary[]>([]);
   const api = useApi();
   const [loading, setLoading] = useState(false);
@@ -27,11 +40,18 @@ export function YearResume() {
     null,
   );
 
-  // Generate last 5 years for selection
+  // Generate last 5 years for selection, plus any selected year
   const currentTotalDate = new Date();
   const currentYear = currentTotalDate.getFullYear();
   const currentMonthIndex = currentTotalDate.getMonth(); // 0-indexed
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  const years = useMemo(() => {
+    const list = Array.from({ length: 6 }, (_, i) => currentYear - i);
+    if (year && !list.includes(year)) {
+      list.push(year);
+      list.sort((a, b) => b - a);
+    }
+    return list;
+  }, [currentYear, year]);
 
   // Generate all 12 months for the selected year
   const allMonths = Array.from({ length: 12 }, (_, i) => {

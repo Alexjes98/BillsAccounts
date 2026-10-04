@@ -210,6 +210,40 @@ export interface MonthlySummary {
   closing_balance: number;
 }
 
+export interface YearlyResume {
+  year: number;
+  total_income: number;
+  total_expense: number;
+  net_balance: number;
+  savings_rate: number;
+  month_count: number;
+  closing_balance?: number;
+}
+
+export interface AllTimeResumeData {
+  years: YearlyResume[];
+  totals: {
+    total_income: number;
+    total_expense: number;
+    net_savings: number;
+    savings_rate: number;
+  };
+  accounts: {
+    total_balance: number;
+    total_assets: number;
+    total_liabilities: number;
+    net_worth: number;
+    account_list: Account[];
+  };
+  yearly_trend: {
+    year: number;
+    income: number;
+    expense: number;
+    net_flow: number;
+    cumulative_balance: number;
+  }[];
+}
+
 export interface GroupedDebts {
   delayed_payments: Debt[];
   loans: Debt[];
@@ -279,6 +313,7 @@ export interface ApiRepository {
     year: number,
     month: number,
   ): Promise<MonthCategorySummary>;
+  getAllTimeResume?(): Promise<AllTimeResumeData>;
 
   // Chat History
   getChatSessions?(page?: number, search?: string): Promise<PaginatedResponse<ChatSession>>;

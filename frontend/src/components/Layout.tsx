@@ -40,12 +40,14 @@ import {
   PieChart,
   PanelLeftClose,
   PanelLeftOpen,
+  TrendingUp,
 } from "lucide-react";
 import { OnboardingPage } from "@/pages/OnboardingPage";
 import { Dashboard } from "@/pages/Dashboard";
 import { TransactionsPage } from "@/pages/TransactionsPage";
 import { DebtsPage } from "@/pages/DebtsPage";
 import { YearResume } from "@/pages/YearResume";
+import { AllTimeResume } from "@/pages/AllTimeResume";
 
 function SidebarGroup({
   title,
@@ -139,6 +141,24 @@ export function Layout() {
     manage: false,
     insights: false,
   });
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (
+      path.includes("monthly-summary") ||
+      path.includes("year-resume") ||
+      path.includes("alltime-resume")
+    ) {
+      setOpenGroups((prev) => (prev.insights ? prev : { ...prev, insights: true }));
+    }
+    if (
+      path.includes("accounts") ||
+      path.includes("categories") ||
+      path.includes("persons")
+    ) {
+      setOpenGroups((prev) => (prev.manage ? prev : { ...prev, manage: true }));
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     const hasSeenTour = localStorage.getItem("has-seen-tour");
@@ -419,6 +439,13 @@ export function Layout() {
                 >
                   Year Resume
                 </SidebarLink>
+                <SidebarLink
+                  to={getPath("/alltime-resume")}
+                  icon={TrendingUp}
+                  onClick={() => setIsSidebarOpen(false)}
+                >
+                  All-Time Resume
+                </SidebarLink>
               </SidebarGroup>
 
               <SidebarLink
@@ -507,6 +534,10 @@ export function Layout() {
                 element={<MonthlySummaryPage />}
               />
               <Route path="/free/year-resume" element={<YearResume />} />
+              <Route
+                path="/free/alltime-resume"
+                element={<AllTimeResume />}
+              />
               <Route path="/free/chat" element={<ChatPage />} />
               <Route path="/free/profile" element={<ProfilePage />} />
               {/*  routes */}
@@ -568,6 +599,14 @@ export function Layout() {
                 element={
                   <RequireAuth>
                     <YearResume />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/alltime-resume"
+                element={
+                  <RequireAuth>
+                    <AllTimeResume />
                   </RequireAuth>
                 }
               />

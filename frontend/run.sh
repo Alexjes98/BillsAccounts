@@ -1,2 +1,2 @@
 cd frontend
-npm run dev
+pnpm dev
