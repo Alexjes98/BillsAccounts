@@ -16,8 +16,8 @@ Navigate to the `frontend` directory and build the production assets.
 
 ```bash
 cd frontend
-npm install
-npm run build
+pnpm install
+pnpm build
 ```
 
 This will create a `dist` directory with your compiled static files.
@@ -63,7 +63,7 @@ Open the `frontend_website_endpoint` URL in your browser. You should see your ap
 
 Whenever you make changes to the frontend code:
 
-1.  Run `npm run build` in `frontend/`.
+1.  Run `pnpm build` in `frontend/`.
 2.  Run the `aws s3 sync` command again.
 3.  **Invalidate CloudFront Cache**: Run the following command to make changes visible immediately:
     ```bash

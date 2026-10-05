@@ -8,6 +8,11 @@
 - **Execution**: API calls should primarily be executed within `useEffect` hooks in components to ensure proper lifecycle management.
 - **Usage**: Import the API functions into your components rather than making raw `axios` or `fetch` calls directly in the component code.
 
+### Package Manager
+
+- **pnpm ONLY**: Always use `pnpm` (never `npm` or `yarn`) for installing packages, building, running development servers, and running scripts in `frontend/` (e.g. `pnpm install`, `pnpm build`, `pnpm dev`, `pnpm test`).
+- The project relies strictly on `pnpm-lock.yaml`.
+
 ### Testing (Cypress)
 
 - **Coverage**: Every page in the application must have a corresponding Cypress test file in `frontend/cypress/e2e/`.
