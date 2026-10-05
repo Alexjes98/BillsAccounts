@@ -665,6 +665,18 @@ export class IndexedDbRepository implements ApiRepository {
     } as Transaction;
   }
 
+  async createTransactionsBatch(
+    dataList: CreateTransactionPayload[],
+  ): Promise<Transaction[]> {
+    const results: Transaction[] = [];
+    for (const data of dataList) {
+      // Shallow copy payload so mutating amount sign or sanitizing doesn't affect other references
+      const created = await this.createTransaction({ ...data });
+      results.push(created);
+    }
+    return results;
+  }
+
   async updateTransaction(
     id: string,
     data: Partial<CreateTransactionPayload>,

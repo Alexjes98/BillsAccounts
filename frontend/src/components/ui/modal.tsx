@@ -5,11 +5,18 @@ import { X } from "lucide-react";
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title: React.ReactNode;
   children: React.ReactNode;
+  maxWidth?: string;
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  maxWidth = "max-w-lg",
+}: ModalProps) {
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -29,13 +36,15 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-lg p-6 bg-background border rounded-lg shadow-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div
+        className={`relative w-full ${maxWidth} p-6 bg-background border rounded-lg shadow-lg max-h-[90vh] overflow-y-auto transition-all`}
+      >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">{title}</h2>
+          <div className="text-xl font-semibold flex-1 mr-4">{title}</div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-muted transition-colors"
+            className="p-1 rounded-full hover:bg-muted transition-colors flex-shrink-0"
           >
             <X className="w-5 h-5 text-muted-foreground" />
           </button>

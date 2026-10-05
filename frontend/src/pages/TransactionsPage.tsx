@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
-import { Plus, Search, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useLocation } from "react-router-dom";
+import { Plus, Search, ChevronLeft, ChevronRight, X, Layers } from "lucide-react";
 import { Transaction, Category, Account } from "@/api/repository";
 import { useApi } from "@/context/ApiContext";
 import { Button } from "@/components/ui/button";
@@ -7,8 +8,12 @@ import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { TransactionsList } from "@/components/TransactionsList";
 import { TransactionForm } from "@/components/TransactionForm";
+import { BatchTransactionForm } from "@/components/BatchTransactionForm";
 
 export function TransactionsPage() {
+  const location = useLocation();
+  const isOfflineMode = location.pathname.includes("free");
+
   // Data State
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -19,6 +24,7 @@ export function TransactionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"single" | "batch">("single");
   const [editingTransaction, setEditingTransaction] =
     useState<Transaction | null>(null);
   const [viewingTransaction, setViewingTransaction] =
@@ -156,17 +162,34 @@ export function TransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 animate-fade-in-up">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-up">
         <h1 className="text-3xl font-bold tracking-tight">My Transactions</h1>
-        <Button
-          onClick={() => {
-            setEditingTransaction(null);
-            setIsModalOpen(true);
-          }}
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Transaction
-        </Button>
+        <div className="flex items-center gap-2">
+          {isOfflineMode && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditingTransaction(null);
+                setModalMode("batch");
+                setIsModalOpen(true);
+              }}
+              className="border-primary/30 text-primary hover:bg-primary/10 shadow-sm"
+            >
+              <Layers className="w-4 h-4 mr-2" />
+              Batch Add Movements
+            </Button>
+          )}
+          <Button
+            onClick={() => {
+              setEditingTransaction(null);
+              setModalMode("single");
+              setIsModalOpen(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Add Transaction
+          </Button>
+        </div>
       </div>
 
       {/* Filters Section */}
@@ -309,16 +332,70 @@ export function TransactionsPage() {
           setIsModalOpen(false);
           setEditingTransaction(null);
         }}
-        title={editingTransaction ? "Edit Transaction" : "Create Transaction"}
+        maxWidth={
+          editingTransaction || modalMode === "single"
+            ? "max-w-lg"
+            : "max-w-5xl"
+        }
+        title={
+          editingTransaction ? (
+            "Edit Transaction"
+          ) : !isOfflineMode ? (
+            "Create Transaction"
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mr-2">
+              <span>
+                {modalMode === "batch"
+                  ? "Batch Add Movements"
+                  : "Create Movement"}
+              </span>
+              <div className="flex items-center bg-muted p-1 rounded-lg text-xs font-medium self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() => setModalMode("single")}
+                  className={`px-3 py-1 rounded-md transition-all ${
+                    modalMode === "single"
+                      ? "bg-background text-foreground shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Single Movement
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalMode("batch")}
+                  className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 ${
+                    modalMode === "batch"
+                      ? "bg-background text-foreground shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  Batch Mode
+                </button>
+              </div>
+            </div>
+          )
+        }
       >
-        <TransactionForm
-          initialData={editingTransaction || undefined}
-          onSuccess={handleTransactionCreated}
-          onCancel={() => {
-            setIsModalOpen(false);
-            setEditingTransaction(null);
-          }}
-        />
+        {isOfflineMode && !editingTransaction && modalMode === "batch" ? (
+          <BatchTransactionForm
+            onSuccess={handleTransactionCreated}
+            onCancel={() => {
+              setIsModalOpen(false);
+              setEditingTransaction(null);
+            }}
+          />
+        ) : (
+          <TransactionForm
+            initialData={editingTransaction || undefined}
+            onSuccess={handleTransactionCreated}
+            onCancel={() => {
+              setIsModalOpen(false);
+              setEditingTransaction(null);
+            }}
+          />
+        )}
       </Modal>
 
       <Modal

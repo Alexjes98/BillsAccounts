@@ -257,6 +257,9 @@ export interface ApiRepository {
     params?: TransactionQueryParams,
   ): Promise<PaginatedResponse<Transaction>>;
   createTransaction(data: CreateTransactionPayload): Promise<Transaction>;
+  createTransactionsBatch?(
+    data: CreateTransactionPayload[],
+  ): Promise<Transaction[]>;
   updateTransaction(
     id: string,
     data: Partial<CreateTransactionPayload>,
